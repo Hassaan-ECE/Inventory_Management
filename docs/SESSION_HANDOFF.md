@@ -39,12 +39,13 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 - S: tree: `modules\*`, `release-support\`, `legacy-pointers\`, `README.md`.
 - Updater **disabled** (`createUpdaterArtifacts: false`, empty endpoints) until new keys/repo.
 - Decisions **IM-001…IM-012**; adaptive sync plan under `docs/superpowers/plans/`.
+- Git: `main` → `https://github.com/Hassaan-ECE/Inventory_Management.git` (initial scaffold push 2026-07-18).
 
 ## What does **not** exist yet
 
 - Adaptive sync lifecycle (IM-011 / plan above) — still fixed ~500 ms TE polling
 - Modular monorepo extract (shared platform + per-module domains)
-- GitHub repo / signed releases for this product (owner creating)
+- Signed GitHub Releases / updater keys for this product
 - Port of ME Storage / TE Lab Components / TE Storage Room data layers
 - Automatic data migration from legacy InventoryApps shares into `modules\...`
 - Team installer on the product share root
@@ -63,7 +64,7 @@ Continue to work in their own trees until cutover; do not treat this folder as T
 
 ## Next slices
 
-1. Connect new GitHub remote; initial push  
+1. ~~Connect new GitHub remote; initial push~~ done (`origin` / `main`)  
 2. Implement IM-011 adaptive sync (plan above) against switcher + TE module  
 3. Architecture extract: shared platform + module boundaries  
 4. TE cutover path: empty `modules\TE_Test_Equipment` vs env → legacy share  
