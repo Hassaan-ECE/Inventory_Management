@@ -1,6 +1,12 @@
 import { act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { TE_LAB_COMPONENTS_MODULE_ID } from "@/modules/te-lab-components/moduleId";
+import type {
+  InventoryEntryInput as LabInventoryEntryInput,
+  InventoryQueryInput as LabInventoryQueryInput,
+} from "@/modules/te-lab-components/types";
+import { TE_TEST_EQUIPMENT_MODULE_ID } from "@/modules/te-test-equipment/moduleId";
 import type { InventoryEntryInput } from "@/modules/te-test-equipment/types";
 
 describe("tauri inventory bridge", () => {
@@ -78,6 +84,14 @@ describe("tauri inventory bridge", () => {
       expect(callback).toHaveBeenCalledTimes(1);
       expect(callback).toHaveBeenCalledWith({ systemId: "te-test-equipment" });
 
+      sharedChangeHandlerRef.current?.({
+        event: "inventory:shared-changed",
+        id: 4,
+        payload: { systemId: "te-lab-components" },
+      });
+      expect(callback).toHaveBeenCalledTimes(2);
+      expect(callback).toHaveBeenLastCalledWith({ systemId: "te-lab-components" });
+
       await flushAsyncWork();
       cleanup?.();
 
@@ -99,13 +113,132 @@ describe("tauri inventory bridge", () => {
     });
     const desktopBridge = await registerDesktopBridge(invoke);
 
-    await expect(desktopBridge.activateInventorySync()).resolves.toBe("session-1");
-    await expect(desktopBridge.syncInventory("session-1")).resolves.toBeNull();
-    await expect(desktopBridge.deactivateInventorySync("session-1")).resolves.toBe(true);
+    await expect(desktopBridge.activateInventorySync(TE_TEST_EQUIPMENT_MODULE_ID)).resolves.toBe("session-1");
+    await expect(desktopBridge.syncInventory(TE_TEST_EQUIPMENT_MODULE_ID, "session-1")).resolves.toBeNull();
+    await expect(desktopBridge.deactivateInventorySync(TE_TEST_EQUIPMENT_MODULE_ID, "session-1")).resolves.toBe(true);
 
-    expect(invoke).toHaveBeenNthCalledWith(1, "activate_inventory_sync");
-    expect(invoke).toHaveBeenNthCalledWith(2, "sync_inventory", { sessionId: "session-1" });
-    expect(invoke).toHaveBeenNthCalledWith(3, "deactivate_inventory_sync", { sessionId: "session-1" });
+    expect(invoke).toHaveBeenNthCalledWith(1, "activate_inventory_sync", {
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "sync_inventory", {
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
+      sessionId: "session-1",
+    });
+    expect(invoke).toHaveBeenNthCalledWith(3, "deactivate_inventory_sync", {
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
+      sessionId: "session-1",
+    });
+  });
+
+  it("parses Lab payloads and scopes Lab lifecycle, CRUD, and export invocations", async () => {
+    const labEntry = validLabBridgeEntry();
+    const invoke = vi.fn((command: string) => {
+      switch (command) {
+        case "load_inventory":
+          return Promise.resolve({
+            dbPath: "te-lab-components.feox",
+            entries: [labEntry],
+            shared: validLabSharedStatus(),
+          });
+        case "query_inventory":
+          return Promise.resolve({
+            counts: { archive: 0, inventory: 1, total: 1, verified: 1 },
+            dbPath: "te-lab-components.feox",
+            entries: [labEntry],
+            shared: validLabSharedStatus(),
+            totalFiltered: 1,
+          });
+        case "create_entry":
+        case "toggle_verified_entry":
+          return Promise.resolve({
+            entry: labEntry,
+            message: "Lab entry saved.",
+            mutationMode: "shared",
+            shared: validLabSharedStatus(),
+          });
+        case "export_excel":
+          return Promise.resolve({
+            canceled: false,
+            outputPath: "D:/exports/TE_Lab_Components_Inventory_Export.xlsx",
+          });
+        default:
+          return Promise.reject(new Error(`Unexpected command: ${command}`));
+      }
+    });
+    const desktopBridge = await registerDesktopBridge(invoke);
+    const queryInput: LabInventoryQueryInput = {
+      filters: {
+        assetNumber: "",
+        description: "",
+        location: "",
+        manufacturer: "",
+        model: "",
+      },
+      query: "",
+      scope: "inventory",
+      sort: { column: "manufacturer", direction: "asc" },
+    };
+    const entryInput = validLabEntryInput();
+
+    const loaded = await desktopBridge.loadInventory(TE_LAB_COMPONENTS_MODULE_ID);
+    await expect(
+      desktopBridge.queryInventory!(TE_LAB_COMPONENTS_MODULE_ID, queryInput),
+    ).resolves.toMatchObject({ counts: { total: 1, verified: 1 } });
+    await expect(
+      desktopBridge.createEntry(TE_LAB_COMPONENTS_MODULE_ID, entryInput),
+    ).resolves.toMatchObject({
+      entry: { id: "lab-1", verifiedInSurvey: true },
+      mutationMode: "shared",
+    });
+    await expect(
+      desktopBridge.toggleVerifiedEntry(
+        TE_LAB_COMPONENTS_MODULE_ID,
+        "lab-1",
+        true,
+      ),
+    ).resolves.toMatchObject({ entry: { verifiedInSurvey: true } });
+    await expect(
+      desktopBridge.exportExcel?.(TE_LAB_COMPONENTS_MODULE_ID),
+    ).resolves.toEqual({
+      canceled: false,
+      error: undefined,
+      outputPath: "D:/exports/TE_Lab_Components_Inventory_Export.xlsx",
+    });
+
+    expect(loaded).toMatchObject({
+      dbPath: "te-lab-components.feox",
+      entries: [
+        {
+          id: "lab-1",
+          qty: 12,
+          verifiedInSurvey: true,
+          workingStatus: "working",
+        },
+      ],
+      shared: { enabled: true, mutationMode: "shared" },
+    });
+    expect(loaded.entries[0]).not.toHaveProperty("calibrationRequirement");
+    expect(loaded.entries[0]).not.toHaveProperty("outToCalibration");
+
+    expect(invoke).toHaveBeenNthCalledWith(1, "load_inventory", {
+      moduleId: TE_LAB_COMPONENTS_MODULE_ID,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "query_inventory", {
+      input: queryInput,
+      moduleId: TE_LAB_COMPONENTS_MODULE_ID,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(3, "create_entry", {
+      input: entryInput,
+      moduleId: TE_LAB_COMPONENTS_MODULE_ID,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(4, "toggle_verified_entry", {
+      entryId: "lab-1",
+      moduleId: TE_LAB_COMPONENTS_MODULE_ID,
+      nextVerified: true,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(5, "export_excel", {
+      moduleId: TE_LAB_COMPONENTS_MODULE_ID,
+    });
   });
 
   it("runs Tauri shared inventory cleanup after pending listener registration resolves", async () => {
@@ -166,7 +299,7 @@ describe("tauri inventory bridge", () => {
       await import("@/integrations/tauri/tauriInventoryBridge");
       const desktopBridge = Reflect.get(window, "inventoryDesktop") as NonNullable<Window["inventoryDesktop"]> | undefined;
 
-      await expect(desktopBridge?.loadInventory()).rejects.toThrow("Invalid inventory entry");
+      await expect(desktopBridge?.loadInventory(TE_TEST_EQUIPMENT_MODULE_ID)).rejects.toThrow("Invalid inventory entry");
     } finally {
       vi.doUnmock("@tauri-apps/api/core");
       vi.doUnmock("@tauri-apps/api/event");
@@ -215,7 +348,7 @@ describe("tauri inventory bridge", () => {
       const desktopBridge = Reflect.get(window, "inventoryDesktop") as NonNullable<Window["inventoryDesktop"]> | undefined;
 
       await expect(
-        desktopBridge?.queryInventory?.({
+        desktopBridge?.queryInventory?.(TE_TEST_EQUIPMENT_MODULE_ID, {
           filters: {
             assetNumber: "",
             description: "",
@@ -231,12 +364,20 @@ describe("tauri inventory bridge", () => {
           sort: { column: "manufacturer", direction: "asc" },
         }),
       ).rejects.toThrow("Invalid inventory entries");
-      await expect(desktopBridge?.createEntry(validEntryInput())).rejects.toThrow("Invalid inventory entry");
-      await expect(desktopBridge?.updateEntry("1", validEntryInput())).rejects.toThrow("Invalid inventory entry");
-      await expect(desktopBridge?.toggleVerifiedEntry("1", true)).rejects.toThrow("Invalid inventory entry");
-      await expect(desktopBridge?.setArchivedEntry("1", true)).rejects.toThrow("Invalid inventory entry");
-      await expect(desktopBridge?.deleteEntry("1")).rejects.toThrow("missing entry id");
-      await expect(desktopBridge?.exportExcel?.()).rejects.toThrow("Excel export payload");
+      await expect(desktopBridge?.createEntry(TE_TEST_EQUIPMENT_MODULE_ID, validEntryInput())).rejects.toThrow(
+        "Invalid inventory entry",
+      );
+      await expect(
+        desktopBridge?.updateEntry(TE_TEST_EQUIPMENT_MODULE_ID, "1", validEntryInput()),
+      ).rejects.toThrow("Invalid inventory entry");
+      await expect(
+        desktopBridge?.toggleVerifiedEntry(TE_TEST_EQUIPMENT_MODULE_ID, "1", true),
+      ).rejects.toThrow("Invalid inventory entry");
+      await expect(
+        desktopBridge?.setArchivedEntry(TE_TEST_EQUIPMENT_MODULE_ID, "1", true),
+      ).rejects.toThrow("Invalid inventory entry");
+      await expect(desktopBridge?.deleteEntry(TE_TEST_EQUIPMENT_MODULE_ID, "1")).rejects.toThrow("missing entry id");
+      await expect(desktopBridge?.exportExcel?.(TE_TEST_EQUIPMENT_MODULE_ID)).rejects.toThrow("Excel export payload");
     } finally {
       vi.doUnmock("@tauri-apps/api/core");
       vi.doUnmock("@tauri-apps/api/event");
@@ -277,7 +418,7 @@ describe("tauri inventory bridge", () => {
       await import("@/integrations/tauri/tauriInventoryBridge");
       const desktopBridge = Reflect.get(window, "inventoryDesktop") as NonNullable<Window["inventoryDesktop"]> | undefined;
 
-      await expect(desktopBridge?.loadInventory()).resolves.toMatchObject({
+      await expect(desktopBridge?.loadInventory(TE_TEST_EQUIPMENT_MODULE_ID)).resolves.toMatchObject({
         entries: [
           {
             id: "1",
@@ -318,7 +459,7 @@ describe("tauri inventory bridge", () => {
       await import("@/integrations/tauri/tauriInventoryBridge");
       const desktopBridge = Reflect.get(window, "inventoryDesktop") as NonNullable<Window["inventoryDesktop"]> | undefined;
 
-      await expect(desktopBridge?.loadInventory()).resolves.toMatchObject({
+      await expect(desktopBridge?.loadInventory(TE_TEST_EQUIPMENT_MODULE_ID)).resolves.toMatchObject({
         entries: [{ id: "1" }],
         shared: {
           available: false,
@@ -343,10 +484,10 @@ describe("tauri inventory bridge", () => {
       shared: { message: "ready" },
     }));
 
-    await expect(desktopBridge.loadInventory()).resolves.toMatchObject({
+    await expect(desktopBridge.loadInventory(TE_TEST_EQUIPMENT_MODULE_ID)).resolves.toMatchObject({
       entries: [{ calibrationRequirement: "unknown", outToCalibration: false }],
     });
-    const result = await desktopBridge.loadInventory();
+    const result = await desktopBridge.loadInventory(TE_TEST_EQUIPMENT_MODULE_ID);
     expect(result.entries[0]?.verifiedAt).toBeUndefined();
   });
 
@@ -367,7 +508,7 @@ describe("tauri inventory bridge", () => {
       shared: { message: "ready" },
     }));
 
-    await expect(desktopBridge.loadInventory()).rejects.toThrow("Invalid inventory entry");
+    await expect(desktopBridge.loadInventory(TE_TEST_EQUIPMENT_MODULE_ID)).rejects.toThrow("Invalid inventory entry");
   });
 
   it("parses complete calibration and import provenance fields", async () => {
@@ -397,7 +538,7 @@ describe("tauri inventory bridge", () => {
       shared: { message: "ready" },
     }));
 
-    await expect(desktopBridge.loadInventory()).resolves.toMatchObject({
+    await expect(desktopBridge.loadInventory(TE_TEST_EQUIPMENT_MODULE_ID)).resolves.toMatchObject({
       entries: [{
         calibrationRequirement: "required",
         outToCalibration: true,
@@ -431,16 +572,28 @@ describe("tauri inventory bridge", () => {
     });
     const desktopBridge = await registerDesktopBridge(invoke);
 
-    await expect(desktopBridge.pickImportFile?.()).resolves.toBe("C:/imports/equipment.csv");
-    await expect(desktopBridge.previewImport?.("C:/imports/equipment.csv")).resolves.toEqual(report);
-    await expect(desktopBridge.commitImport?.({ batchId: report.batchId, confirmed: true })).resolves.toMatchObject({
+    await expect(desktopBridge.pickImportFile?.(TE_TEST_EQUIPMENT_MODULE_ID)).resolves.toBe(
+      "C:/imports/equipment.csv",
+    );
+    await expect(
+      desktopBridge.previewImport?.(TE_TEST_EQUIPMENT_MODULE_ID, "C:/imports/equipment.csv"),
+    ).resolves.toEqual(report);
+    await expect(
+      desktopBridge.commitImport?.(TE_TEST_EQUIPMENT_MODULE_ID, { batchId: report.batchId, confirmed: true }),
+    ).resolves.toMatchObject({
       entriesChanged: true,
       noop: 0,
     });
-    expect(invoke).toHaveBeenNthCalledWith(1, "pick_import_file");
-    expect(invoke).toHaveBeenNthCalledWith(2, "preview_import", { path: "C:/imports/equipment.csv" });
+    expect(invoke).toHaveBeenNthCalledWith(1, "pick_import_file", {
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "preview_import", {
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
+      path: "C:/imports/equipment.csv",
+    });
     expect(invoke).toHaveBeenNthCalledWith(3, "commit_import", {
       input: { batchId: report.batchId, confirmed: true },
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
     });
   });
 
@@ -452,7 +605,9 @@ describe("tauri inventory bridge", () => {
   ])("rejects malformed import preview %s", async (_label, override) => {
     const desktopBridge = await registerDesktopBridge(vi.fn().mockResolvedValue({ ...validImportReport(), ...override }));
 
-    await expect(desktopBridge.previewImport?.("C:/imports/equipment.csv")).rejects.toThrow("Invalid import dry-run report");
+    await expect(
+      desktopBridge.previewImport?.(TE_TEST_EQUIPMENT_MODULE_ID, "C:/imports/equipment.csv"),
+    ).rejects.toThrow("Invalid import dry-run report");
   });
 
   it("rejects malformed numeric noop and entriesChanged commit fields", async () => {
@@ -469,9 +624,9 @@ describe("tauri inventory bridge", () => {
       message: "bad",
     }));
 
-    await expect(desktopBridge.commitImport?.({ batchId: "batch-1", confirmed: true })).rejects.toThrow(
-      "Invalid import commit result",
-    );
+    await expect(
+      desktopBridge.commitImport?.(TE_TEST_EQUIPMENT_MODULE_ID, { batchId: "batch-1", confirmed: true }),
+    ).rejects.toThrow("Invalid import commit result");
   });
 });
 
@@ -574,6 +729,54 @@ function validEntryInput(): InventoryEntryInput {
     qty: 1,
     serialNumber: "",
     workingStatus: "working",
+  };
+}
+
+function validLabBridgeEntry(): Record<string, unknown> {
+  return {
+    id: "lab-1",
+    archived: false,
+    assetNumber: "LAB-1",
+    description: "Bench connector",
+    lifecycleStatus: "active",
+    manufacturer: "JST",
+    model: "GHR-04V-S",
+    qty: 12,
+    updatedAt: "2026-07-20T12:00:00.000Z",
+    verifiedInSurvey: true,
+    workingStatus: "working",
+  };
+}
+
+function validLabEntryInput(): LabInventoryEntryInput {
+  return {
+    archived: false,
+    assetNumber: "LAB-1",
+    assignedTo: "",
+    condition: "Good",
+    description: "Bench connector",
+    lifecycleStatus: "active",
+    links: "",
+    location: "Cabinet A / Bin 1",
+    manufacturer: "JST",
+    model: "GHR-04V-S",
+    notes: "",
+    picturePath: "",
+    projectName: "Harnesses",
+    qty: 12,
+    serialNumber: "",
+    verifiedInSurvey: true,
+    workingStatus: "working",
+  };
+}
+
+function validLabSharedStatus(): Record<string, unknown> {
+  return {
+    available: true,
+    canModify: true,
+    enabled: true,
+    message: "",
+    mutationMode: "shared",
   };
 }
 

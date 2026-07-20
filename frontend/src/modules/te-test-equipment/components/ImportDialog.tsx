@@ -3,6 +3,7 @@ import { useEffect, useId, useState } from "react";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { ScrollRegion } from "@/shared/components/ui/ScrollRegion";
+import { TE_TEST_EQUIPMENT_MODULE_ID } from "@/modules/te-test-equipment/moduleId";
 import type {
   ImportClassification,
   ImportCommitResult,
@@ -44,9 +45,9 @@ export function ImportDialog({ onClose, onEntriesChanged }: ImportDialogProps) {
     setError(null);
     setPreviewing(true);
     try {
-      const path = await bridge.pickImportFile();
+      const path = await bridge.pickImportFile(TE_TEST_EQUIPMENT_MODULE_ID);
       if (!path) return;
-      setReport(await bridge.previewImport(path));
+      setReport(await bridge.previewImport(TE_TEST_EQUIPMENT_MODULE_ID, path));
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -67,10 +68,10 @@ export function ImportDialog({ onClose, onEntriesChanged }: ImportDialogProps) {
     setResult(null);
     setCommitting(true);
     try {
-      const committed = await bridge.commitImport({
-        batchId: report.batchId,
-        confirmed: true,
-      });
+      const committed = await bridge.commitImport(TE_TEST_EQUIPMENT_MODULE_ID, {
+          batchId: report.batchId,
+          confirmed: true,
+        });
       if (committed.entriesChanged) await onEntriesChanged();
       setResult(committed);
     } catch (cause) {

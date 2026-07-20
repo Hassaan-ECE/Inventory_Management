@@ -1,3 +1,5 @@
+import { TE_TEST_EQUIPMENT_MODULE_ID } from "@/modules/te-test-equipment/moduleId";
+
 interface UseInventoryExportActionsOptions {
   announceStatus: (message: string) => void;
 }
@@ -10,7 +12,7 @@ export function useInventoryExportActions({ announceStatus }: UseInventoryExport
     }
 
     try {
-      const result = await window.inventoryDesktop.exportExcel();
+      const result = await window.inventoryDesktop.exportExcel(TE_TEST_EQUIPMENT_MODULE_ID);
       if (result.canceled) {
         return;
       }

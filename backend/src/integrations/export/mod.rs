@@ -1,3 +1,4 @@
+mod lab_workbook;
 mod workbook;
 
 use std::path::{Path, PathBuf};
@@ -7,11 +8,18 @@ use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::{
+    inventory_stores::InventoryStores,
     model::{CommandResult, InventoryEntry},
+    modules::te_lab_components::{
+        model::InventoryEntry as LabInventoryEntry, store::InventoryDb as LabInventoryDb,
+    },
+    platform::ModuleId,
     store::InventoryDb,
 };
 
 pub(crate) const DEFAULT_EXCEL_EXPORT_FILENAME: &str = "TE_Test_Equipment_Inventory_Export.xlsx";
+pub(crate) const LAB_COMPONENTS_EXCEL_EXPORT_FILENAME: &str =
+    "TE_Lab_Components_Inventory_Export.xlsx";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,13 +42,27 @@ pub(crate) struct ExcelExportStats {
 #[tauri::command]
 pub(crate) async fn export_excel(
     app: AppHandle,
-    db: State<'_, InventoryDb>,
+    module_id: String,
+    stores: State<'_, InventoryStores>,
 ) -> CommandResult<ExcelExportResult> {
-    let Some(output_path) = pick_export_path(&app) else {
+    let module = ModuleId::parse(&module_id)
+        .ok_or_else(|| format!("Unknown inventory module id: {module_id}"))?;
+    let default_filename = match module {
+        ModuleId::TeTestEquipment => DEFAULT_EXCEL_EXPORT_FILENAME,
+        ModuleId::TeLabComponents => LAB_COMPONENTS_EXCEL_EXPORT_FILENAME,
+    };
+    let Some(output_path) = pick_export_path(&app, default_filename) else {
         return Ok(ExcelExportResult::canceled());
     };
 
-    match export_excel_to_path(&db, &output_path) {
+    let export_result = match module {
+        ModuleId::TeTestEquipment => export_excel_to_path(stores.te_test_equipment(), &output_path),
+        ModuleId::TeLabComponents => {
+            export_lab_excel_to_path(stores.te_lab_components(), &output_path)
+        }
+    };
+
+    match export_result {
         Ok(stats) => Ok(ExcelExportResult::success(stats.output_path)),
         Err(error) => Ok(ExcelExportResult::failed(error)),
     }
@@ -59,6 +81,21 @@ pub(crate) fn write_inventory_workbook(
     output_path: impl AsRef<Path>,
 ) -> CommandResult<ExcelExportStats> {
     workbook::write_inventory_workbook(entries, output_path)
+}
+
+pub(crate) fn export_lab_excel_to_path(
+    db: &LabInventoryDb,
+    output_path: impl AsRef<Path>,
+) -> CommandResult<ExcelExportStats> {
+    let entries = db.load_entries()?;
+    write_lab_inventory_workbook(&entries, output_path)
+}
+
+pub(crate) fn write_lab_inventory_workbook(
+    entries: &[LabInventoryEntry],
+    output_path: impl AsRef<Path>,
+) -> CommandResult<ExcelExportStats> {
+    lab_workbook::write_inventory_workbook(entries, output_path)
 }
 
 impl ExcelExportResult {
@@ -87,11 +124,11 @@ impl ExcelExportResult {
     }
 }
 
-fn pick_export_path(app: &AppHandle) -> Option<PathBuf> {
+fn pick_export_path(app: &AppHandle, default_filename: &str) -> Option<PathBuf> {
     app.dialog()
         .file()
         .set_title("Export All Entries to Excel")
-        .set_file_name(DEFAULT_EXCEL_EXPORT_FILENAME)
+        .set_file_name(default_filename)
         .add_filter("Excel Workbook", &["xlsx"])
         .blocking_save_file()
         .and_then(|file_path| file_path.simplified().into_path().ok())
@@ -219,6 +256,45 @@ mod tests {
     }
 
     #[test]
+    fn lab_workbook_preserves_standalone_schema_without_calibration_columns() {
+        let path = temp_xlsx_path("lab-field-contract");
+
+        let stats = write_lab_inventory_workbook(
+            &[
+                lab_test_entry("42", false, true, Some(3.5)),
+                lab_test_entry("43", true, false, None),
+            ],
+            &path,
+        )
+        .unwrap();
+
+        assert_eq!(stats.total_count, 2);
+        assert_eq!(stats.inventory_count, 1);
+        assert_eq!(stats.archived_count, 1);
+
+        let workbook_xml = read_xlsx_member(&path, "xl/workbook.xml");
+        assert!(workbook_xml.contains(r#"name="Inventory""#));
+        assert!(workbook_xml.contains(r#"name="Archive""#));
+
+        let shared_strings = shared_strings(&path);
+        let inventory_rows = worksheet_rows(&path, "xl/worksheets/sheet1.xml", &shared_strings);
+        let headers = lab_inventory_headers();
+        assert_eq!(inventory_rows[0], headers);
+        assert_eq!(inventory_rows[1][0], "TE-42");
+        assert_eq!(inventory_rows[1][2], "3.5");
+        assert_eq!(inventory_rows[1][12], "Yes");
+        assert!(headers.iter().all(|header| !header.contains("Calibration")));
+        assert!(!headers.contains(&"Verified At"));
+
+        let archive_rows = worksheet_rows(&path, "xl/worksheets/sheet2.xml", &shared_strings);
+        assert_eq!(archive_rows[0], headers);
+        assert_eq!(archive_rows[1][0], "TE-43");
+        assert_eq!(archive_rows[1][13], "Yes");
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
     fn calibration_export_uses_injected_date_and_includes_stored_verification_fields() {
         let path = temp_xlsx_path("calibration-contract");
         let mut entry = test_entry("9", false, false, Some(1.0));
@@ -311,8 +387,45 @@ mod tests {
         }
     }
 
+    fn lab_test_entry(
+        id: &str,
+        archived: bool,
+        verified: bool,
+        qty: Option<f64>,
+    ) -> LabInventoryEntry {
+        LabInventoryEntry {
+            id: id.to_string(),
+            database_id: id.parse::<i64>().ok(),
+            entry_uuid: format!("lab-uuid-{id}"),
+            asset_number: format!("TE-{id}"),
+            serial_number: format!("SN-{id}"),
+            qty,
+            manufacturer: "Mitutoyo".to_string(),
+            model: format!("Model {id}"),
+            description: format!("Entry {id}"),
+            project_name: "Project".to_string(),
+            location: "Lab".to_string(),
+            assigned_to: "TE".to_string(),
+            links: "https://example.com".to_string(),
+            notes: "Notes".to_string(),
+            lifecycle_status: if archived { "scrapped" } else { "active" }.to_string(),
+            working_status: "working".to_string(),
+            condition: "Good".to_string(),
+            verified_in_survey: verified,
+            archived,
+            manual_entry: false,
+            picture_path: format!(r"C:\Pictures\{id}.jpg"),
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-02T00:00:00.000Z".to_string(),
+        }
+    }
+
     fn inventory_headers() -> Vec<&'static str> {
         super::workbook::inventory_headers()
+    }
+
+    fn lab_inventory_headers() -> Vec<&'static str> {
+        super::lab_workbook::inventory_headers()
     }
 
     fn temp_xlsx_path(test_name: &str) -> PathBuf {

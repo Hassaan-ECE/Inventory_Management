@@ -64,11 +64,12 @@ impl SharedSyncWatcher {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn activate_session(&self) -> CommandResult<String> {
         self.activate_session_for(ModuleId::TeTestEquipment)
     }
 
-    fn activate_session_for(&self, module: ModuleId) -> CommandResult<String> {
+    pub(crate) fn activate_session_for(&self, module: ModuleId) -> CommandResult<String> {
         let session_id = Uuid::new_v4().to_string();
         let mut state = self.lock_state()?;
         let session = state
@@ -80,11 +81,12 @@ impl SharedSyncWatcher {
         Ok(session_id)
     }
 
+    #[cfg(test)]
     pub(crate) fn begin_sync(&self, session_id: &str) -> CommandResult<bool> {
         self.begin_sync_for(ModuleId::TeTestEquipment, session_id)
     }
 
-    fn begin_sync_for(&self, module: ModuleId, session_id: &str) -> CommandResult<bool> {
+    pub(crate) fn begin_sync_for(&self, module: ModuleId, session_id: &str) -> CommandResult<bool> {
         let state = self.lock_state()?;
         Ok(state
             .sessions
@@ -92,26 +94,19 @@ impl SharedSyncWatcher {
             .is_some_and(|session| session_is_current(session, session_id)))
     }
 
-    pub(crate) fn complete_sync<R: Runtime>(
+    pub(crate) fn complete_sync_for<R: Runtime>(
         &self,
         app: AppHandle<R>,
+        module: ModuleId,
         session_id: &str,
         ops_dir: &Path,
     ) -> CommandResult<SyncSessionCompletion> {
-        let module = ModuleId::TeTestEquipment;
         self.complete_sync_with_emit_for(module, session_id, ops_dir, move || {
             emit_module_shared_inventory_changed(&app, module);
         })
     }
 
-    pub(crate) fn complete_sync_without_watcher(
-        &self,
-        session_id: &str,
-    ) -> CommandResult<SyncSessionCompletion> {
-        self.complete_sync_without_watcher_for(ModuleId::TeTestEquipment, session_id)
-    }
-
-    fn complete_sync_without_watcher_for(
+    pub(crate) fn complete_sync_without_watcher_for(
         &self,
         module: ModuleId,
         session_id: &str,
@@ -126,11 +121,16 @@ impl SharedSyncWatcher {
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn deactivate_session(&self, session_id: &str) -> CommandResult<bool> {
         self.deactivate_session_for(ModuleId::TeTestEquipment, session_id)
     }
 
-    fn deactivate_session_for(&self, module: ModuleId, session_id: &str) -> CommandResult<bool> {
+    pub(crate) fn deactivate_session_for(
+        &self,
+        module: ModuleId,
+        session_id: &str,
+    ) -> CommandResult<bool> {
         let mut state = self.lock_state()?;
         if !state
             .sessions
@@ -276,11 +276,10 @@ impl SharedSyncWatcher {
     }
 }
 
-pub(crate) fn emit_shared_inventory_changed<R: Runtime>(app: &AppHandle<R>) {
-    emit_module_shared_inventory_changed(app, ModuleId::TeTestEquipment);
-}
-
-fn emit_module_shared_inventory_changed<R: Runtime>(app: &AppHandle<R>, module: ModuleId) {
+pub(crate) fn emit_module_shared_inventory_changed<R: Runtime>(
+    app: &AppHandle<R>,
+    module: ModuleId,
+) {
     let _ = app.emit(
         SHARED_INVENTORY_CHANGED_EVENT,
         InventorySharedChangedPayload {
@@ -408,35 +407,73 @@ mod tests {
     }
 
     #[test]
-    fn lifecycle_sessions_are_keyed_by_module_and_removed_on_deactivation() {
+    fn lifecycle_sessions_are_isolated_by_module_and_removed_independently() {
         let watcher = SharedSyncWatcher::new();
 
         assert_eq!(watcher.session_count_for_test(), 0);
-        let session = watcher.activate_session().unwrap();
-        assert_eq!(watcher.session_count_for_test(), 1);
+        let te_session = watcher
+            .activate_session_for(ModuleId::TeTestEquipment)
+            .unwrap();
+        let lab_session = watcher
+            .activate_session_for(ModuleId::TeLabComponents)
+            .unwrap();
+        assert_eq!(watcher.session_count_for_test(), 2);
         assert_eq!(
             watcher.current_session_for_test(ModuleId::TeTestEquipment),
-            Some(session.clone())
+            Some(te_session.clone())
         );
+        assert_eq!(
+            watcher.current_session_for_test(ModuleId::TeLabComponents),
+            Some(lab_session.clone())
+        );
+        assert!(watcher
+            .begin_sync_for(ModuleId::TeTestEquipment, &te_session)
+            .unwrap());
+        assert!(!watcher
+            .begin_sync_for(ModuleId::TeTestEquipment, &lab_session)
+            .unwrap());
+        assert!(watcher
+            .begin_sync_for(ModuleId::TeLabComponents, &lab_session)
+            .unwrap());
+        assert!(!watcher
+            .begin_sync_for(ModuleId::TeLabComponents, &te_session)
+            .unwrap());
 
-        assert!(watcher.deactivate_session(&session).unwrap());
-        assert_eq!(watcher.session_count_for_test(), 0);
+        assert!(!watcher
+            .deactivate_session_for(ModuleId::TeTestEquipment, &lab_session)
+            .unwrap());
+        assert!(watcher
+            .deactivate_session_for(ModuleId::TeTestEquipment, &te_session)
+            .unwrap());
+        assert_eq!(watcher.session_count_for_test(), 1);
         assert_eq!(
             watcher.current_session_for_test(ModuleId::TeTestEquipment),
             None
         );
+        assert!(watcher
+            .begin_sync_for(ModuleId::TeLabComponents, &lab_session)
+            .unwrap());
+        assert!(watcher
+            .deactivate_session_for(ModuleId::TeLabComponents, &lab_session)
+            .unwrap());
+        assert_eq!(watcher.session_count_for_test(), 0);
     }
 
     #[test]
-    fn shared_change_payload_is_scoped_to_te_test_equipment() {
-        let payload = InventorySharedChangedPayload {
-            system_id: ModuleId::TeTestEquipment.as_system_id_str(),
-        };
+    fn shared_change_payload_is_scoped_to_its_module() {
+        for (module, expected) in [
+            (ModuleId::TeTestEquipment, "te-test-equipment"),
+            (ModuleId::TeLabComponents, "te-lab-components"),
+        ] {
+            let payload = InventorySharedChangedPayload {
+                system_id: module.as_system_id_str(),
+            };
 
-        assert_eq!(
-            serde_json::to_value(payload).unwrap(),
-            serde_json::json!({ "systemId": "te-test-equipment" })
-        );
+            assert_eq!(
+                serde_json::to_value(payload).unwrap(),
+                serde_json::json!({ "systemId": expected })
+            );
+        }
     }
 
     #[test]

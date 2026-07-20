@@ -13,7 +13,7 @@ Product shell/style reference:
 
 **Decisions:** IM-004 (separate modules), IM-005 (labels), IM-012 (platform/modules), IM-013 (pilot on live InventoryApps path OK until release copy), IM-011 (reuse adaptive sync controller per active module).
 
-**Status:** Ready for implementation (2026-07-20).
+**Status:** Implemented; automated gates and non-mutating live desktop smoke verified (2026-07-20). Owner live Lab create/edit/restart QA remains before release.
 
 **Release note (owner intent):** After Lab Components works, owner may ship a team release with **TE Test Equipment + TE Lab Components** only; ME Storage and TE Storage Room stay placeholders until a later update.
 
@@ -191,10 +191,10 @@ Copy domain UI behavior from:
 - Modify: `backend/src/platform/shared_root.rs`
 - Tests: unit tests for parse + default roots
 
-- [ ] Add `TeLabComponents` variant; `as_system_id_str` → `"te-lab-components"`; parse both modules.
-- [ ] Default shared root for Lab → InventoryApps `\TE` (pilot).
-- [ ] Keep TE Test Equipment root as current pilot constant.
-- [ ] `cargo test --lib platform::`
+- [x] Add `TeLabComponents` variant; `as_system_id_str` → `"te-lab-components"`; parse both modules.
+- [x] Default shared root for Lab → InventoryApps `\TE` (pilot).
+- [x] Keep TE Test Equipment root as current pilot constant.
+- [x] `cargo test --lib platform::`
 
 ### Task 2: Dual InventoryDb registry
 
@@ -202,11 +202,11 @@ Copy domain UI behavior from:
 - Modify: `backend/src/storage/*` open paths
 - Modify: `backend/src/lib.rs` setup/manage/flush
 
-- [ ] Open existing TE DB unchanged.
-- [ ] Open/create `te-lab-components.feox` under same app data dir.
-- [ ] Manage a registry (`InventoryStores` or similar) instead of single `State<InventoryDb>` where needed.
-- [ ] All command handlers resolve DB by `ModuleId`.
-- [ ] Flush **both** on exit.
+- [x] Open existing TE DB unchanged.
+- [x] Open/create `te-lab-components.feox` under same app data dir.
+- [x] Manage a registry (`InventoryStores` or similar) instead of single `State<InventoryDb>` where needed.
+- [x] All command handlers resolve DB by `ModuleId`.
+- [x] Flush **both** on exit.
 
 ### Task 3: Lab Components domain + storage + sync apply path
 
@@ -216,10 +216,10 @@ Copy domain UI behavior from:
 
 Minimum vertical slice:
 
-- [ ] Serialize/deserialize Lab entry
-- [ ] load_entries / create / update / delete / archive / toggle verified_in_survey
-- [ ] run_shared_sync for Lab root (schema v1, Lab DB)
-- [ ] Unit/integration tests adapted from standalone shared_sync_flow **or** new focused tests for Lab module
+- [x] Serialize/deserialize Lab entry
+- [x] load_entries / create / update / delete / archive / toggle verified_in_survey
+- [x] run_shared_sync for Lab root (schema v1, Lab DB)
+- [x] Unit/integration tests adapted from standalone shared_sync_flow **or** new focused tests for Lab module
 
 **Hard rule:** Lab shared sync must not read/write TE Test Equipment ops directory.
 
@@ -229,48 +229,48 @@ Minimum vertical slice:
 - `backend/src/api/commands.rs` (+ export if needed)
 - `frontend/src/integrations/tauri/tauriInventoryBridge.ts`
 - `frontend/src/integrations/tauri/desktop-bridge.d.ts`
-- `frontend/src/integrations/tauri/bridgeGuards.ts`
+- `frontend/src/integrations/tauri/labBridgeGuards.ts`
 - Update TE Test Equipment hooks to pass `moduleId: "te-test-equipment"`
 
-- [ ] Add `module_id` argument to activate/load/sync/deactivate/CRUD/query (and export if module-specific).
-- [ ] Reject unknown module ids.
-- [ ] Frontend bridge wrappers accept `ModuleId`.
-- [ ] Existing TE shell tests updated for new signatures.
-- [ ] `bun run test` green for TE suite before adding Lab UI.
+- [x] Add `module_id` argument to activate/load/sync/deactivate/CRUD/query (and export if module-specific).
+- [x] Reject unknown module ids.
+- [x] Frontend bridge wrappers accept `ModuleId`.
+- [x] Existing TE shell tests updated for new signatures.
+- [x] `bun run test` green for TE suite before adding Lab UI.
 
 ### Task 5: Frontend Lab Components module (desktop host)
 
 **Files:** create under `frontend/src/modules/te-lab-components/**`
 
-- [ ] Port types/columns/filters/table/dialog from standalone (no cal).
-- [ ] `TeLabComponentsView` mirrors TE Test Equipment view structure + `DesktopModuleViewProps`.
-- [ ] Unified header like TE (switcher + Shared + actions + theme).
-- [ ] `useDesktopInventory({ active, moduleId: "te-lab-components" })` using AdaptiveSyncController.
-- [ ] `index.ts`: `implemented: true`, `kind: "desktop"`.
-- [ ] Registry already imports host — ensure order: TE Test Equipment, Lab Components, ME, Storage.
+- [x] Port types/columns/filters/table/dialog from standalone (no cal).
+- [x] `TeLabComponentsView` mirrors TE Test Equipment view structure + `DesktopModuleViewProps`.
+- [x] Unified header like TE (switcher + Shared + actions + theme).
+- [x] `useDesktopInventory({ active, moduleId: "te-lab-components" })` using AdaptiveSyncController.
+- [x] `index.ts`: `implemented: true`, `kind: "desktop"`.
+- [x] Registry already imports host — ensure order: TE Test Equipment, Lab Components, ME, Storage.
 
 ### Task 6: Shell integration smoke paths
 
-- [ ] Switching TE ↔ Lab: only active module syncs; inactive hard-deactivates.
-- [ ] Cached rows preserved when switching away (same pattern as TE ↔ placeholder).
-- [ ] ME / Storage Room still placeholders.
-- [ ] Document title / switcher labels correct.
+- [x] Switching TE ↔ Lab: only active module syncs; inactive hard-deactivates.
+- [x] Cached rows preserved when switching away (same pattern as TE ↔ placeholder).
+- [x] ME / Storage Room still placeholders.
+- [x] Document title / switcher labels correct.
 
 ### Task 7: Tests
 
 Frontend:
 
-- [ ] Registry: Lab `implemented: true`, host `kind: "desktop"`.
-- [ ] Shell: switch to Lab Components shows Lab UI (mock or bridge mocks).
-- [ ] Lab filtering/columns/dialog smoke tests (port/adapt from standalone if cheap).
-- [ ] TE Test Equipment regression suite still passes.
+- [x] Registry: Lab `implemented: true`, host `kind: "desktop"`.
+- [x] Shell: switch to Lab Components shows Lab UI (mock or bridge mocks).
+- [x] Lab filtering/columns/dialog smoke tests (port/adapt from standalone if cheap).
+- [x] TE Test Equipment regression suite still passes.
 
 Backend:
 
-- [ ] ModuleId parse
-- [ ] Lab shared root default
-- [ ] Session map: TE and Lab tokens independent (stale TE cannot kill Lab)
-- [ ] Lab CRUD + sync smoke (temp dirs)
+- [x] ModuleId parse
+- [x] Lab shared root default
+- [x] Session map: TE and Lab tokens independent (stale TE cannot kill Lab)
+- [x] Lab CRUD + sync smoke (temp dirs)
 
 ### Task 8: Verification gate + docs
 
@@ -305,6 +305,14 @@ Update:
 - `docs/SESSION_START_PROMPT.md` / `AGENTS.md` — two modules live
 - This plan status → Implemented
 - Roadmap Phase C1 done; ME/Storage deferred to later update
+
+### Verification results — 2026-07-20
+
+- Task 1 began with failing `ModuleId`/shared-root tests before implementation, preserving the requested test-first order.
+- Frontend: **19 files passed, 1 skipped; 148 tests passed, 1 skipped**; lint passed; production build passed (JS **419.81 kB**, CSS **49.85 kB** before gzip).
+- Backend: library **107/107 passed**; `shared_sync_flow` **40/40 passed**; rustfmt check and clippy with `-D warnings` passed.
+- Live non-mutating desktop smoke: Lab opened Shared with **1/0** inventory/archive and no calibration UI; TE opened Shared with **529/13** and calibration UI intact; ME Storage stayed a placeholder; returning to Lab retained its row; no runtime exceptions were captured.
+- The smoke instance was the only writer, was fully stopped, and left ports **5173/9222** closed. Owner should still perform one live Lab create/edit/restart persistence check before release.
 
 ---
 

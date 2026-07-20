@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { MOCK_INVENTORY } from "@/modules/te-test-equipment/data/mockInventory";
+import { TE_TEST_EQUIPMENT_MODULE_ID } from "@/modules/te-test-equipment/moduleId";
 import type { InventoryEntry, InventorySharedStatus } from "@/modules/te-test-equipment/types";
 import { AdaptiveSyncController } from "@/platform/sync/adaptiveSyncController";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
@@ -83,7 +84,7 @@ export function useDesktopInventory({ announceStatus, teActive }: UseDesktopInve
         setIsLoading(true);
       }
       try {
-        const payload = await desktopBridge.loadInventory();
+        const payload = await desktopBridge.loadInventory(TE_TEST_EQUIPMENT_MODULE_ID);
         if (!isCurrentGeneration(generation) || requestId !== queryRequestRef.current) {
           return null;
         }
@@ -128,7 +129,7 @@ export function useDesktopInventory({ announceStatus, teActive }: UseDesktopInve
 
       const startingRequestId = queryRequestRef.current;
       try {
-        const payload = await desktopBridge.syncInventory(sessionId);
+        const payload = await desktopBridge.syncInventory(TE_TEST_EQUIPMENT_MODULE_ID, sessionId);
         if (
           payload === null ||
           !isCurrentGeneration(generation) ||
@@ -240,14 +241,14 @@ export function useDesktopInventory({ announceStatus, teActive }: UseDesktopInve
     };
 
     const deactivateSession = (token: string): void => {
-      void deactivateInventorySync(token).catch(() => undefined);
+      void deactivateInventorySync(TE_TEST_EQUIPMENT_MODULE_ID, token).catch(() => undefined);
     };
 
     async function activateDesktopInventory(): Promise<void> {
       setIsLoading(!hasLoadedRef.current);
       let token: string;
       try {
-        token = await activateInventorySync();
+        token = await activateInventorySync(TE_TEST_EQUIPMENT_MODULE_ID);
       } catch {
         if (isCurrent()) {
           await refreshDesktopEntries({
@@ -275,8 +276,8 @@ export function useDesktopInventory({ announceStatus, teActive }: UseDesktopInve
       });
       controllerRef.current = controller;
       controller.start();
-      unsubscribeSharedChanges = onSharedInventoryChanged?.(() => {
-        if (isCurrent()) {
+      unsubscribeSharedChanges = onSharedInventoryChanged?.((payload) => {
+        if (payload.systemId === TE_TEST_EQUIPMENT_MODULE_ID && isCurrent()) {
           void controller?.requestSync();
         }
       });

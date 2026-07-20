@@ -1,6 +1,8 @@
 pub(crate) mod api;
 pub(crate) mod domain;
 pub(crate) mod integrations;
+mod inventory_stores;
+pub(crate) mod modules;
 pub(crate) mod platform;
 pub(crate) mod runtime;
 pub(crate) mod storage;
@@ -21,10 +23,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            let db = store::InventoryDb::open(app.handle())?;
-            let _ = deprecated_db_cleanup::quarantine_deprecated_databases_once(app.handle(), &db);
-            sync::recover_local_sync_state(&db)?;
-            app.manage(db);
+            let stores = inventory_stores::InventoryStores::open(app.handle())?;
+            let te_db = stores.te_test_equipment();
+            let lab_db = stores.te_lab_components();
+            let _ =
+                deprecated_db_cleanup::quarantine_deprecated_databases_once(app.handle(), te_db);
+            sync::recover_local_sync_state(te_db)?;
+            modules::te_lab_components::sync::recover_local_sync_state(lab_db)?;
+            app.manage(stores);
             app.manage(shared_sync::SharedSyncCoordinator::new());
             app.manage(shared_watcher::SharedSyncWatcher::new());
             Ok(())
@@ -54,7 +60,9 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         if let RunEvent::Exit = event {
-            app_handle.state::<store::InventoryDb>().flush();
+            app_handle
+                .state::<inventory_stores::InventoryStores>()
+                .flush();
         }
     });
 }

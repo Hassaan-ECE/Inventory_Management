@@ -13,18 +13,31 @@ import {
   parseImportCommitResult,
   parseImportDryRunReport,
   parseNonemptyString,
-  parseNullableInventorySyncResult,
   parseNullableString,
   parseUpdateState,
 } from "@/integrations/tauri/bridgeGuards";
+import {
+  parseLabDeleteMutationResult,
+  parseLabEntryMutationResult,
+  parseLabInventoryQueryResult,
+  parseLabInventorySyncResult,
+} from "@/integrations/tauri/labBridgeGuards";
 import type {
-  InventoryEntryEditContext,
-  InventoryEntryInput,
-  InventoryQueryInput,
   ImportCommitInput,
   UpdateState,
 } from "@/modules/te-test-equipment/types";
-import type { InventorySharedChangedPayload } from "@/integrations/tauri/desktop-bridge";
+import type {
+  ImplementedInventoryModuleId,
+  InventoryDeleteMutationResultFor,
+  InventoryDesktopBridge,
+  InventoryEntryEditContextFor,
+  InventoryEntryInputFor,
+  InventoryEntryMutationResultFor,
+  InventoryQueryInputFor,
+  InventoryQueryResultFor,
+  InventorySharedChangedPayload,
+  InventorySyncResult,
+} from "@/integrations/tauri/desktop-bridge";
 
 const updateStateListeners = new Set<(state: UpdateState) => void>();
 let pendingUpdate: Update | null = null;
@@ -33,35 +46,24 @@ let pendingUpdateState: UpdateState | null = null;
 // Window geometry restore is intentionally disabled — it was breaking window layout on some monitors.
 
 if (typeof window !== "undefined" && isTauri()) {
-  window.inventoryDesktop = {
+  const bridge: InventoryDesktopBridge = {
     isDesktop: true,
-    activateInventorySync: () =>
-      invoke("activate_inventory_sync").then((value) => parseNonemptyString(value, "inventory sync session token")),
-    loadInventory: () => invoke("load_inventory").then(parseInventorySyncResult),
-    queryInventory: (input: InventoryQueryInput) =>
-      invoke("query_inventory", { input }).then(parseInventoryQueryResult),
-    syncInventory: (sessionId: string) =>
-      invoke("sync_inventory", { sessionId }).then(parseNullableInventorySyncResult),
-    deactivateInventorySync: (sessionId: string) =>
-      invoke("deactivate_inventory_sync", { sessionId }).then((value) =>
+    activateInventorySync: (moduleId: ImplementedInventoryModuleId) =>
+      invoke("activate_inventory_sync", { moduleId }).then((value) =>
+        parseNonemptyString(value, "inventory sync session token"),
+      ),
+    loadInventory,
+    queryInventory,
+    syncInventory,
+    deactivateInventorySync: (moduleId: ImplementedInventoryModuleId, sessionId: string) =>
+      invoke("deactivate_inventory_sync", { moduleId, sessionId }).then((value) =>
         parseBoolean(value, "deactivate_inventory_sync result"),
       ),
-    toggleVerifiedEntry: (entryId: string, nextVerified: boolean) =>
-      invoke("toggle_verified_entry", {
-        entryId,
-        nextVerified,
-      }).then(parseEntryMutationResult),
-    createEntry: (input: InventoryEntryInput) =>
-      invoke("create_entry", { input }).then(parseEntryMutationResult),
-    updateEntry: (entryId: string, input: InventoryEntryInput, editContext?: InventoryEntryEditContext) =>
-      invoke("update_entry", { editContext, entryId, input }).then(parseEntryMutationResult),
-    setArchivedEntry: (entryId: string, archived: boolean) =>
-      invoke("set_archived_entry", {
-        entryId,
-        archived,
-      }).then(parseEntryMutationResult),
-    deleteEntry: (entryId: string) =>
-      invoke("delete_entry", { entryId }).then(parseDeleteMutationResult),
+    toggleVerifiedEntry,
+    createEntry,
+    updateEntry,
+    setArchivedEntry,
+    deleteEntry,
     openExternal: async (url: string) =>
       invoke("open_external", { url }).then((value) => parseBoolean(value, "open_external result")),
     openPath: async (path: string) =>
@@ -74,19 +76,129 @@ if (typeof window !== "undefined" && isTauri()) {
     },
     pickPicturePath: () =>
       invoke("pick_picture_path").then((value) => parseNullableString(value, "picked picture path")),
-    pickImportFile: () =>
-      invoke("pick_import_file").then((value) => parseNullableString(value, "picked import path")),
-    previewImport: (path: string) =>
-      invoke("preview_import", { path }).then(parseImportDryRunReport),
-    commitImport: (input: ImportCommitInput) =>
-      invoke("commit_import", { input }).then(parseImportCommitResult),
-    exportExcel: () => invoke("export_excel").then(parseExcelExportResult),
+    pickImportFile: (moduleId: "te-test-equipment") =>
+      invoke("pick_import_file", { moduleId }).then((value) => parseNullableString(value, "picked import path")),
+    previewImport: (moduleId: "te-test-equipment", path: string) =>
+      invoke("preview_import", { moduleId, path }).then(parseImportDryRunReport),
+    commitImport: (moduleId: "te-test-equipment", input: ImportCommitInput) =>
+      invoke("commit_import", { input, moduleId }).then(parseImportCommitResult),
+    exportExcel: (moduleId: ImplementedInventoryModuleId) =>
+      invoke("export_excel", { moduleId }).then(parseExcelExportResult),
     checkForUpdate,
     downloadUpdate,
     installUpdate,
     onSharedInventoryChanged: listenToSharedInventoryChanged,
     onUpdateStateChanged: listenToUpdateStateChanged,
   };
+  window.inventoryDesktop = bridge;
+}
+
+function loadInventory<M extends ImplementedInventoryModuleId>(moduleId: M): Promise<InventorySyncResult<M>> {
+  return invoke("load_inventory", { moduleId }).then((value) => parseSyncResultForModule(moduleId, value));
+}
+
+function queryInventory<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  input: InventoryQueryInputFor<M>,
+): Promise<InventoryQueryResultFor<M>> {
+  return invoke("query_inventory", { input, moduleId }).then((value) => parseQueryResultForModule(moduleId, value));
+}
+
+function syncInventory<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  sessionId: string,
+): Promise<InventorySyncResult<M> | null> {
+  return invoke("sync_inventory", { moduleId, sessionId }).then((value) => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    return parseSyncResultForModule(moduleId, value);
+  });
+}
+
+function toggleVerifiedEntry<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  entryId: string,
+  nextVerified: boolean,
+): Promise<InventoryEntryMutationResultFor<M>> {
+  return invoke("toggle_verified_entry", { entryId, moduleId, nextVerified }).then((value) =>
+    parseEntryMutationResultForModule(moduleId, value),
+  );
+}
+
+function createEntry<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  input: InventoryEntryInputFor<M>,
+): Promise<InventoryEntryMutationResultFor<M>> {
+  return invoke("create_entry", { input, moduleId }).then((value) =>
+    parseEntryMutationResultForModule(moduleId, value),
+  );
+}
+
+function updateEntry<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  entryId: string,
+  input: InventoryEntryInputFor<M>,
+  editContext?: InventoryEntryEditContextFor<M>,
+): Promise<InventoryEntryMutationResultFor<M>> {
+  return invoke("update_entry", { editContext, entryId, input, moduleId }).then((value) =>
+    parseEntryMutationResultForModule(moduleId, value),
+  );
+}
+
+function setArchivedEntry<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  entryId: string,
+  archived: boolean,
+): Promise<InventoryEntryMutationResultFor<M>> {
+  return invoke("set_archived_entry", { archived, entryId, moduleId }).then((value) =>
+    parseEntryMutationResultForModule(moduleId, value),
+  );
+}
+
+function deleteEntry<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  entryId: string,
+): Promise<InventoryDeleteMutationResultFor<M>> {
+  return invoke("delete_entry", { entryId, moduleId }).then((value) =>
+    parseDeleteMutationResultForModule(moduleId, value),
+  );
+}
+
+function parseSyncResultForModule<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  value: unknown,
+): InventorySyncResult<M> {
+  return (moduleId === "te-test-equipment"
+    ? parseInventorySyncResult(value)
+    : parseLabInventorySyncResult(value)) as InventorySyncResult<M>;
+}
+
+function parseQueryResultForModule<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  value: unknown,
+): InventoryQueryResultFor<M> {
+  return (moduleId === "te-test-equipment"
+    ? parseInventoryQueryResult(value)
+    : parseLabInventoryQueryResult(value)) as InventoryQueryResultFor<M>;
+}
+
+function parseEntryMutationResultForModule<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  value: unknown,
+): InventoryEntryMutationResultFor<M> {
+  return (moduleId === "te-test-equipment"
+    ? parseEntryMutationResult(value)
+    : parseLabEntryMutationResult(value)) as InventoryEntryMutationResultFor<M>;
+}
+
+function parseDeleteMutationResultForModule<M extends ImplementedInventoryModuleId>(
+  moduleId: M,
+  value: unknown,
+): InventoryDeleteMutationResultFor<M> {
+  return (moduleId === "te-test-equipment"
+    ? parseDeleteMutationResult(value)
+    : parseLabDeleteMutationResult(value)) as InventoryDeleteMutationResultFor<M>;
 }
 
 async function checkForUpdate(): Promise<UpdateState> {
@@ -105,7 +217,7 @@ async function checkForUpdate(): Promise<UpdateState> {
       return publishUpdateState({
         available: false,
         currentVersion: APP_VERSION,
-        notes: "TE Test Equipment Inventory is up to date.",
+        notes: "Inventory Management is up to date.",
         status: "not-available",
       });
     }
@@ -205,7 +317,7 @@ function listenToSharedInventoryChanged(
   let unlisten: UnlistenFn | null = null;
 
   void listen<unknown>("inventory:shared-changed", (event) => {
-    const payload = parseTeSharedChangedPayload(event.payload);
+    const payload = parseSharedChangedPayload(event.payload);
     if (payload) {
       callback(payload);
     }
@@ -227,12 +339,12 @@ function listenToSharedInventoryChanged(
   };
 }
 
-function parseTeSharedChangedPayload(value: unknown): InventorySharedChangedPayload | null {
+function parseSharedChangedPayload(value: unknown): InventorySharedChangedPayload | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
   const systemId = Reflect.get(value, "systemId");
-  return systemId === "te-test-equipment" ? { systemId } : null;
+  return systemId === "te-test-equipment" || systemId === "te-lab-components" ? { systemId } : null;
 }
 
 function publishUpdateState(state: UpdateState): UpdateState {

@@ -7,6 +7,7 @@ import type {
   InventoryEntryInput,
   InventorySharedStatus,
 } from "@/modules/te-test-equipment/types";
+import { TE_TEST_EQUIPMENT_MODULE_ID } from "@/modules/te-test-equipment/moduleId";
 
 import {
   buildLocalCreatedEntry,
@@ -78,7 +79,11 @@ export function useInventoryEntryMutations({
 
     if (dataSource === "desktop" && window.inventoryDesktop?.toggleVerifiedEntry) {
       try {
-        const result = await window.inventoryDesktop.toggleVerifiedEntry(entryId, nextVerified);
+        const result = await window.inventoryDesktop.toggleVerifiedEntry(
+          TE_TEST_EQUIPMENT_MODULE_ID,
+          entryId,
+          nextVerified,
+        );
         setEntries((current) => current.map((entry) => (entry.id === entryId ? result.entry : entry)));
         applyDesktopMutationFeedback(result);
         scheduleDesktopSync();
@@ -110,7 +115,12 @@ export function useInventoryEntryMutations({
       }
 
       if (dataSource === "desktop" && window.inventoryDesktop?.updateEntry) {
-        const result = await window.inventoryDesktop.updateEntry(entryId, input, editContext);
+        const result = await window.inventoryDesktop.updateEntry(
+          TE_TEST_EQUIPMENT_MODULE_ID,
+          entryId,
+          input,
+          editContext,
+        );
         setEntries((current) =>
           current.map((entry) =>
             entry.id === entryId ||
@@ -133,7 +143,7 @@ export function useInventoryEntryMutations({
     }
 
     if (dataSource === "desktop" && window.inventoryDesktop?.createEntry) {
-      const result = await window.inventoryDesktop.createEntry(input);
+      const result = await window.inventoryDesktop.createEntry(TE_TEST_EQUIPMENT_MODULE_ID, input);
       setEntries((current) => [result.entry, ...current.filter((entry) => entry.id !== result.entry.id)]);
       applyDesktopMutationFeedback(result);
       scheduleDesktopSync();
@@ -159,7 +169,11 @@ export function useInventoryEntryMutations({
 
     if (dataSource === "desktop" && window.inventoryDesktop?.setArchivedEntry) {
       try {
-        const result = await window.inventoryDesktop.setArchivedEntry(entryId, archived);
+        const result = await window.inventoryDesktop.setArchivedEntry(
+          TE_TEST_EQUIPMENT_MODULE_ID,
+          entryId,
+          archived,
+        );
         setEntries((current) => current.map((entry) => (entry.id === result.entry.id ? result.entry : entry)));
         applyDesktopMutationFeedback(result);
         scheduleDesktopSync();
@@ -194,7 +208,7 @@ export function useInventoryEntryMutations({
 
     if (dataSource === "desktop" && window.inventoryDesktop?.deleteEntry) {
       try {
-        const result = await window.inventoryDesktop.deleteEntry(entryId);
+        const result = await window.inventoryDesktop.deleteEntry(TE_TEST_EQUIPMENT_MODULE_ID, entryId);
         setEntries((current) => current.filter((entry) => entry.id !== entryId));
         applyDesktopMutationFeedback(result);
         scheduleDesktopSync();

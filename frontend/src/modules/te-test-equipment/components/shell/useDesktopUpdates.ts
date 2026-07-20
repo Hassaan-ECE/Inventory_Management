@@ -5,10 +5,11 @@ import type { UpdateState } from "@/modules/te-test-equipment/types";
 import { UPDATE_CHECK_INTERVAL_MS, buildIdleUpdateState, chooseFreshUpdateState } from "./helpers";
 
 interface UseDesktopUpdatesOptions {
+  active: boolean;
   announceStatus: (message: string) => void;
 }
 
-export function useDesktopUpdates({ announceStatus }: UseDesktopUpdatesOptions) {
+export function useDesktopUpdates({ active, announceStatus }: UseDesktopUpdatesOptions) {
   const [updateState, setUpdateState] = useState<UpdateState>(() => buildIdleUpdateState());
   const updateStateRef = useRef(updateState);
 
@@ -17,11 +18,11 @@ export function useDesktopUpdates({ announceStatus }: UseDesktopUpdatesOptions) 
   }, [updateState]);
 
   useEffect(() => {
-    if (!window.inventoryDesktop?.checkForUpdate) {
+    if (!active || !window.inventoryDesktop?.checkForUpdate) {
       return undefined;
     }
 
-    let active = true;
+    let subscribed = true;
     const canCheckForUpdate = (): boolean =>
       !["downloading", "ready", "installing"].includes(updateStateRef.current.status);
     const runUpdateCheck = (): void => {
@@ -32,13 +33,13 @@ export function useDesktopUpdates({ announceStatus }: UseDesktopUpdatesOptions) 
       void window.inventoryDesktop
         .checkForUpdate()
         .then((state) => {
-          if (active) {
+          if (subscribed) {
             updateStateRef.current = chooseFreshUpdateState(updateStateRef.current, state);
             setUpdateState((current) => chooseFreshUpdateState(current, state));
           }
         })
         .catch(() => {
-          if (active) {
+          if (subscribed) {
             updateStateRef.current = buildIdleUpdateState();
             setUpdateState(buildIdleUpdateState());
           }
@@ -50,7 +51,7 @@ export function useDesktopUpdates({ announceStatus }: UseDesktopUpdatesOptions) 
       }
     };
     const unsubscribe = window.inventoryDesktop.onUpdateStateChanged?.((state) => {
-      if (active) {
+      if (subscribed) {
         updateStateRef.current = state;
         setUpdateState(state);
       }
@@ -62,13 +63,13 @@ export function useDesktopUpdates({ announceStatus }: UseDesktopUpdatesOptions) 
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      active = false;
+      subscribed = false;
       window.clearInterval(intervalId);
       window.removeEventListener("focus", runUpdateCheck);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       unsubscribe?.();
     };
-  }, []);
+  }, [active]);
 
   const handleUpdateAction = useCallback(async (): Promise<void> => {
     if (!window.inventoryDesktop) {

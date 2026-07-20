@@ -66,7 +66,9 @@ describe("InventoryShell shared sync", () => {
     render(<InventoryShell />);
 
     expect(await screen.findByText("Showing all 0 entries")).toBeInTheDocument();
-    await waitFor(() => expect(deactivateInventorySync).toHaveBeenCalledWith("session-disabled"));
+    await waitFor(() =>
+      expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "session-disabled"),
+    );
     expect(callOrder).toEqual(["activate", "subscribe", "load", "unsubscribe", "deactivate"]);
     expect(syncInventory).not.toHaveBeenCalled();
   });
@@ -85,7 +87,7 @@ describe("InventoryShell shared sync", () => {
       callOrder.push("load");
       return buildDesktopSyncResult(CONNECTED_SHARED_STATUS);
     });
-    const syncInventory = vi.fn(async (sessionId: string) => {
+    const syncInventory = vi.fn(async (_moduleId: "te-test-equipment", sessionId: string) => {
       callOrder.push(`sync:${sessionId}`);
       return {
         dbPath: TEST_DB_PATH,
@@ -143,12 +145,12 @@ describe("InventoryShell shared sync", () => {
     });
 
     await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
-    expect(syncInventory).toHaveBeenCalledWith("session-1");
+    expect(syncInventory).toHaveBeenCalledWith("te-test-equipment", "session-1");
     expect(loadInventory).toHaveBeenCalledTimes(1);
 
     unmount();
     expect(unsubscribeSharedChanges).toHaveBeenCalledTimes(1);
-    expect(deactivateInventorySync).toHaveBeenCalledWith("session-1");
+    expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "session-1");
   });
 
   it("does not activate or load TE when a placeholder is selected at launch", async () => {
@@ -188,7 +190,7 @@ describe("InventoryShell shared sync", () => {
     render(<InventoryShell />);
 
     expect(await screen.findByText("Stale null survives")).toBeInTheDocument();
-    expect(syncInventory).toHaveBeenCalledWith("session-1");
+    expect(syncInventory).toHaveBeenCalledWith("te-test-equipment", "session-1");
     expect(screen.queryByText("Shared workspace unavailable. Saving changes locally.")).not.toBeInTheDocument();
   });
 
@@ -214,7 +216,7 @@ describe("InventoryShell shared sync", () => {
     });
 
     await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
-    expect(syncInventory).toHaveBeenCalledWith("session-1");
+    expect(syncInventory).toHaveBeenCalledWith("te-test-equipment", "session-1");
   });
 
   it("deactivates a token that resolves after unmount without loading or syncing", async () => {
@@ -240,7 +242,7 @@ describe("InventoryShell shared sync", () => {
       await Promise.resolve();
     });
 
-    expect(deactivateInventorySync).toHaveBeenCalledWith("late-session");
+    expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "late-session");
     expect(loadInventory).not.toHaveBeenCalled();
     expect(syncInventory).not.toHaveBeenCalled();
   });
@@ -283,7 +285,9 @@ describe("InventoryShell shared sync", () => {
 
     await switchInventory(user, "ME Storage");
     expect(screen.getByText(/ME Storage — module not connected yet/i)).toBeInTheDocument();
-    await waitFor(() => expect(deactivateInventorySync).toHaveBeenCalledWith("session-1"));
+    await waitFor(() =>
+      expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "session-1"),
+    );
     expect(unsubscribeCallbacks[0]).toHaveBeenCalledTimes(1);
 
     await switchInventory(user, "TE Test Equipment");
@@ -304,7 +308,7 @@ describe("InventoryShell shared sync", () => {
     });
 
     await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
-    expect(syncInventory).toHaveBeenCalledWith("session-2");
+    expect(syncInventory).toHaveBeenCalledWith("te-test-equipment", "session-2");
     expect(activateInventorySync).toHaveBeenCalledTimes(2);
     expect(onSharedInventoryChanged).toHaveBeenCalledTimes(2);
   });
@@ -340,7 +344,9 @@ describe("InventoryShell shared sync", () => {
     await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(2));
 
     await switchInventory(user, "ME Storage");
-    await waitFor(() => expect(deactivateInventorySync).toHaveBeenCalledWith("session-1"));
+    await waitFor(() =>
+      expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "session-1"),
+    );
 
     await act(async () => {
       inFlightSync.resolve({
@@ -396,7 +402,7 @@ describe("InventoryShell shared sync", () => {
       await vi.advanceTimersByTimeAsync(75);
 
       expect(syncInventory).not.toHaveBeenCalled();
-      expect(deactivateInventorySync).toHaveBeenCalledWith("session-1");
+      expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "session-1");
     } finally {
       vi.useRealTimers();
     }

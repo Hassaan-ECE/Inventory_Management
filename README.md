@@ -2,8 +2,8 @@
 
 Windows desktop app that unifies multiple inventory systems in **one install**, with an in-app switcher:
 
-- **TE Test Equipment** (live module in this scaffold)
-- **TE Lab Components** (placeholder)
+- **TE Test Equipment** (implemented)
+- **TE Lab Components** (implemented)
 - **ME Storage** (placeholder)
 - **TE Storage Room** (placeholder)
 
@@ -42,8 +42,10 @@ Do **not** run old + new clients against the same live shared root at once.
 |------|--------|
 | Display | Inventory Management |
 | Tauri id | `com.inventory.management` |
-| Local DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
-| Env shared root | `INVENTORY_MANAGEMENT_SHARED_ROOT` |
+| TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
+| TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
+| TE shared-root env | `INVENTORY_MANAGEMENT_SHARED_ROOT` |
+| Lab shared-root env | `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT` |
 | Env sync enable | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` (`0`/`false`/`no`/`off` off) |
 
 Updater is **not** configured yet (new product needs its own signing key + GitHub repo). Do not reuse TE/ME updater keys.
@@ -68,14 +70,15 @@ cargo test --manifest-path backend/Cargo.toml --no-fail-fast
 bun run desktop
 ```
 
-### TE shared data (pilot)
+### Shared data (pilot)
 
-`bun run desktop` uses the live team TE share by default:
+`bun run desktop` uses both live pilot shares by default:
 
-`S:\...\InventoryApps\TE_Test_Equipment_Inventory`
+- TE Test Equipment: `S:\...\InventoryApps\TE_Test_Equipment_Inventory`
+- TE Lab Components: `S:\...\InventoryApps\TE`
 
-**One writer only** — do not also run standalone TE against that share.  
-Before release: copy latest shared data into `Inventory_Management_App\modules\TE_Test_Equipment` and switch the default path back.
+**One writer per root** — do not also run the corresponding standalone against either share.
+Before release: copy the latest shared data into `Inventory_Management_App\modules\TE_Test_Equipment` and `Inventory_Management_App\modules\TE_Lab_Components`, then deliberately flip both defaults.
 
 ## Cutover (ops sketch)
 

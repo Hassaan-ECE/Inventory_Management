@@ -48,7 +48,7 @@ export function TeTestEquipmentView({
     announceStatus,
     teActive: active,
   });
-  const { handleUpdateAction, updateState } = useDesktopUpdates({ announceStatus });
+  const { handleUpdateAction, updateState } = useDesktopUpdates({ active, announceStatus });
   const { colorRows, columnVisibility, setColorRows, setColumnVisibility } = useInventoryPreferences();
   const [scope, setScope] = useState<InventoryScope>("inventory");
   const [query, setQuery] = useState("");

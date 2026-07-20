@@ -95,8 +95,12 @@ export function buildInventoryCounts(entries: InventoryEntry[]): InventoryCounts
   return getInventoryCounts(entries, "2026-07-13");
 }
 
+type DesktopBridgeOverrides = Partial<
+  Record<keyof NonNullable<Window["inventoryDesktop"]>, unknown>
+>;
+
 export function createDesktopBridge(
-  overrides: Partial<NonNullable<Window["inventoryDesktop"]>>,
+  overrides: DesktopBridgeOverrides,
 ): NonNullable<Window["inventoryDesktop"]> {
   return {
     isDesktop: true,

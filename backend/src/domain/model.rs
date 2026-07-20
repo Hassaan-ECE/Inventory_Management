@@ -331,7 +331,7 @@ pub(crate) struct InventoryCounts {
     pub verified: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InventorySharedStatus {
     pub available: bool,

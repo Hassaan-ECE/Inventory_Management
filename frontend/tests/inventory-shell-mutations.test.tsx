@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { TE_TEST_EQUIPMENT_MODULE_ID } from "@/modules/te-test-equipment/moduleId";
 import type { InventoryEntry } from "@/modules/te-test-equipment/types";
 import { InventoryShell } from "@/shell/InventoryShell";
 import {
@@ -70,7 +71,11 @@ describe("InventoryShell mutations", () => {
         entries: desktopEntries,
         shared: LOCAL_SHARED_STATUS,
       })),
-      toggleVerifiedEntry: vi.fn().mockImplementation(async (entryId: string, nextVerified: boolean) => {
+      toggleVerifiedEntry: vi.fn().mockImplementation(async (
+        _moduleId: string,
+        entryId: string,
+        nextVerified: boolean,
+      ) => {
         const currentEntry = desktopEntries.find((entry) => entry.id === entryId)!;
         const updatedEntry = {
           ...currentEntry,
@@ -193,7 +198,7 @@ describe("InventoryShell mutations", () => {
   it("passes the next verification boolean based only on verifiedAt", async () => {
     const user = userEvent.setup();
     let entry = buildTestEntry({ id: "verify-1", description: "Timestamp meter", verifiedAt: undefined });
-    const toggleVerifiedEntry = vi.fn(async (_entryId: string, nextVerified: boolean) => {
+    const toggleVerifiedEntry = vi.fn(async (_moduleId: string, _entryId: string, nextVerified: boolean) => {
       entry = { ...entry, verifiedAt: nextVerified ? "2026-07-13T12:00:00Z" : undefined, verifiedBy: nextVerified ? "Avery" : undefined };
       return { entry, message: "Verification updated.", mutationMode: "local" as const };
     });
@@ -204,9 +209,9 @@ describe("InventoryShell mutations", () => {
     render(<InventoryShell />);
 
     await user.click(await screen.findByRole("button", { name: /Verify Timestamp meter/i }));
-    expect(toggleVerifiedEntry).toHaveBeenLastCalledWith("verify-1", true);
+    expect(toggleVerifiedEntry).toHaveBeenLastCalledWith(TE_TEST_EQUIPMENT_MODULE_ID, "verify-1", true);
     await user.click(screen.getByRole("button", { name: /Clear verification for Timestamp meter/i }));
-    expect(toggleVerifiedEntry).toHaveBeenLastCalledWith("verify-1", false);
+    expect(toggleVerifiedEntry).toHaveBeenLastCalledWith(TE_TEST_EQUIPMENT_MODULE_ID, "verify-1", false);
   });
 
   it("sets a local RFC3339 verification timestamp and clears timestamp plus verifier", async () => {
