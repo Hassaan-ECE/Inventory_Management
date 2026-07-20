@@ -9,7 +9,8 @@ export function getColumnStyle(columnKey: ColumnConfig["key"]): CSSProperties {
     case "qty":
       return { width: "3.75rem" };
     case "assetNumber":
-      return { width: "7rem" };
+      // Fits tags like VPEQ0001279 (≈11 chars) + cell padding; longer values still truncate with title tooltip.
+      return { width: "10rem", minWidth: "10rem" };
     case "serialNumber":
       return { width: "8rem" };
     case "projectName":
