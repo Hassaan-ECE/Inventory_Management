@@ -15,5 +15,5 @@ export {
 } from "./filtering";
 export type { InventoryGlobalSearchField } from "./filtering";
 export { buildResultsLabel } from "./resultLabels";
-export { sortEntries } from "./sorting";
+export { cycleSortState, sortEntries } from "./sorting";
 

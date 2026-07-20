@@ -2,7 +2,9 @@ import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 
 import { Badge } from "@/shared/components/ui/badge";
+import { DropdownSelect } from "@/shared/components/ui/DropdownMenu";
 import { Input } from "@/shared/components/ui/input";
+import { ScrollRegion } from "@/shared/components/ui/ScrollRegion";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import type {
@@ -33,10 +35,6 @@ import { useEntryDialogLayout } from "./entry-dialog/useEntryDialogLayout";
 import { useEntryDialogSubmit } from "./entry-dialog/useEntryDialogSubmit";
 import { useEntryPicturePreview } from "./entry-dialog/useEntryPicturePreview";
 import { useMountedRef } from "./entry-dialog/useMountedRef";
-
-const SELECT_CLASS =
-  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-shadow focus:border-ring focus:ring-[3px] focus:ring-ring/18 dark:bg-neutral-950 dark:text-neutral-100";
-const OPTION_CLASS = "bg-background text-foreground dark:bg-neutral-950 dark:text-neutral-100";
 
 interface EntryDialogProps {
   defaultArchived?: boolean;
@@ -138,7 +136,7 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
           </div>
 
           <fieldset className="contents" disabled={readOnly || isSaving}>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 lg:py-4">
+            <ScrollRegion className="min-h-0 flex-1" contentClassName="px-5 py-4 lg:py-4">
               <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
                 {ENTRY_MAIN_INPUT_FIELDS.map((field) => (
                   <Field className={field.className} key={field.key} label={field.label}>
@@ -154,17 +152,15 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
 
                 {ENTRY_SELECT_FIELDS.map((field) => (
                   <Field key={field.key} label={field.label}>
-                    <select
-                      className={SELECT_CLASS}
+                    <DropdownSelect
+                      aria-label={field.label}
+                      options={field.options.map((option) => ({
+                        value: option,
+                        label: formatOptionLabel(option),
+                      }))}
                       value={form[field.key]}
-                      onChange={(event) => handleSelectChange(field, event.currentTarget.value)}
-                    >
-                      {field.options.map((option) => (
-                        <option className={OPTION_CLASS} key={option} value={option}>
-                          {formatOptionLabel(option)}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => handleSelectChange(field, value)}
+                    />
                   </Field>
                 ))}
 
@@ -204,7 +200,7 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
                   </label>
                 ))}
               </div>
-            </div>
+            </ScrollRegion>
           </fieldset>
 
           {showsSidebarActions ? null : (
@@ -216,7 +212,7 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
 
         {showsSidebarActions && entry ? (
           <aside className="flex w-[19rem] shrink-0 flex-col bg-background/60 px-5 py-4">
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <ScrollRegion className="min-h-0 flex-1" contentClassName="pr-1">
               {showSidebarPicturePreview ? (
                 <PicturePreviewPanel compact picturePath={picturePath} preview={picturePreview} />
               ) : null}
@@ -233,7 +229,7 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
                   ))}
                 </div>
               </div>
-            </div>
+            </ScrollRegion>
 
             <div className="mt-4 shrink-0 border-t border-border/70 pt-4">
               <DialogActions error={error} formId={formId} isSaving={isSaving} layout="sidebar" readOnly={readOnly} onClose={onClose} />

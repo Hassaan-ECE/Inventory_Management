@@ -22,7 +22,7 @@ interface UseInventoryViewModelOptions {
   isLoading: boolean;
   query: string;
   scope: InventoryScope;
-  sortState: SortState;
+  sortState: SortState | null;
 }
 
 const LOADING_ENTRIES: InventoryEntry[] = [];

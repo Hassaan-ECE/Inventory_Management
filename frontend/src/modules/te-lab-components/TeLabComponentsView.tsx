@@ -17,7 +17,7 @@ import { useInventoryExternalActions } from "@/modules/te-lab-components/compone
 import { useInventoryPreferences } from "@/modules/te-lab-components/components/shell/useInventoryPreferences";
 import { useInventoryViewModel } from "@/modules/te-lab-components/components/shell/useInventoryViewModel";
 import { useStatusAnnouncer } from "@/modules/te-lab-components/components/shell/useStatusAnnouncer";
-import { DEFAULT_FILTERS, getVisibleDataColumnCount } from "@/modules/te-lab-components/lib";
+import { cycleSortState, DEFAULT_FILTERS, getVisibleDataColumnCount } from "@/modules/te-lab-components/lib";
 import { INVENTORY_COLUMNS } from "@/modules/te-lab-components/types";
 import type { ColumnKey, FilterState, InventoryScope, SortState } from "@/modules/te-lab-components/types";
 import type { DesktopModuleViewProps } from "@/platform/modules/types";
@@ -54,7 +54,7 @@ export function TeLabComponentsView({
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sortState, setSortState] = useState<SortState>({ column: "manufacturer", direction: "asc" });
+  const [sortState, setSortState] = useState<SortState | null>({ column: "manufacturer", direction: "asc" });
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const {
     counts,
@@ -116,10 +116,7 @@ export function TeLabComponentsView({
   }
 
   function handleSortChange(column: ColumnKey): void {
-    setSortState((current) => ({
-      column,
-      direction: current.column === column && current.direction === "asc" ? "desc" : "asc",
-    }));
+    setSortState((current) => cycleSortState(current, column));
   }
 
   function handleOpenContextMenu(entryId: string, clientX: number, clientY: number): void {
