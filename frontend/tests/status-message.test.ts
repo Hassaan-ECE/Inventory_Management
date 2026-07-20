@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildDefaultStatusMessage,
   isRoutineSharedStatusMessage,
-} from "@/features/inventory/components/shell/helpers";
-import type { InventorySharedStatus } from "@/features/inventory/types";
+} from "@/modules/te-test-equipment/components/shell/helpers";
+import type { InventorySharedStatus } from "@/modules/te-test-equipment/types";
 
 function shared(message: string, overrides: Partial<InventorySharedStatus> = {}): InventorySharedStatus {
   return {

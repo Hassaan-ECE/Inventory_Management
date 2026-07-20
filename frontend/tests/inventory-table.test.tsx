@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { InventoryShell } from "@/features/inventory/components/InventoryShell";
-import { InventoryTable } from "@/features/inventory/components/InventoryTable";
-import { OVERSCAN_ROWS, ROW_HEIGHT, getVisibleRange } from "@/features/inventory/components/table/virtualization";
-import { INVENTORY_COLUMNS, type InventoryEntry } from "@/features/inventory/types";
+import { InventoryTable } from "@/modules/te-test-equipment/components/InventoryTable";
+import { OVERSCAN_ROWS, ROW_HEIGHT, getVisibleRange } from "@/modules/te-test-equipment/components/table/virtualization";
+import { INVENTORY_COLUMNS, type InventoryEntry } from "@/modules/te-test-equipment/types";
+import { InventoryShell } from "@/shell/InventoryShell";
 
 describe("InventoryShell table controls", () => {
   beforeEach(() => {

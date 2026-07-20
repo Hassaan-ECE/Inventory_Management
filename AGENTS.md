@@ -39,12 +39,20 @@ One installer; in-app switcher between inventories:
 
 Modules stay **separate** under the hood (own shared roots / future per-module DBs). Do not merge row types.
 
+## Current code layout
+
+- `frontend/src/shell/` owns product chrome, module selection, placeholders, and the module viewport.
+- `frontend/src/platform/` owns module registry/persistence and the reusable adaptive sync controller.
+- `frontend/src/modules/te-test-equipment/` owns the implemented TE UI, hooks, types, and desktop lifecycle.
+- `frontend/src/modules/{te-lab-components,me-storage,te-storage}/` contain placeholder hosts only.
+- `backend/src/platform/` owns `ModuleId` and TE shared-root resolution; `backend/src/runtime/shared_watcher.rs` stores sessions by `ModuleId` with TE-only wiring today.
+
 ## Priorities
 
-1. Redesign monorepo (shared platform + modules) — **IM-012** plan: `docs/superpowers/plans/2026-07-20-platform-module-architecture-extract.md`  
+1. ~~Logical shell/platform/modules extract~~ **IM-012 done 2026-07-20** — plan: `docs/superpowers/plans/2026-07-20-platform-module-architecture-extract.md`
 2. ~~IM-011 adaptive TE sync~~ **done 2026-07-20** — plan under `docs/superpowers/plans/`  
 3. ~~TE path strategy~~ **IM-013**: product `modules\TE_Test_Equipment` long-term; no default legacy pilot  
-4. Port other modules (placeholders today); archive standalones only after deliberate migration  
+4. Port other modules one at a time (placeholders today); archive standalones only after deliberate migration
 5. Updater signing + GitHub Releases (new keys — do not reuse TE/ME keys)
 
 ## Env (shared sync)

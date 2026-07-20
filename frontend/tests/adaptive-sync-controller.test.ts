@@ -5,7 +5,7 @@ import {
   IDLE_AFTER_MS,
   SLOW_SYNC_DELAY_MS,
   AdaptiveSyncController,
-} from "@/features/inventory/sync/adaptiveSyncController";
+} from "@/platform/sync/adaptiveSyncController";
 import { createDeferred } from "./inventory-shell/helpers";
 
 describe("AdaptiveSyncController", () => {

@@ -1,6 +1,6 @@
 #[path = "support/backend.rs"]
 mod backend;
-pub(crate) use backend::{model, store, sync};
+pub(crate) use backend::{model, platform, store, sync};
 #[path = "support/sync_fixtures.rs"]
 mod sync_fixtures;
 

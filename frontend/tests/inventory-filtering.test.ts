@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MOCK_INVENTORY } from "@/features/inventory/data/mockInventory";
+import { MOCK_INVENTORY } from "@/modules/te-test-equipment/data/mockInventory";
 import {
   DEFAULT_FILTERS,
   buildResultsLabel,
@@ -9,8 +9,8 @@ import {
   getInventoryCounts,
   cycleSortState,
   sortEntries,
-} from "@/features/inventory/lib";
-import type { InventoryEntry } from "@/features/inventory/types";
+} from "@/modules/te-test-equipment/lib";
+import type { InventoryEntry } from "@/modules/te-test-equipment/types";
 
 const LOCAL_DATE = "2026-07-13";
 

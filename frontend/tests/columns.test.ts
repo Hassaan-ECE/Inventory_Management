@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { getVisibleDataColumnCount } from "@/features/inventory/lib";
-import { INVENTORY_COLUMNS } from "@/features/inventory/types";
+import { getVisibleDataColumnCount } from "@/modules/te-test-equipment/lib";
+import { INVENTORY_COLUMNS } from "@/modules/te-test-equipment/types";
 import {
   COLUMN_VISIBILITY_STORAGE_KEY,
   readColumnVisibility,
-} from "@/features/inventory/components/shell/helpers";
+} from "@/modules/te-test-equipment/components/shell/helpers";
 
 describe("column visibility persistence", () => {
   beforeEach(() => {

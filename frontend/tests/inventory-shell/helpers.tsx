@@ -1,14 +1,14 @@
 import { act } from "@testing-library/react";
 import { vi } from "vitest";
 
-import { getInventoryCounts } from "@/features/inventory/lib";
+import { getInventoryCounts } from "@/modules/te-test-equipment/lib";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 import type {
   InventoryCounts,
   InventoryEntry,
   InventoryQueryResult,
   InventorySharedStatus,
-} from "@/features/inventory/types";
+} from "@/modules/te-test-equipment/types";
 
 export const CONNECTED_SHARED_STATUS: InventorySharedStatus = {
   available: true,

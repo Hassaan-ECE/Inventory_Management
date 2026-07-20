@@ -1,10 +1,14 @@
 use std::{env, ffi::OsString, fs, path::PathBuf};
 
-use crate::{model::InventorySharedStatus, store::InventoryDb};
+use crate::{
+    model::InventorySharedStatus,
+    platform::{default_shared_root, ModuleId},
+    store::InventoryDb,
+};
 
 use super::{
-    queue::count_pending_local_operations, SharedSyncPaths, SyncCoreResult, DEFAULT_SHARED_ROOT,
-    SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV,
+    queue::count_pending_local_operations, SharedSyncPaths, SyncCoreResult, SHARED_ROOT_ENV,
+    SHARED_SYNC_ENABLED_ENV,
 };
 
 const SHARED_SYNC_DISABLED_MESSAGE: &str =
@@ -14,7 +18,7 @@ pub(crate) fn shared_sync_enabled() -> bool {
     shared_sync_enabled_from_env_value(env::var_os(SHARED_SYNC_ENABLED_ENV))
 }
 
-/// Production default is ON (ME/TE Parts family). Explicitly set
+/// Production default is ON for the TE Test Equipment module. Explicitly set
 /// `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` to `0` / `false` / `no` / `off` to opt out.
 fn shared_sync_enabled_from_env_value(value: Option<OsString>) -> bool {
     match value {
@@ -40,7 +44,7 @@ pub(crate) fn resolve_shared_root_from_env_value(value: Option<OsString>) -> Pat
             let path = value.to_string_lossy().trim().to_string();
             (!path.is_empty()).then_some(PathBuf::from(path))
         })
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_SHARED_ROOT))
+        .unwrap_or_else(|| default_shared_root(ModuleId::TeTestEquipment))
 }
 
 pub(crate) fn ensure_operation_log_layout(paths: &SharedSyncPaths) -> SyncCoreResult<()> {

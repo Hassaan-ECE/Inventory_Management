@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { InventoryShell } from "@/features/inventory/components/InventoryShell";
-import type { InventoryEntry } from "@/features/inventory/types";
+import type { InventoryEntry } from "@/modules/te-test-equipment/types";
+import { InventoryShell } from "@/shell/InventoryShell";
 import type {
   InventorySharedChangedPayload,
   InventorySyncResult,

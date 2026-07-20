@@ -53,8 +53,9 @@ pub(crate) mod test_support {
         SharedSyncRunResult, SyncAppliedMarker, SyncClientIdentity, SyncConflictReason,
         SyncConflictRecord, SyncCoreError, SyncCoreErrorKind, SyncCoreResult, SyncEntryState,
         SyncOperationEnvelope, SyncOperationPayload, SyncOperationType, SyncTombstoneRecord,
-        DEFAULT_SHARED_ROOT, SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV, SYNC_SCHEMA_VERSION,
+        SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV, SYNC_SCHEMA_VERSION,
     };
+    pub(crate) use crate::platform::DEFAULT_SHARED_ROOT;
 }
 
 use self::types::{
@@ -62,6 +63,6 @@ use self::types::{
     SharedSyncRunResult, SyncAppliedMarker, SyncClientIdentity, SyncConflictReason,
     SyncConflictRecord, SyncCoreError, SyncCoreErrorKind, SyncCoreResult, SyncEntryState,
     SyncOperationEnvelope, SyncOperationPayload, SyncTombstoneRecord, BOOTSTRAP_COMPLETE_KEY,
-    CHECKSUM_PREFIX, DEFAULT_SHARED_ROOT, LOCAL_SEQ_WIDTH, MAX_LOCAL_SEQ, OP_FILE_SUFFIX,
-    OP_TEMP_MARKER, SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV, SYNC_SCHEMA_VERSION,
+    CHECKSUM_PREFIX, LOCAL_SEQ_WIDTH, MAX_LOCAL_SEQ, OP_FILE_SUFFIX, OP_TEMP_MARKER,
+    SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV, SYNC_SCHEMA_VERSION,
 };

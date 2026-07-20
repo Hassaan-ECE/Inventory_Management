@@ -23,8 +23,8 @@ import {
   type UpdateState,
   type UpdateStatus,
   type WorkingStatus,
-} from "@/features/inventory/types";
-import { isValidDateOnly } from "@/features/inventory/lib/calibrationHealth";
+} from "@/modules/te-test-equipment/types";
+import { isValidDateOnly } from "@/modules/te-test-equipment/lib/calibrationHealth";
 
 const IMPORT_CLASSIFICATIONS = new Set<ImportClassification>([
   "inserted", "matched", "conflicted", "rejected", "ignored",

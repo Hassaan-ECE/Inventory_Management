@@ -1,7 +1,7 @@
 import { act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { InventoryEntryInput } from "@/features/inventory/types";
+import type { InventoryEntryInput } from "@/modules/te-test-equipment/types";
 
 describe("tauri inventory bridge", () => {
   beforeEach(() => {

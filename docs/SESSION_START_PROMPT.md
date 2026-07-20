@@ -57,13 +57,13 @@ Updater is **off** until new signing keys + GitHub Releases exist. Do not reuse 
 - Scaffold from TE Test Equipment (rebranded) at the path above.
 - Switcher UI (menu icon + short labels; placeholders for non-TE modules).
 - S: product tree created (`modules\*`, `release-support\`, `legacy-pointers\`, README).
-- Decisions IM-001…IM-012.
+- Decisions IM-001…IM-013.
 - GitHub: `https://github.com/Hassaan-ECE/Inventory_Management.git` (`origin` / `main`).
 - **IM-011 adaptive TE sync lifecycle** — completion-aware 2s/60s scheduling, session tokens, hard deactivate on deselect, `syncIntervalMs` removed. Plan + verification notes in handoff.
+- **IM-012 logical architecture extract** — product shell under `frontend/src/shell`, registry/sync under `frontend/src/platform`, TE under `frontend/src/modules/te-test-equipment`, placeholder hosts beside it, and backend `ModuleId`/root/session-map seams under `backend/src/platform` plus `backend/src/runtime`.
 
 **Not done**
 
-- Modular folder extract (`modules/` platform split) / monorepo architecture (IM-012).
 - Real ports of Lab Components / ME Storage / TE Storage Room.
 - TE data cutover from legacy `InventoryApps\...` shares into `modules\TE_Test_Equipment`.
 - Team installer on S:; updater keys + GitHub Releases.
@@ -75,10 +75,8 @@ Full “what works on desktop vs remaining work” map:
 `docs/superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md`
 
 1. ~~Phase A TE path~~ **done:** Shared works on product module tree; **IM-013** long-term `modules\TE_Test_Equipment` (not default env→legacy).
-2. **Phase B (next, planned)** — Architecture extract (**IM-012**):  
-   `docs/superpowers/plans/2026-07-20-platform-module-architecture-extract.md`  
-   (implementor paste prompt is §8 of that plan). Logical shell/platform/modules; not multi-crate yet.
-3. Phase C — Port Lab Components / ME Storage / TE Storage Room one by one (each own `modules\<Name>\`).
+2. ~~Phase B architecture extract (IM-012)~~ **done 2026-07-20** — shell/platform/modules; plan under `docs/superpowers/plans/`.
+3. **Phase C (next)** — Port Lab Components / ME Storage / TE Storage Room one by one (each own product `modules\<Name>\`).
 4. Phase D — Updater keypair + GitHub Releases + team installer; archive standalones after deliberate migration.
 5. Optional: A2 live cadence soak-test; later TE data migration/import into the product module path (not dual-write with standalone).
 
@@ -95,4 +93,4 @@ Do **not** default `INVENTORY_MANAGEMENT_SHARED_ROOT` to legacy InventoryApps fo
 
 ## First reply in the new chat
 
-Summarize: workspace path, product identity, that **IM-011 is done for TE**, and the next open slices (architecture extract, TE cutover, other modules, updater). Ask the owner what to do first.
+Summarize: workspace path, product identity, that **IM-011 and IM-012 are done for TE**, and the next open slices (TE migration/import planning, other module ports, updater). Ask the owner what to do first.

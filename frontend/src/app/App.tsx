@@ -1,4 +1,4 @@
-import { InventoryShell } from "@/features/inventory/components/InventoryShell";
+import { InventoryShell } from "@/shell/InventoryShell";
 
 export function App() {
   return <InventoryShell />;

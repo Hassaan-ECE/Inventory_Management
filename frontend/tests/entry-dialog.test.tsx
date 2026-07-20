@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { EntryDialog } from "@/features/inventory/components/EntryDialog";
-import type { InventoryEntry, InventoryEntryInput } from "@/features/inventory/types";
+import { EntryDialog } from "@/modules/te-test-equipment/components/EntryDialog";
+import type { InventoryEntry, InventoryEntryInput } from "@/modules/te-test-equipment/types";
 
 const BASE_ENTRY: InventoryEntry = {
   archived: false,

@@ -2,8 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ImportDialog } from "@/features/inventory/components/ImportDialog";
-import type { ImportDryRunReport } from "@/features/inventory/types";
+import { ImportDialog } from "@/modules/te-test-equipment/components/ImportDialog";
+import type { ImportDryRunReport } from "@/modules/te-test-equipment/types";
 import { createDesktopBridge } from "./inventory-shell/helpers";
 
 describe("ImportDialog", () => {

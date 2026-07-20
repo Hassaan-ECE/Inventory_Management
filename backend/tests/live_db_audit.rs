@@ -4,6 +4,9 @@
 pub(crate) mod entry_changes_impl;
 #[path = "../src/domain/model.rs"]
 pub(crate) mod model;
+#[allow(dead_code, unused_imports)]
+#[path = "../src/platform/mod.rs"]
+pub(crate) mod platform;
 #[path = "../src/storage/mod.rs"]
 pub(crate) mod store;
 #[allow(dead_code, unused_imports)]
@@ -110,10 +113,7 @@ fn audit_live_database_snapshot_aggregates_only() {
     println!("lifecycle: {lifecycle:?}");
     println!(
         "duplicate_identity: asset_keys={} asset_rows={} serial_keys={} serial_rows={}",
-        duplicate_asset_keys,
-        duplicate_asset_rows,
-        duplicate_serial_keys,
-        duplicate_serial_rows
+        duplicate_asset_keys, duplicate_asset_rows, duplicate_serial_keys, duplicate_serial_rows
     );
     assert!(!entries.is_empty());
 }
@@ -138,20 +138,21 @@ fn pull_live_shared_root_into_empty_temp_db_when_requested() {
         shared_root.display()
     );
 
-    let op_count_before = std::fs::read_dir(shared_root.join("shared").join("inventory").join("ops"))
-        .into_iter()
-        .flatten()
-        .filter_map(|entry| entry.ok())
-        .flat_map(|client| std::fs::read_dir(client.path()).into_iter().flatten())
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry
-                .path()
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.ends_with(".op.json"))
-        })
-        .count();
+    let op_count_before =
+        std::fs::read_dir(shared_root.join("shared").join("inventory").join("ops"))
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| entry.ok())
+            .flat_map(|client| std::fs::read_dir(client.path()).into_iter().flatten())
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry
+                    .path()
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.ends_with(".op.json"))
+            })
+            .count();
 
     let temp = std::env::temp_dir().join(format!(
         "te-live-shared-pull-{}",
@@ -181,20 +182,21 @@ fn pull_live_shared_root_into_empty_temp_db_when_requested() {
         "fresh client should hydrate one entry per durable op (ops={op_count_before})"
     );
 
-    let op_count_after = std::fs::read_dir(shared_root.join("shared").join("inventory").join("ops"))
-        .into_iter()
-        .flatten()
-        .filter_map(|entry| entry.ok())
-        .flat_map(|client| std::fs::read_dir(client.path()).into_iter().flatten())
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry
-                .path()
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.ends_with(".op.json"))
-        })
-        .count();
+    let op_count_after =
+        std::fs::read_dir(shared_root.join("shared").join("inventory").join("ops"))
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| entry.ok())
+            .flat_map(|client| std::fs::read_dir(client.path()).into_iter().flatten())
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry
+                    .path()
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.ends_with(".op.json"))
+            })
+            .count();
     assert_eq!(
         op_count_after, op_count_before,
         "pull-only client must not write extra operation files"

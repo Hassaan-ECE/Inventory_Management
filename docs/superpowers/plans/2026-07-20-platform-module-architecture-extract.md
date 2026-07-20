@@ -11,7 +11,7 @@
 **Decisions:** [IM-004](../../planning/DECISIONS.md), [IM-012](../../planning/DECISIONS.md), [IM-013](../../planning/DECISIONS.md), [IM-011](../../planning/DECISIONS.md) (adaptive sync already shipped for TE).  
 **Roadmap context:** [2026-07-20-desktop-capability-and-roadmap.md](./2026-07-20-desktop-capability-and-roadmap.md) Phase **B**.
 
-**Status:** Ready for implementation (planning complete 2026-07-20).
+**Status:** Implemented and verified 2026-07-20 (Tasks 1–7 complete; measured results in `docs/SESSION_HANDOFF.md`).
 
 ---
 

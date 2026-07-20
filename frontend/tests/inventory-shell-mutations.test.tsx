@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { InventoryShell } from "@/features/inventory/components/InventoryShell";
-import type { InventoryEntry } from "@/features/inventory/types";
+import type { InventoryEntry } from "@/modules/te-test-equipment/types";
+import { InventoryShell } from "@/shell/InventoryShell";
 import {
   CONNECTED_SHARED_STATUS,
   LOCAL_SHARED_STATUS,

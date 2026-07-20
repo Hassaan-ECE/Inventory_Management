@@ -23,7 +23,7 @@ import type {
   InventoryQueryInput,
   ImportCommitInput,
   UpdateState,
-} from "@/features/inventory/types";
+} from "@/modules/te-test-equipment/types";
 import type { InventorySharedChangedPayload } from "@/integrations/tauri/desktop-bridge";
 
 const updateStateListeners = new Set<(state: UpdateState) => void>();

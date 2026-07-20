@@ -12,8 +12,8 @@ import type {
   ImportCommitResult,
   ImportDryRunReport,
   UpdateState,
-} from "@/features/inventory/types";
-import type { InventorySystemId } from "@/features/inventory/lib/inventorySystems";
+} from "@/modules/te-test-equipment/types";
+import type { ModuleId } from "@/platform/modules/types";
 
 export interface InventorySyncResult {
   dbPath: string;
@@ -23,7 +23,7 @@ export interface InventorySyncResult {
 }
 
 export interface InventorySharedChangedPayload {
-  systemId: InventorySystemId;
+  systemId: ModuleId;
 }
 
 declare global {

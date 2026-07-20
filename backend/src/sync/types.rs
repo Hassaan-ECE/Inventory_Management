@@ -6,10 +6,6 @@ use crate::model::{InventoryEntry, InventorySharedStatus};
 
 pub(crate) const SHARED_ROOT_ENV: &str = "INVENTORY_MANAGEMENT_SHARED_ROOT";
 pub(crate) const SHARED_SYNC_ENABLED_ENV: &str = "INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED";
-/// Product share root for Inventory Management (installers + module trees live under this folder).
-/// Until multi-module sync is wired, the default TE Test Equipment module path is used for shared ops.
-pub(crate) const DEFAULT_SHARED_ROOT: &str =
-    r"S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Test_Equipment";
 pub(crate) const SYNC_SCHEMA_VERSION: u16 = 2;
 
 pub(super) const OP_FILE_SUFFIX: &str = ".op.json";

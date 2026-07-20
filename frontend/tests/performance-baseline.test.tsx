@@ -5,10 +5,10 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
 
-import { InventoryTable } from "@/features/inventory/components/InventoryTable";
-import { MOCK_INVENTORY } from "@/features/inventory/data/mockInventory";
-import { DEFAULT_FILTERS, filterEntries, sortEntries } from "@/features/inventory/lib";
-import { INVENTORY_COLUMNS, type InventoryEntry } from "@/features/inventory/types";
+import { InventoryTable } from "@/modules/te-test-equipment/components/InventoryTable";
+import { MOCK_INVENTORY } from "@/modules/te-test-equipment/data/mockInventory";
+import { DEFAULT_FILTERS, filterEntries, sortEntries } from "@/modules/te-test-equipment/lib";
+import { INVENTORY_COLUMNS, type InventoryEntry } from "@/modules/te-test-equipment/types";
 
 interface DurationMetric {
   dataset: string;

@@ -1,6 +1,7 @@
 pub(crate) mod api;
 pub(crate) mod domain;
 pub(crate) mod integrations;
+pub(crate) mod platform;
 pub(crate) mod runtime;
 pub(crate) mod storage;
 mod sync;

@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -9,10 +10,9 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
 use uuid::Uuid;
 
-use crate::model::CommandResult;
+use crate::{model::CommandResult, platform::ModuleId};
 
 pub(crate) const SHARED_INVENTORY_CHANGED_EVENT: &str = "inventory:shared-changed";
-pub(crate) const TE_TEST_EQUIPMENT_SYSTEM_ID: &str = "te-test-equipment";
 const WATCHER_EMIT_DEBOUNCE: Duration = Duration::from_millis(500);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -21,17 +21,32 @@ pub(crate) struct InventorySharedChangedPayload {
     pub(crate) system_id: &'static str,
 }
 
-/// TE-global lifecycle for this iteration; future inventories should use a system-id session map.
 pub(crate) struct SharedSyncWatcher {
-    state: Mutex<SharedSyncWatcherState>,
+    state: Mutex<SharedSyncLifecycleState>,
 }
 
-struct SharedSyncWatcherState {
+struct SharedSyncLifecycleState {
+    sessions: HashMap<ModuleId, ModuleSyncSessionState>,
+}
+
+struct ModuleSyncSessionState {
     current_session_id: Option<String>,
     watched_path: Option<PathBuf>,
     watcher: Option<RecommendedWatcher>,
     last_emit: Arc<Mutex<Option<Instant>>>,
     watcher_degraded: bool,
+}
+
+impl ModuleSyncSessionState {
+    fn new() -> Self {
+        Self {
+            current_session_id: None,
+            watched_path: None,
+            watcher: None,
+            last_emit: Arc::new(Mutex::new(None)),
+            watcher_degraded: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,27 +58,38 @@ pub(crate) struct SyncSessionCompletion {
 impl SharedSyncWatcher {
     pub(crate) fn new() -> Self {
         Self {
-            state: Mutex::new(SharedSyncWatcherState {
-                current_session_id: None,
-                watched_path: None,
-                watcher: None,
-                last_emit: Arc::new(Mutex::new(None)),
-                watcher_degraded: false,
+            state: Mutex::new(SharedSyncLifecycleState {
+                sessions: HashMap::new(),
             }),
         }
     }
 
     pub(crate) fn activate_session(&self) -> CommandResult<String> {
+        self.activate_session_for(ModuleId::TeTestEquipment)
+    }
+
+    fn activate_session_for(&self, module: ModuleId) -> CommandResult<String> {
         let session_id = Uuid::new_v4().to_string();
         let mut state = self.lock_state()?;
-        stop_watching(&mut state);
-        state.current_session_id = Some(session_id.clone());
+        let session = state
+            .sessions
+            .entry(module)
+            .or_insert_with(ModuleSyncSessionState::new);
+        stop_watching(session);
+        session.current_session_id = Some(session_id.clone());
         Ok(session_id)
     }
 
     pub(crate) fn begin_sync(&self, session_id: &str) -> CommandResult<bool> {
+        self.begin_sync_for(ModuleId::TeTestEquipment, session_id)
+    }
+
+    fn begin_sync_for(&self, module: ModuleId, session_id: &str) -> CommandResult<bool> {
         let state = self.lock_state()?;
-        Ok(session_is_current(&state, session_id))
+        Ok(state
+            .sessions
+            .get(&module)
+            .is_some_and(|session| session_is_current(session, session_id)))
     }
 
     pub(crate) fn complete_sync<R: Runtime>(
@@ -72,8 +98,9 @@ impl SharedSyncWatcher {
         session_id: &str,
         ops_dir: &Path,
     ) -> CommandResult<SyncSessionCompletion> {
-        self.complete_sync_with_emit(session_id, ops_dir, move || {
-            emit_shared_inventory_changed(&app);
+        let module = ModuleId::TeTestEquipment;
+        self.complete_sync_with_emit_for(module, session_id, ops_dir, move || {
+            emit_module_shared_inventory_changed(&app, module);
         })
     }
 
@@ -81,24 +108,48 @@ impl SharedSyncWatcher {
         &self,
         session_id: &str,
     ) -> CommandResult<SyncSessionCompletion> {
+        self.complete_sync_without_watcher_for(ModuleId::TeTestEquipment, session_id)
+    }
+
+    fn complete_sync_without_watcher_for(
+        &self,
+        module: ModuleId,
+        session_id: &str,
+    ) -> CommandResult<SyncSessionCompletion> {
         let state = self.lock_state()?;
         Ok(SyncSessionCompletion {
-            current: session_is_current(&state, session_id),
+            current: state
+                .sessions
+                .get(&module)
+                .is_some_and(|session| session_is_current(session, session_id)),
             watcher_degradation_started: false,
         })
     }
 
     pub(crate) fn deactivate_session(&self, session_id: &str) -> CommandResult<bool> {
+        self.deactivate_session_for(ModuleId::TeTestEquipment, session_id)
+    }
+
+    fn deactivate_session_for(&self, module: ModuleId, session_id: &str) -> CommandResult<bool> {
         let mut state = self.lock_state()?;
-        if !session_is_current(&state, session_id) {
+        if !state
+            .sessions
+            .get(&module)
+            .is_some_and(|session| session_is_current(session, session_id))
+        {
             return Ok(false);
         }
 
-        state.current_session_id = None;
-        stop_watching(&mut state);
+        let mut session = state
+            .sessions
+            .remove(&module)
+            .expect("current module session must exist");
+        session.current_session_id = None;
+        stop_watching(&mut session);
         Ok(true)
     }
 
+    #[cfg(test)]
     fn complete_sync_with_emit<F>(
         &self,
         session_id: &str,
@@ -108,9 +159,23 @@ impl SharedSyncWatcher {
     where
         F: Fn() + Send + 'static,
     {
-        self.complete_sync_with_attach(session_id, ops_dir, emit, ensure_watching)
+        self.complete_sync_with_emit_for(ModuleId::TeTestEquipment, session_id, ops_dir, emit)
     }
 
+    fn complete_sync_with_emit_for<F>(
+        &self,
+        module: ModuleId,
+        session_id: &str,
+        ops_dir: &Path,
+        emit: F,
+    ) -> CommandResult<SyncSessionCompletion>
+    where
+        F: Fn() + Send + 'static,
+    {
+        self.complete_sync_with_attach_for(module, session_id, ops_dir, emit, ensure_watching)
+    }
+
+    #[cfg(test)]
     fn complete_sync_with_attach<F, A>(
         &self,
         session_id: &str,
@@ -120,25 +185,52 @@ impl SharedSyncWatcher {
     ) -> CommandResult<SyncSessionCompletion>
     where
         F: Fn() + Send + 'static,
-        A: FnOnce(&mut SharedSyncWatcherState, &Path, F) -> CommandResult<()>,
+        A: FnOnce(&mut ModuleSyncSessionState, &Path, F) -> CommandResult<()>,
+    {
+        self.complete_sync_with_attach_for(
+            ModuleId::TeTestEquipment,
+            session_id,
+            ops_dir,
+            emit,
+            attach,
+        )
+    }
+
+    fn complete_sync_with_attach_for<F, A>(
+        &self,
+        module: ModuleId,
+        session_id: &str,
+        ops_dir: &Path,
+        emit: F,
+        attach: A,
+    ) -> CommandResult<SyncSessionCompletion>
+    where
+        F: Fn() + Send + 'static,
+        A: FnOnce(&mut ModuleSyncSessionState, &Path, F) -> CommandResult<()>,
     {
         let mut state = self.lock_state()?;
-        if !session_is_current(&state, session_id) {
+        let Some(session) = state.sessions.get_mut(&module) else {
+            return Ok(SyncSessionCompletion {
+                current: false,
+                watcher_degradation_started: false,
+            });
+        };
+        if !session_is_current(session, session_id) {
             return Ok(SyncSessionCompletion {
                 current: false,
                 watcher_degradation_started: false,
             });
         }
 
-        let watcher_degradation_started = match attach(&mut state, ops_dir, emit) {
+        let watcher_degradation_started = match attach(session, ops_dir, emit) {
             Ok(()) => {
-                state.watcher_degraded = false;
+                session.watcher_degraded = false;
                 false
             }
             Err(_) => {
-                let degradation_started = !state.watcher_degraded;
-                stop_watcher_resources(&mut state);
-                state.watcher_degraded = true;
+                let degradation_started = !session.watcher_degraded;
+                stop_watcher_resources(session);
+                session.watcher_degraded = true;
                 degradation_started
             }
         };
@@ -149,7 +241,7 @@ impl SharedSyncWatcher {
         })
     }
 
-    fn lock_state(&self) -> CommandResult<std::sync::MutexGuard<'_, SharedSyncWatcherState>> {
+    fn lock_state(&self) -> CommandResult<std::sync::MutexGuard<'_, SharedSyncLifecycleState>> {
         self.state
             .lock()
             .map_err(|_| "Shared sync watcher state is unavailable.".to_string())
@@ -157,28 +249,52 @@ impl SharedSyncWatcher {
 
     #[cfg(test)]
     pub(crate) fn watched_path_for_test(&self) -> Option<PathBuf> {
+        self.state.lock().ok().and_then(|state| {
+            state
+                .sessions
+                .get(&ModuleId::TeTestEquipment)
+                .and_then(|session| session.watched_path.clone())
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn session_count_for_test(&self) -> usize {
         self.state
             .lock()
-            .ok()
-            .and_then(|state| state.watched_path.clone())
+            .map(|state| state.sessions.len())
+            .unwrap_or(0)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn current_session_for_test(&self, module: ModuleId) -> Option<String> {
+        self.state.lock().ok().and_then(|state| {
+            state
+                .sessions
+                .get(&module)
+                .and_then(|session| session.current_session_id.clone())
+        })
     }
 }
 
 pub(crate) fn emit_shared_inventory_changed<R: Runtime>(app: &AppHandle<R>) {
+    emit_module_shared_inventory_changed(app, ModuleId::TeTestEquipment);
+}
+
+fn emit_module_shared_inventory_changed<R: Runtime>(app: &AppHandle<R>, module: ModuleId) {
     let _ = app.emit(
         SHARED_INVENTORY_CHANGED_EVENT,
         InventorySharedChangedPayload {
-            system_id: TE_TEST_EQUIPMENT_SYSTEM_ID,
+            system_id: module.as_system_id_str(),
         },
     );
 }
 
-fn session_is_current(state: &SharedSyncWatcherState, session_id: &str) -> bool {
+fn session_is_current(state: &ModuleSyncSessionState, session_id: &str) -> bool {
     state.current_session_id.as_deref() == Some(session_id)
 }
 
 fn ensure_watching<F>(
-    state: &mut SharedSyncWatcherState,
+    state: &mut ModuleSyncSessionState,
     ops_dir: &Path,
     emit: F,
 ) -> CommandResult<()>
@@ -225,12 +341,12 @@ where
     Ok(())
 }
 
-fn stop_watching(state: &mut SharedSyncWatcherState) {
+fn stop_watching(state: &mut ModuleSyncSessionState) {
     stop_watcher_resources(state);
     state.watcher_degraded = false;
 }
 
-fn stop_watcher_resources(state: &mut SharedSyncWatcherState) {
+fn stop_watcher_resources(state: &mut ModuleSyncSessionState) {
     state.watcher.take();
     state.watched_path = None;
     state.last_emit = Arc::new(Mutex::new(None));
@@ -292,9 +408,29 @@ mod tests {
     }
 
     #[test]
+    fn lifecycle_sessions_are_keyed_by_module_and_removed_on_deactivation() {
+        let watcher = SharedSyncWatcher::new();
+
+        assert_eq!(watcher.session_count_for_test(), 0);
+        let session = watcher.activate_session().unwrap();
+        assert_eq!(watcher.session_count_for_test(), 1);
+        assert_eq!(
+            watcher.current_session_for_test(ModuleId::TeTestEquipment),
+            Some(session.clone())
+        );
+
+        assert!(watcher.deactivate_session(&session).unwrap());
+        assert_eq!(watcher.session_count_for_test(), 0);
+        assert_eq!(
+            watcher.current_session_for_test(ModuleId::TeTestEquipment),
+            None
+        );
+    }
+
+    #[test]
     fn shared_change_payload_is_scoped_to_te_test_equipment() {
         let payload = InventorySharedChangedPayload {
-            system_id: TE_TEST_EQUIPMENT_SYSTEM_ID,
+            system_id: ModuleId::TeTestEquipment.as_system_id_str(),
         };
 
         assert_eq!(

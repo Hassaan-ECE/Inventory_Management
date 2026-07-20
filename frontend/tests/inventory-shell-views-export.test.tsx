@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { InventoryShell } from "@/features/inventory/components/InventoryShell";
-import { THEME_STORAGE_KEY } from "@/features/inventory/components/shell/helpers";
+import { THEME_STORAGE_KEY } from "@/platform/ui/theme";
+import { InventoryShell } from "@/shell/InventoryShell";
 import {
   CONNECTED_SHARED_STATUS,
   TEST_DB_PATH,

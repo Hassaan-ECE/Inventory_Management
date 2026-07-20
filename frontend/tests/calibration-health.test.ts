@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveCalibrationHealth } from "@/features/inventory/lib/calibrationHealth";
+import { deriveCalibrationHealth } from "@/modules/te-test-equipment/lib/calibrationHealth";
 import type {
   CalibrationRequirement,
   InventoryEntry,
-} from "@/features/inventory/types";
+} from "@/modules/te-test-equipment/types";
 
 const LOCAL_DATE = "2026-07-13";
 

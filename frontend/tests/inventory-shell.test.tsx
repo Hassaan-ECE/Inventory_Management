@@ -3,8 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { APP_CREDIT, APP_VERSION } from "@/app/branding";
-import { InventoryShell } from "@/features/inventory/components/InventoryShell";
-import type { InventoryEntry } from "@/features/inventory/types";
+import type { InventoryEntry } from "@/modules/te-test-equipment/types";
+import { InventoryShell } from "@/shell/InventoryShell";
 import {
   CONNECTED_SHARED_STATUS,
   DISABLED_SHARED_STATUS,
