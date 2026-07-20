@@ -3,7 +3,8 @@
 **Last updated:** 2026-07-20  
 **State:** Scaffold `0.1.0` — new product identity + S: product share; switcher UI; TE module only; adaptive TE sync lifecycle implemented.  
 **Implemented redesign:** Adaptive per-inventory sync lifecycle **IM-011** — authority (status **implemented**): [superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md](superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md).  
-**Docs hygiene:** SESSION_START_PROMPT, AGENTS priorities, DECISIONS IM-011, CHAT_HANDOFF, and docs index refreshed 2026-07-20 so new chats do not re-open IM-011 as open work.
+**Docs hygiene:** SESSION_START_PROMPT, AGENTS priorities, DECISIONS IM-011, CHAT_HANDOFF, and docs index refreshed 2026-07-20 so new chats do not re-open IM-011 as open work.  
+**Desktop runtime fixes (2026-07-20):** `devUrl` uses `http://127.0.0.1:5173` (avoid localhost→IPv6); capability `core:window:allow-set-title`; adaptive controller wraps `setTimeout`/`clearTimeout` to avoid WebView `Illegal invocation`. Full restart of `bun run desktop` required after capability change.
 
 **New chat:** paste [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md). Move context: [CHAT_HANDOFF.md](CHAT_HANDOFF.md).
 
@@ -83,8 +84,9 @@ Continue to work in their own trees until cutover; do not treat this folder as T
 ## Next slices
 
 1. ~~Connect new GitHub remote; initial push~~ done (`origin` / `main`)  
-2. ~~Implement IM-011 adaptive sync against switcher + TE module~~ done and verified 2026-07-20 (optional residual: live DevTools cadence counts when shared sync finishes loading)  
-3. Architecture extract: shared platform + module boundaries (IM-012)  
-4. TE cutover path: empty `modules\TE_Test_Equipment` vs env → legacy share  
-5. Port other modules; archive standalone repos after team cutover  
-6. Updater keypair for `com.inventory.management` only  
+2. ~~Implement IM-011 adaptive sync against switcher + TE module~~ done and verified 2026-07-20 (optional residual: live DevTools cadence counts when owner soak-tests)  
+3. **Capability map + roadmap:** [superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md](superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md)  
+4. ~~Phase A TE path: shared health + cutover~~ **done** — owner confirmed **Shared** on product module path; **IM-013** = long-term `modules\TE_Test_Equipment` (not default legacy pilot)  
+5. **Next:** Phase B architecture extract (IM-012) — monorepo map then shell/module seams **before** Lab/ME/Storage ports  
+6. Phase C: Port Lab Components / ME Storage / TE Storage Room (each under own `modules\<Name>\`)  
+7. Phase D: Updater keys, GitHub Releases, team installer; archive standalones after deliberate migration  

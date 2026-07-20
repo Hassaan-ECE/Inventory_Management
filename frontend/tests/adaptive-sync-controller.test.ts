@@ -18,6 +18,19 @@ describe("AdaptiveSyncController", () => {
     vi.useRealTimers();
   });
 
+  it("uses default timers without Illegal invocation when no timer injectors are provided", async () => {
+    vi.useRealTimers();
+    const runSync = vi.fn().mockResolvedValue(undefined);
+    const controller = new AdaptiveSyncController({
+      focused: true,
+      runSync,
+      visible: true,
+    });
+
+    expect(() => controller.start()).not.toThrow();
+    controller.stop();
+  });
+
   it("schedules active polling only after the previous sync completes", async () => {
     const firstSync = createDeferred<void>();
     const runSync = vi.fn()

@@ -33,6 +33,10 @@ Bannered or archive material. Do **not** use for current version, sync default, 
 
 - [superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md](superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md) — **IM-011** adaptive TE sync (**implemented 2026-07-20**). Use for regressions and future multi-inventory extension; do not treat as unimplemented backlog.
 
+## Active roadmap (open work)
+
+- [superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md](superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md) — what `bun run desktop` does today vs phases A–D (TE ops, architecture, module ports, ship).
+
 ## Active cutover design (not yet “done”)
 
 - `superpowers/specs/2026-07-15-legacy-inventory-merge-design.md` — legacy supplement design; implementation status is in handoff/data, not assumed complete from the spec alone.

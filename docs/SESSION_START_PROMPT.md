@@ -71,13 +71,17 @@ Updater is **off** until new signing keys + GitHub Releases exist. Do not reuse 
 
 ## Priorities (next work)
 
-1. Architecture: shared shell/platform + per-module domains (expandable) — IM-012.
-2. TE module data cutover strategy (new `modules\TE_Test_Equipment` vs temporary env to legacy TE share).
-3. Port other inventories one by one; then archive standalones.
-4. Updater keypair + GitHub Releases for `com.inventory.management` only.
-5. Optional: close IM-011 live cadence smoke when shared root is healthy.
+Full “what works on desktop vs remaining work” map:
+`docs/superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md`
 
-Do **not** restart IM-011 implementation unless fixing a regression or extending the lifecycle to another inventory.
+1. ~~Phase A TE path~~ **done:** Shared works on product module tree; **IM-013** long-term `modules\TE_Test_Equipment` (not default env→legacy).
+2. **Phase B (next)** — Architecture: shared shell/platform + per-module domains (**IM-012**) before extra ports. Start with monorepo map (B1).
+3. Phase C — Port Lab Components / ME Storage / TE Storage Room one by one (each own `modules\<Name>\`).
+4. Phase D — Updater keypair + GitHub Releases + team installer; archive standalones after deliberate migration.
+5. Optional: A2 live cadence soak-test; later TE data migration/import into the product module path (not dual-write with standalone).
+
+Do **not** restart IM-011 implementation unless fixing a regression or extending the lifecycle to another inventory.  
+Do **not** default `INVENTORY_MANAGEMENT_SHARED_ROOT` to legacy InventoryApps for normal development (IM-013).
 
 ## Rules
 

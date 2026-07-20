@@ -37,12 +37,16 @@ export class AdaptiveSyncController {
 
   constructor(options: AdaptiveSyncControllerOptions) {
     this.activeDelayMs = options.activeDelayMs ?? ACTIVE_SYNC_DELAY_MS;
-    this.clearScheduledTimeout = options.clearTimeout ?? clearTimeout;
+    // Wrap defaults so calling as a method never loses the global timer receiver
+    // (bare `setTimeout` / `clearTimeout` throw "Illegal invocation" in the WebView).
+    this.clearScheduledTimeout =
+      options.clearTimeout ?? ((timer) => globalThis.clearTimeout(timer));
     this.focused = options.focused;
     this.idleAfterMs = options.idleAfterMs ?? IDLE_AFTER_MS;
     this.now = options.now ?? Date.now;
     this.runSync = options.runSync;
-    this.scheduleTimeout = options.setTimeout ?? setTimeout;
+    this.scheduleTimeout =
+      options.setTimeout ?? ((callback, delayMs) => globalThis.setTimeout(callback, delayMs));
     this.slowDelayMs = options.slowDelayMs ?? SLOW_SYNC_DELAY_MS;
     this.visible = options.visible;
   }

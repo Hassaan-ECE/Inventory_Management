@@ -41,10 +41,11 @@ Modules stay **separate** under the hood (own shared roots / future per-module D
 
 ## Priorities
 
-1. Redesign monorepo (shared platform + modules) — IM-012; GitHub `origin` already connected  
-2. ~~IM-011 adaptive per-inventory sync (TE)~~ **done 2026-07-20** — behavioral authority: `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md`  
-3. TE data cutover; then port other modules (placeholders today); archive standalones only after cutover  
-4. Updater signing + GitHub Releases (new keys — do not reuse TE/ME keys)
+1. Redesign monorepo (shared platform + modules) — **IM-012** (next engineering focus; start with map B1)  
+2. ~~IM-011 adaptive TE sync~~ **done 2026-07-20** — plan under `docs/superpowers/plans/`  
+3. ~~TE path strategy~~ **IM-013**: product `modules\TE_Test_Equipment` long-term; no default legacy pilot  
+4. Port other modules (placeholders today); archive standalones only after deliberate migration  
+5. Updater signing + GitHub Releases (new keys — do not reuse TE/ME keys)
 
 ## Env (shared sync)
 
