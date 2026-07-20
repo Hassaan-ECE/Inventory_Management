@@ -1,4 +1,4 @@
-# Temporary pilot: run Inventory Management against the *legacy* TE Test Equipment share.
+# Temporary pilot: run Inventory Management against the legacy TE Test Equipment share.
 # Long-term product default remains modules\TE_Test_Equipment (IM-013).
 # Before team release: stop this override, copy latest shared data into the product module path,
 # and ship the new app as the writer for that module only.
@@ -29,12 +29,12 @@ if (-not (Test-Path -LiteralPath $sharedInventory)) {
 
 $env:INVENTORY_MANAGEMENT_SHARED_ROOT = $legacyTeRoot
 # Ensure shared sync is on for this pilot session.
-Remove-Item Env:INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED -ErrorAction SilentlyContinue
+Remove-Item Env:\INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED -ErrorAction SilentlyContinue
 
 Write-Host ""
-Write-Host "Inventory Management — TEMPORARY legacy TE shared root" -ForegroundColor Yellow
-Write-Host "  INVENTORY_MANAGEMENT_SHARED_ROOT=$legacyTeRoot"
-Write-Host "  Shared inventory: $sharedInventory"
+Write-Host "Inventory Management - TEMPORARY legacy TE shared root" -ForegroundColor Yellow
+Write-Host ("  INVENTORY_MANAGEMENT_SHARED_ROOT={0}" -f $legacyTeRoot)
+Write-Host ("  Shared inventory: {0}" -f $sharedInventory)
 Write-Host ""
 Write-Host "One writer only: close standalone TE if it uses this share." -ForegroundColor Yellow
 Write-Host "Product default (without this script) stays:" -ForegroundColor DarkGray
