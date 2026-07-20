@@ -52,8 +52,8 @@ Modules stay **separate** under the hood (own shared roots / future per-module D
 1. ~~Logical shell/platform/modules extract~~ **IM-012 done 2026-07-20** — plan: `docs/superpowers/plans/2026-07-20-platform-module-architecture-extract.md`
 2. ~~IM-011 adaptive TE sync~~ **done 2026-07-20** — plan under `docs/superpowers/plans/`  
 3. TE path: **pilot default = legacy InventoryApps TE share** so `bun run desktop` has data; **release** = product `modules\TE_Test_Equipment` after copy  
-4. Port other modules one at a time (placeholders today); archive standalones only after deliberate migration
-5. Updater signing + GitHub Releases (new keys — do not reuse TE/ME keys)
+4. **Next:** Port TE Lab Components — plan `docs/superpowers/plans/2026-07-20-te-lab-components-port.md` (ME/Storage Room later)
+5. First release prep then updater signing + GitHub Releases (new keys — do not reuse TE/ME keys)
 
 ## Env (shared sync)
 

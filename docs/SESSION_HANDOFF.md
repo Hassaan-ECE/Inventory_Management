@@ -116,5 +116,5 @@ So plain `bun run desktop` loads live TE inventory.
 3. **Capability map + roadmap:** [superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md](superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md)  
 4. ~~Phase A TE path: shared health + cutover~~ **done** — owner confirmed **Shared** on product module path; **IM-013** = long-term `modules\TE_Test_Equipment` (not default legacy pilot)  
 5. ~~Phase B architecture extract (IM-012)~~ **done and verified 2026-07-20** — plan: [superpowers/plans/2026-07-20-platform-module-architecture-extract.md](superpowers/plans/2026-07-20-platform-module-architecture-extract.md); results in § IM-012 verification  
-6. **Next:** Phase C — port Lab Components / ME Storage / TE Storage Room (each under own `modules\<Name>\`; one module at a time)  
-7. Phase D: Updater keys, GitHub Releases, team installer; archive standalones after deliberate migration  
+6. **Next (ready for implementor):** Phase **C1 TE Lab Components port** — plan: [superpowers/plans/2026-07-20-te-lab-components-port.md](superpowers/plans/2026-07-20-te-lab-components-port.md) (paste prompt §10). ME Storage + TE Storage Room deferred to a later update after first release.  
+7. Phase D (after C1 + owner QA): Updater keys, GitHub Releases, team installer; copy shared data to product `modules\...` paths; archive standalone writers  

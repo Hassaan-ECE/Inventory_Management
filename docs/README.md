@@ -36,7 +36,8 @@ Bannered or archive material. Do **not** use for current version, sync default, 
 ## Active roadmap (open work)
 
 - [superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md](superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md) — what `bun run desktop` does today vs phases A–D (TE ops, architecture, module ports, ship).
-- [superpowers/plans/2026-07-20-platform-module-architecture-extract.md](superpowers/plans/2026-07-20-platform-module-architecture-extract.md) — **IM-012** Phase B extract (implementor plan + paste prompt §8).
+- [superpowers/plans/2026-07-20-platform-module-architecture-extract.md](superpowers/plans/2026-07-20-platform-module-architecture-extract.md) — **IM-012** Phase B extract (implemented).
+- [superpowers/plans/2026-07-20-te-lab-components-port.md](superpowers/plans/2026-07-20-te-lab-components-port.md) — **C1** TE Lab Components port (implementor plan + paste prompt §10).
 
 ## Active cutover design (not yet “done”)
 

@@ -140,14 +140,14 @@ Ordered for product value and risk. Each slice should end with **verify + update
 
 ### Phase C — Port modules one by one
 
-| ID | Slice | Done means |
-|----|-------|------------|
-| C1 | **TE Lab Components** | Real data path + own shared root under `modules\TE_Lab_Components`; switcher `implemented: true` |
-| C2 | **ME Storage** | Same for ME under `modules\ME_Storage` |
-| C3 | **TE Storage Room** | Same for storage room under `modules\TE_Storage_Room` |
-| C4 | **Multi-module session wiring** | Add non-TE entries/commands to the existing `ModuleId → session` map; hard deactivate per module |
+| ID | Slice | Status | Done means |
+|----|-------|--------|------------|
+| C1 | **TE Lab Components** | **Planned** — [2026-07-20-te-lab-components-port.md](./2026-07-20-te-lab-components-port.md) | Real module + own DB + pilot share `InventoryApps\TE`; shell style match; no cal schema |
+| C2 | **ME Storage** | Deferred (post first release) | Own share under `modules\ME_Storage` |
+| C3 | **TE Storage Room** | Deferred (post first release) | Own share under `modules\TE_Storage_Room` |
+| C4 | **Multi-module session wiring** | Partial via IM-012 map; complete in C1 for Lab | Lab + TE entries in session map |
 
-Each port: own shared root, no merged tables, adaptive lifecycle pattern from IM-011.
+Owner intent: ship first release after **C1**, then C2/C3 in a later update.
 
 ### Phase D — Ship to team
 

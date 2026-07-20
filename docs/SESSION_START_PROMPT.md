@@ -76,9 +76,11 @@ Full “what works on desktop vs remaining work” map:
 
 1. ~~Phase A TE path~~ **pilot:** default shared root = live InventoryApps TE so `bun run desktop` has data; **release:** product `modules\TE_Test_Equipment` after copy.
 2. ~~Phase B architecture extract (IM-012)~~ **done 2026-07-20** — shell/platform/modules; plan under `docs/superpowers/plans/`.
-3. **Phase C (next)** — Port Lab Components / ME Storage / TE Storage Room one by one (each own product `modules\<Name>\`).
-4. Phase D — Updater keypair + GitHub Releases + team installer; archive standalones after deliberate migration.
-5. Optional: A2 live cadence soak-test; later TE data migration/import into the product module path (not dual-write with standalone).
+3. **Phase C1 (next)** — Port **TE Lab Components** only:  
+   `docs/superpowers/plans/2026-07-20-te-lab-components-port.md`  
+   (ME Storage + TE Storage Room later, post-release update).
+4. Phase D — First release prep: updater keys, GitHub Releases, installer; copy shared data to product module paths.
+5. Optional: A2 live cadence soak-test.
 
 Do **not** restart IM-011 implementation unless fixing a regression or extending the lifecycle to another inventory.  
 Do **not** default `INVENTORY_MANAGEMENT_SHARED_ROOT` to legacy InventoryApps for normal development (IM-013).
