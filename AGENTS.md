@@ -22,8 +22,8 @@ New chat: owner pastes `docs/SESSION_START_PROMPT.md`. See also `docs/CHAT_HANDO
 | Local DB — TE Test Equipment | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | Local DB — TE Lab Components | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
 | Product share (installers + modules) | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
-| Default TE shared root (pilot) | `...\InventoryApps\TE_Test_Equipment_Inventory` — flip to product `modules\TE_Test_Equipment` at release |
-| Default Lab shared root (pilot) | `...\InventoryApps\TE` — flip to product `modules\TE_Lab_Components` at release |
+| Default TE shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
+| Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
 
 ## Stack
 
@@ -54,7 +54,8 @@ Modules stay **separate** under the hood (own DBs, shared roots, domain types, a
 
 1. ~~Logical shell/platform/modules extract~~ **IM-012 done 2026-07-20** — plan: `docs/superpowers/plans/2026-07-20-platform-module-architecture-extract.md`
 2. ~~IM-011 adaptive TE sync~~ **done 2026-07-20** — plan under `docs/superpowers/plans/`  
-3. TE path: **pilot default = legacy InventoryApps TE share** so `bun run desktop` has data; **release** = product `modules\TE_Test_Equipment` after copy  
+3. Shared roots: **product modules** (TE + Lab); InventoryApps is legacy-only after 2026-07-20 copy  
+
 4. ~~Port TE Lab Components~~ **Phase C1 done 2026-07-20** — plan `docs/superpowers/plans/2026-07-20-te-lab-components-port.md`; ME/Storage Room remain deferred
 5. **Phase D first team release** — plan: `docs/superpowers/plans/2026-07-20-first-team-release.md` (copy → product roots → installer; new updater keys only if enabling auto-update)
 

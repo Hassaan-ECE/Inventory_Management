@@ -32,10 +32,8 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 | TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
 | Product share | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
-| Default TE shared root (**pilot**) | `...\InventoryApps\TE_Test_Equipment_Inventory` (live data for `bun run desktop`) |
-| Product TE root (**release target**) | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
-| Default Lab shared root (**pilot**) | `...\InventoryApps\TE` (live data for `bun run desktop`) |
-| Product Lab root (**release target**) | `...\Inventory_Management_App\modules\TE_Lab_Components` |
+| Default TE shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
+| Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
 
 ## What exists
 
@@ -75,15 +73,16 @@ Continue to work in their own trees until cutover; do not treat this folder as T
 | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` | Opt out of shared sync |
 | `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` | Optional HMAC |
 
-## Pilot shared roots (current vs release)
+## Shared roots (product defaults — cutover copy 2026-07-20)
 
-**TE Test Equipment active default (no env needed):**
-`S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory`  
+**Copy performed 2026-07-20 ~16:42 local** (robocopy `/E`, no `/MIR`) from InventoryApps pilots into product modules:
 
-**TE Lab Components active default (no env needed):**
-`S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE`
+| Module | Product shared inventory | Spot-check |
+|--------|--------------------------|------------|
+| TE Test Equipment | `...\modules\TE_Test_Equipment\shared\inventory` | manifest present; ops=1; snaps=4 |
+| TE Lab Components | `...\modules\TE_Lab_Components\shared\inventory` | manifest present; ops=1; snaps=3 |
 
-So plain `bun run desktop` loads the live pilot data for both implemented modules.
+App code defaults now point at those product roots (see `backend/src/platform/shared_root.rs`).
 
 **Rules**
 

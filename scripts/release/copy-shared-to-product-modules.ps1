@@ -2,7 +2,7 @@
 # Does NOT flip app code defaults — do that after QA (shared_root.rs).
 #
 # Usage (repo root):
-#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\release\copy-shared-to-product-modules.ps1 -WhatIf
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\release\copy-shared-to-product-modules.ps1 -DryRun
 #   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\release\copy-shared-to-product-modules.ps1
 #
 # Rules:
@@ -10,9 +10,10 @@
 # - First pass uses robocopy /E (copy subdirs, including empty). No /MIR (no delete on dest).
 # - Re-run is safe for refresh; still not a substitute for one-writer discipline after cutover.
 
-[CmdletBinding(SupportsShouldProcess = $true)]
+[CmdletBinding()]
 param(
-  [switch]$WhatIf
+  # List only (robocopy /L). Avoids clashing with PowerShell's common -WhatIf.
+  [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,12 +31,10 @@ function Copy-SharedInventory {
 
   $destParent = Split-Path -Parent $DestInventory
   if (-not (Test-Path -LiteralPath $destParent)) {
-    if ($WhatIf -or $PSCmdlet.ShouldProcess($destParent, "Create directory")) {
-      if (-not $WhatIf) {
-        New-Item -ItemType Directory -Path $destParent -Force | Out-Null
-      } else {
-        Write-Host "[WhatIf] New-Item $destParent"
-      }
+    if ($DryRun) {
+      Write-Host "[DryRun] New-Item $destParent"
+    } else {
+      New-Item -ItemType Directory -Path $destParent -Force | Out-Null
     }
   }
 
@@ -45,7 +44,7 @@ function Copy-SharedInventory {
   Write-Host "To:   $DestInventory"
 
   # /E copy subdirs including empty; /NFL /NDL quieter; /R:2 /W:2 retries
-  $args = @(
+  $robocopyArgs = @(
     $SourceInventory,
     $DestInventory,
     "/E",
@@ -56,19 +55,17 @@ function Copy-SharedInventory {
     "/NDL",
     "/NP"
   )
-  if ($WhatIf) {
-    $args += "/L"  # list only
+  if ($DryRun) {
+    $robocopyArgs += "/L"  # list only
   }
 
-  if ($WhatIf -or $PSCmdlet.ShouldProcess($DestInventory, "Robocopy shared inventory")) {
-    & robocopy @args
-    $code = $LASTEXITCODE
-    # robocopy: 0-7 often success-ish; >=8 failure
-    if ($code -ge 8) {
-      throw "robocopy failed for $Name with exit code $code"
-    }
-    Write-Host "robocopy exit code: $code (0-7 = OK for robocopy)" -ForegroundColor Green
+  & robocopy @robocopyArgs
+  $code = $LASTEXITCODE
+  # robocopy: 0-7 often success-ish; >=8 failure
+  if ($code -ge 8) {
+    throw "robocopy failed for $Name with exit code $code"
   }
+  Write-Host "robocopy exit code: $code (0-7 = OK for robocopy)" -ForegroundColor Green
 }
 
 $legacyTe = "S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory\shared\inventory"
@@ -77,8 +74,8 @@ $productTe = "S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\m
 $productLab = "S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Lab_Components\shared\inventory"
 
 Write-Host "Inventory Management - shared data copy to product modules" -ForegroundColor Yellow
-if ($WhatIf) {
-  Write-Host "MODE: WhatIf / list only (no write)" -ForegroundColor Yellow
+if ($DryRun) {
+  Write-Host "MODE: DryRun / list only (no write)" -ForegroundColor Yellow
 } else {
   Write-Host "MODE: LIVE copy (/E, no /MIR)" -ForegroundColor Yellow
   Write-Host "Ensure no dual writers on these shares." -ForegroundColor Yellow

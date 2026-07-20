@@ -128,7 +128,7 @@ fn pull_live_shared_root_into_empty_temp_db_when_requested() {
 
     let shared_root = PathBuf::from(
         std::env::var("INVENTORY_MANAGEMENT_SHARED_ROOT").unwrap_or_else(|_| {
-            r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory"
+            r"S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Test_Equipment"
                 .to_string()
         }),
     );

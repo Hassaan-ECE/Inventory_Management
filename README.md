@@ -70,15 +70,14 @@ cargo test --manifest-path backend/Cargo.toml --no-fail-fast
 bun run desktop
 ```
 
-### Shared data (pilot)
+### Shared data (product modules)
 
-`bun run desktop` uses both live pilot shares by default:
+`bun run desktop` uses product module shares by default:
 
-- TE Test Equipment: `S:\...\InventoryApps\TE_Test_Equipment_Inventory`
-- TE Lab Components: `S:\...\InventoryApps\TE`
+- TE Test Equipment: `S:\...\Inventory_Management_App\modules\TE_Test_Equipment`
+- TE Lab Components: `S:\...\Inventory_Management_App\modules\TE_Lab_Components`
 
-**One writer per root** — do not also run the corresponding standalone against either share.
-Before release: copy the latest shared data into `Inventory_Management_App\modules\TE_Test_Equipment` and `Inventory_Management_App\modules\TE_Lab_Components`, then deliberately flip both defaults.
+**One writer per root** — do not run standalone TE/Lab apps against the same product module share.
 
 ## Cutover (ops sketch)
 

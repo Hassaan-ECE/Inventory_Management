@@ -46,8 +46,8 @@ Prefer live code + those docs over stale TE planning copies still sitting under 
 | TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
 | Product share | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
-| Default TE shared root (pilot) | `...\InventoryApps\TE_Test_Equipment_Inventory` (release target: product `modules\TE_Test_Equipment`) |
-| Default Lab shared root (pilot) | `...\InventoryApps\TE` (release target: product `modules\TE_Lab_Components`) |
+| Default TE shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
+| Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
 | Env prefix | `INVENTORY_MANAGEMENT_*` |
 
 Updater is **enabled in config** (product-specific pubkey + GitHub Releases `latest.json`). Sign with private key outside the repo — see `docs/engineering/UPDATER_AND_RELEASE.md`. Do not reuse TE/ME keys.
