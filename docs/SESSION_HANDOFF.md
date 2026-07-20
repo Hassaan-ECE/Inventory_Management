@@ -70,6 +70,30 @@ Continue to work in their own trees until cutover; do not treat this folder as T
 | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` | Opt out of shared sync |
 | `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` | Optional HMAC |
 
+## Temporary TE pilot on legacy share (owner validation)
+
+**Long-term default is unchanged (IM-013):**  
+`...\Inventory_Management_App\modules\TE_Test_Equipment`
+
+**For UI/data validation only**, point at live legacy TE data without changing product defaults:
+
+```powershell
+cd C:\Projects\Active\Inventory_Management
+powershell -File scripts\desktop-legacy-te-share.ps1
+```
+
+That sets:
+
+```text
+INVENTORY_MANAGEMENT_SHARED_ROOT=S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory
+```
+
+**Rules**
+
+- One writer only — do **not** run standalone TE Test Equipment Inventory against that same share while piloting.
+- Plain `bun run desktop` (no script) still uses the **product** module path.
+- **Before team release:** stop using the legacy override; copy the **most recent** shared inventory from legacy into `modules\TE_Test_Equipment\shared\...` (or re-bootstrap from a final snapshot); then team uses only Inventory Management on the product path and archive/stop standalone TE writers for that module.
+
 ## IM-011 verification — 2026-07-20
 
 - Targeted frontend sync/switcher gate: **4 files, 57 tests passed**.

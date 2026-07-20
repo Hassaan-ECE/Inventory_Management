@@ -68,6 +68,19 @@ cargo test --manifest-path backend/Cargo.toml --no-fail-fast
 bun run desktop
 ```
 
+### Temporary: live TE data from legacy share
+
+Product default shared root is `modules\TE_Test_Equipment`. To validate UI against the current team TE share **without changing that default**:
+
+```powershell
+bun run desktop:legacy-te
+```
+
+Sets `INVENTORY_MANAGEMENT_SHARED_ROOT` to  
+`S:\...\InventoryApps\TE_Test_Equipment_Inventory`.  
+**One writer only** — do not run the standalone TE app on that share at the same time.  
+Before release: copy latest shared data into the product module path and stop using this override.
+
 ## Cutover (ops sketch)
 
 1. Keep standalone installers available under `InventoryApps\...`.
