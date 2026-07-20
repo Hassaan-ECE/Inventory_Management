@@ -45,7 +45,7 @@ Prefer live code + those docs over stale TE planning copies still sitting under 
 | Tauri id | `com.inventory.management` |
 | Local DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | Product share | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
-| Default TE module shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
+| Default TE shared root (pilot) | `...\InventoryApps\TE_Test_Equipment_Inventory` (release target: product `modules\TE_Test_Equipment`) |
 | Env prefix | `INVENTORY_MANAGEMENT_*` |
 
 Updater is **off** until new signing keys + GitHub Releases exist. Do not reuse TE/ME updater keys or endpoints.
@@ -74,7 +74,7 @@ Updater is **off** until new signing keys + GitHub Releases exist. Do not reuse 
 Full “what works on desktop vs remaining work” map:
 `docs/superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md`
 
-1. ~~Phase A TE path~~ **done:** Shared works on product module tree; **IM-013** long-term `modules\TE_Test_Equipment` (not default env→legacy).
+1. ~~Phase A TE path~~ **pilot:** default shared root = live InventoryApps TE so `bun run desktop` has data; **release:** product `modules\TE_Test_Equipment` after copy.
 2. ~~Phase B architecture extract (IM-012)~~ **done 2026-07-20** — shell/platform/modules; plan under `docs/superpowers/plans/`.
 3. **Phase C (next)** — Port Lab Components / ME Storage / TE Storage Room one by one (each own product `modules\<Name>\`).
 4. Phase D — Updater keypair + GitHub Releases + team installer; archive standalones after deliberate migration.

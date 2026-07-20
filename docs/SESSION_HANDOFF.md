@@ -31,7 +31,8 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 | Tauri id | `com.inventory.management` |
 | Local DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | Product share | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
-| Default TE module shared root | `...\modules\TE_Test_Equipment` |
+| Default TE shared root (**pilot**) | `...\InventoryApps\TE_Test_Equipment_Inventory` (live data for `bun run desktop`) |
+| Product TE root (**release target**) | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
 
 ## What exists
 
@@ -70,29 +71,17 @@ Continue to work in their own trees until cutover; do not treat this folder as T
 | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` | Opt out of shared sync |
 | `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` | Optional HMAC |
 
-## Temporary TE pilot on legacy share (owner validation)
+## TE shared root (current pilot vs release)
 
-**Long-term default is unchanged (IM-013):**  
-`...\Inventory_Management_App\modules\TE_Test_Equipment`
+**Active default (no env needed):**  
+`S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory`  
 
-**For UI/data validation only**, point at live legacy TE data without changing product defaults:
-
-```powershell
-cd C:\Projects\Active\Inventory_Management
-powershell -File scripts\desktop-legacy-te-share.ps1
-```
-
-That sets:
-
-```text
-INVENTORY_MANAGEMENT_SHARED_ROOT=S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory
-```
+So plain `bun run desktop` loads live TE inventory.
 
 **Rules**
 
-- One writer only — do **not** run standalone TE Test Equipment Inventory against that same share while piloting.
-- Plain `bun run desktop` (no script) still uses the **product** module path.
-- **Before team release:** stop using the legacy override; copy the **most recent** shared inventory from legacy into `modules\TE_Test_Equipment\shared\...` (or re-bootstrap from a final snapshot); then team uses only Inventory Management on the product path and archive/stop standalone TE writers for that module.
+- One writer only — do **not** run standalone TE Test Equipment Inventory against that same share while this app is open.
+- **Before team release:** change `DEFAULT_SHARED_ROOT` back to product `...\Inventory_Management_App\modules\TE_Test_Equipment`, copy the latest shared inventory there, then ship; team uses only Inventory Management for that module.
 
 ## IM-011 verification — 2026-07-20
 

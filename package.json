@@ -10,7 +10,6 @@
     "dev": "bun run dev:frontend",
     "dev:frontend": "bun scripts/vite-dev.ts",
     "desktop": "cd backend && bun ../node_modules/@tauri-apps/cli/tauri.js dev",
-    "desktop:legacy-te": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/desktop-legacy-te-share.ps1",
     "dev:desktop": "cd backend && bun ../node_modules/@tauri-apps/cli/tauri.js dev",
     "start:desktop": "cd backend && bun ../node_modules/@tauri-apps/cli/tauri.js dev",
     "build": "tsc -b && vite build --config frontend/vite.config.ts",

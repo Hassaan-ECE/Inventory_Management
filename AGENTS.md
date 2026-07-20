@@ -21,7 +21,7 @@ New chat: owner pastes `docs/SESSION_START_PROMPT.md`. See also `docs/CHAT_HANDO
 | Tauri id | `com.inventory.management` |
 | Local DB (shell / current TE module) | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | Product share (installers + modules) | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
-| Default TE module shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
+| Default TE shared root (pilot) | `...\InventoryApps\TE_Test_Equipment_Inventory` — flip to product `modules\TE_Test_Equipment` at release |
 
 ## Stack
 
@@ -51,7 +51,7 @@ Modules stay **separate** under the hood (own shared roots / future per-module D
 
 1. ~~Logical shell/platform/modules extract~~ **IM-012 done 2026-07-20** — plan: `docs/superpowers/plans/2026-07-20-platform-module-architecture-extract.md`
 2. ~~IM-011 adaptive TE sync~~ **done 2026-07-20** — plan under `docs/superpowers/plans/`  
-3. ~~TE path strategy~~ **IM-013**: product `modules\TE_Test_Equipment` long-term; no default legacy pilot  
+3. TE path: **pilot default = legacy InventoryApps TE share** so `bun run desktop` has data; **release** = product `modules\TE_Test_Equipment` after copy  
 4. Port other modules one at a time (placeholders today); archive standalones only after deliberate migration
 5. Updater signing + GitHub Releases (new keys — do not reuse TE/ME keys)
 
