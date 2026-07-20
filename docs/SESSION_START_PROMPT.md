@@ -83,7 +83,10 @@ Full “what works on desktop vs remaining work” map:
 2. ~~Phase B architecture extract (IM-012)~~ **done 2026-07-20** — shell/platform/modules; plan under `docs/superpowers/plans/`.
 3. ~~Phase C1 TE Lab Components~~ **done and verified 2026-07-20**:
    `docs/superpowers/plans/2026-07-20-te-lab-components-port.md`
-4. **Next:** owner live Lab CRUD/restart QA, then Phase D release prep: copy both shared datasets to product module paths, create updater keys/GitHub Releases, and place the installer on S:.
+4. **Phase D (active)** — First team release:  
+   `docs/superpowers/plans/2026-07-20-first-team-release.md`  
+   Copy script: `scripts/release/copy-shared-to-product-modules.ps1`  
+   Order: copy shared data → flip product defaults → smoke → NSIS installer (updater optional).
 5. ME Storage + TE Storage Room remain placeholders until a later post-release plan; optional A2 live cadence soak remains non-blocking.
 
 Do **not** restart IM-011 implementation unless fixing a regression or extending the lifecycle to another inventory.  
@@ -99,4 +102,4 @@ Do **not** casually change either active pilot default or release target; cutove
 
 ## First reply in the new chat
 
-Summarize: workspace path, stable product identity, that **IM-011, IM-012, and C1 are done**, that TE + Lab are real isolated modules on their pilot roots, and that ME/TE Storage remain placeholders. Ask whether the owner wants live Lab CRUD QA, release-path cutover planning, or Phase D packaging next.
+Summarize: workspace path, stable product identity, that **IM-011, IM-012, and C1 are done**, that TE + Lab are real on pilot roots, and that **Phase D first release** is next (plan + copy script ready). ME/Storage remain placeholders.

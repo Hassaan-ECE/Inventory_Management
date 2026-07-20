@@ -166,13 +166,17 @@ Owner intent: ship first release after **C1**, then C2/C3 in a later update.
 
 ### Phase D — Ship to team
 
-| ID | Slice | Done means |
-|----|-------|------------|
-| D1 | **New updater keypair** | Keys for `com.inventory.management` only (never reuse TE/ME) |
-| D2 | **GitHub Releases + updater endpoints** | Signed artifacts; updater enabled in config |
-| D3 | **Installer on product share** | NSIS at `S:\...\Inventory_Management_App\` + `release-support\vX.Y.Z\` |
-| D4 | **Cutover playbook** | Per-module: install unified → stop standalone writer → migrate/point shared root → archive standalone when stable |
-| D5 | **Archive standalones** | Only after team no longer needs Inventory_Apps writers |
+**Plan:** [2026-07-20-first-team-release.md](./2026-07-20-first-team-release.md)
+
+| ID | Slice | Status | Done means |
+|----|-------|--------|------------|
+| D0 | **Release plan + copy tooling** | **Started 2026-07-20** | Plan + `scripts/release/copy-shared-to-product-modules.ps1` |
+| D-A | **Copy shared data to product modules** | Open | TE + Lab inventory trees on product paths |
+| D-B | **Flip app defaults to product roots** | Open | `shared_root.rs` + docs |
+| D-C | **Smoke on product roots** | Open | Both modules Shared after flip |
+| D-D1 | **NSIS installer on product share** | Open | Installer at product root + release-support |
+| D-D2 | **Updater keys + GitHub Releases** | Optional same ship / fast follow | New keys only; never TE/ME keys |
+| D-E | **Cutover playbook** | Open | Team note + handoff; archive standalones later |
 
 ### Explicit non-goals until later
 

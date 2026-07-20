@@ -56,7 +56,7 @@ Modules stay **separate** under the hood (own DBs, shared roots, domain types, a
 2. ~~IM-011 adaptive TE sync~~ **done 2026-07-20** — plan under `docs/superpowers/plans/`  
 3. TE path: **pilot default = legacy InventoryApps TE share** so `bun run desktop` has data; **release** = product `modules\TE_Test_Equipment` after copy  
 4. ~~Port TE Lab Components~~ **Phase C1 done 2026-07-20** — plan `docs/superpowers/plans/2026-07-20-te-lab-components-port.md`; ME/Storage Room remain deferred
-5. **Next:** owner live CRUD/restart QA, then release-path cutover and Phase D installer/updater work (new keys — do not reuse TE/ME keys)
+5. **Phase D first team release** — plan: `docs/superpowers/plans/2026-07-20-first-team-release.md` (copy → product roots → installer; new updater keys only if enabling auto-update)
 
 ## Env (shared sync)
 
