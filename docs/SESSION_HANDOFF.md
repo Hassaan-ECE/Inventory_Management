@@ -87,6 +87,6 @@ Continue to work in their own trees until cutover; do not treat this folder as T
 2. ~~Implement IM-011 adaptive sync against switcher + TE module~~ done and verified 2026-07-20 (optional residual: live DevTools cadence counts when owner soak-tests)  
 3. **Capability map + roadmap:** [superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md](superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md)  
 4. ~~Phase A TE path: shared health + cutover~~ **done** — owner confirmed **Shared** on product module path; **IM-013** = long-term `modules\TE_Test_Equipment` (not default legacy pilot)  
-5. **Next:** Phase B architecture extract (IM-012) — monorepo map then shell/module seams **before** Lab/ME/Storage ports  
+5. **Next (ready for implementor):** Phase B architecture extract (IM-012) — plan: [superpowers/plans/2026-07-20-platform-module-architecture-extract.md](superpowers/plans/2026-07-20-platform-module-architecture-extract.md) (shell + platform + modules; TE only; paste prompt in §8)  
 6. Phase C: Port Lab Components / ME Storage / TE Storage Room (each under own `modules\<Name>\`)  
 7. Phase D: Updater keys, GitHub Releases, team installer; archive standalones after deliberate migration  

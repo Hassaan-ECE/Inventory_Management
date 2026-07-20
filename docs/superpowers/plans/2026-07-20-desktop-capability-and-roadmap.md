@@ -127,12 +127,14 @@ Ordered for product value and risk. Each slice should end with **verify + update
 
 ### Phase B — Architecture extract (IM-012 foundation)
 
-| ID | Slice | Done means |
-|----|-------|------------|
-| B1 | **Target monorepo map** | Short design: `shell` / `platform` / `modules/te-test-equipment` (and stubs) without forcing one row schema |
-| B2 | **Extract shared shell** | Switcher, chrome, adaptive controller stay product-level; TE domain boundaries clear |
-| B3 | **Per-module seams** | Interface for activate/load/sync/deactivate + shared root per module; TE implements; others still placeholder |
-| B4 | **Docs/agent update** | SESSION_HANDOFF + AGENTS priorities point at new layout |
+**Plan (authority):** [2026-07-20-platform-module-architecture-extract.md](./2026-07-20-platform-module-architecture-extract.md)
+
+| ID | Slice | Status | Done means |
+|----|-------|--------|------------|
+| B1 | **Target monorepo map + implementor plan** | **Planned** (doc above) | Design + tasks ready for implementor |
+| B2 | **Extract shared shell / platform / TE module folders** | Open | Tasks 1–3 in extract plan |
+| B3 | **Per-module seams (ModuleId, session map skeleton)** | Open | Tasks 4–5 in extract plan |
+| B4 | **Docs/agent update + verification** | Open | Tasks 6–7 in extract plan |
 
 **Why before ports:** avoids copying TE three times and re-fighting sync lifecycle per module.
 

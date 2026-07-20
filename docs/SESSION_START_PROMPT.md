@@ -75,7 +75,9 @@ Full “what works on desktop vs remaining work” map:
 `docs/superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md`
 
 1. ~~Phase A TE path~~ **done:** Shared works on product module tree; **IM-013** long-term `modules\TE_Test_Equipment` (not default env→legacy).
-2. **Phase B (next)** — Architecture: shared shell/platform + per-module domains (**IM-012**) before extra ports. Start with monorepo map (B1).
+2. **Phase B (next, planned)** — Architecture extract (**IM-012**):  
+   `docs/superpowers/plans/2026-07-20-platform-module-architecture-extract.md`  
+   (implementor paste prompt is §8 of that plan). Logical shell/platform/modules; not multi-crate yet.
 3. Phase C — Port Lab Components / ME Storage / TE Storage Room one by one (each own `modules\<Name>\`).
 4. Phase D — Updater keypair + GitHub Releases + team installer; archive standalones after deliberate migration.
 5. Optional: A2 live cadence soak-test; later TE data migration/import into the product module path (not dual-write with standalone).
