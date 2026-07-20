@@ -37,6 +37,9 @@ interface ContextMenuState {
 
 export function InventoryShell() {
   const { announceStatus, statusOverride } = useStatusAnnouncer();
+  const [activeSystemId, setActiveSystemId] = useState<InventorySystemId>(() => readStoredInventorySystemId());
+  const activeSystem = getInventorySystem(activeSystemId);
+  const inventoryChrome = activeSystem.implemented;
   const {
     dataSource,
     entries,
@@ -45,7 +48,10 @@ export function InventoryShell() {
     setEntries,
     setSharedStatus,
     sharedStatus,
-  } = useDesktopInventory({ announceStatus });
+  } = useDesktopInventory({
+    announceStatus,
+    teActive: activeSystemId === "te-test-equipment",
+  });
   const { handleUpdateAction, updateState } = useDesktopUpdates({ announceStatus });
   const {
     colorRows,
@@ -55,9 +61,6 @@ export function InventoryShell() {
     setColumnVisibility,
     theme,
   } = useInventoryPreferences();
-  const [activeSystemId, setActiveSystemId] = useState<InventorySystemId>(() => readStoredInventorySystemId());
-  const activeSystem = getInventorySystem(activeSystemId);
-  const inventoryChrome = activeSystem.implemented;
   const [scope, setScope] = useState<InventoryScope>("inventory");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);

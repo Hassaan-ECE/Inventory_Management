@@ -58,6 +58,8 @@ describe("InventoryShell mutations", () => {
 
     window.inventoryDesktop = {
       isDesktop: true,
+      activateInventorySync: vi.fn().mockResolvedValue("local-mutations-session"),
+      deactivateInventorySync: vi.fn().mockResolvedValue(true),
       loadInventory: vi.fn().mockImplementation(async () => ({
         dbPath: TEST_DB_PATH,
         entries: desktopEntries,
@@ -144,6 +146,8 @@ describe("InventoryShell mutations", () => {
 
     window.inventoryDesktop = {
       isDesktop: true,
+      activateInventorySync: vi.fn().mockResolvedValue("shared-mutations-session"),
+      deactivateInventorySync: vi.fn().mockResolvedValue(true),
       loadInventory: vi.fn().mockResolvedValue({
         dbPath: TEST_DB_PATH,
         entries: [existingEntry],

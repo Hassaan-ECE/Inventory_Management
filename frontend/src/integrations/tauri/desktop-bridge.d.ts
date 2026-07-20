@@ -13,6 +13,7 @@ import type {
   ImportDryRunReport,
   UpdateState,
 } from "@/features/inventory/types";
+import type { InventorySystemId } from "@/features/inventory/lib/inventorySystems";
 
 export interface InventorySyncResult {
   dbPath: string;
@@ -21,13 +22,19 @@ export interface InventorySyncResult {
   shared: InventorySharedStatus;
 }
 
+export interface InventorySharedChangedPayload {
+  systemId: InventorySystemId;
+}
+
 declare global {
   interface Window {
     inventoryDesktop?: {
       isDesktop: boolean;
+      activateInventorySync: () => Promise<string>;
       loadInventory: () => Promise<InventorySyncResult>;
       queryInventory?: (input: InventoryQueryInput) => Promise<InventoryQueryResult>;
-      syncInventory: () => Promise<InventorySyncResult>;
+      syncInventory: (sessionId: string) => Promise<InventorySyncResult | null>;
+      deactivateInventorySync: (sessionId: string) => Promise<boolean>;
       toggleVerifiedEntry: (entryId: string, nextVerified: boolean) => Promise<InventoryEntryMutationResult>;
       createEntry: (input: InventoryEntryInput) => Promise<InventoryEntryMutationResult>;
       updateEntry: (
@@ -48,7 +55,7 @@ declare global {
       checkForUpdate?: () => Promise<UpdateState>;
       downloadUpdate?: () => Promise<UpdateState>;
       installUpdate?: () => Promise<UpdateState>;
-      onSharedInventoryChanged?: (callback: () => void) => () => void;
+      onSharedInventoryChanged?: (callback: (payload: InventorySharedChangedPayload) => void) => () => void;
       onUpdateStateChanged?: (callback: (state: UpdateState) => void) => () => void;
     };
   }

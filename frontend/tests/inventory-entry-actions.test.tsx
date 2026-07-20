@@ -171,6 +171,8 @@ describe("InventoryShell entry actions", () => {
     };
     window.inventoryDesktop = {
       isDesktop: true,
+      activateInventorySync: vi.fn().mockResolvedValue("entry-actions-session"),
+      deactivateInventorySync: vi.fn().mockResolvedValue(true),
       loadInventory: vi.fn().mockResolvedValue({
         dbPath: TEST_DB_PATH,
         entries: [unsafeEntry],

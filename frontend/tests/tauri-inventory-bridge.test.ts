@@ -63,7 +63,20 @@ describe("tauri inventory bridge", () => {
       expect(listen).toHaveBeenCalledWith("inventory:shared-changed", expect.any(Function));
 
       sharedChangeHandlerRef.current?.({ event: "inventory:shared-changed", id: 1, payload: null });
+      sharedChangeHandlerRef.current?.({
+        event: "inventory:shared-changed",
+        id: 2,
+        payload: { systemId: "me-storage" },
+      });
+      expect(callback).not.toHaveBeenCalled();
+
+      sharedChangeHandlerRef.current?.({
+        event: "inventory:shared-changed",
+        id: 3,
+        payload: { systemId: "te-test-equipment" },
+      });
       expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith({ systemId: "te-test-equipment" });
 
       await flushAsyncWork();
       cleanup?.();
@@ -75,6 +88,24 @@ describe("tauri inventory bridge", () => {
       vi.doUnmock("@/integrations/tauri/windowState");
       vi.resetModules();
     }
+  });
+
+  it("invokes tokenized sync commands and treats null sync as a stale no-op", async () => {
+    const invoke = vi.fn((command: string) => {
+      if (command === "activate_inventory_sync") return Promise.resolve("session-1");
+      if (command === "sync_inventory") return Promise.resolve(null);
+      if (command === "deactivate_inventory_sync") return Promise.resolve(true);
+      return Promise.reject(new Error(`Unexpected command: ${command}`));
+    });
+    const desktopBridge = await registerDesktopBridge(invoke);
+
+    await expect(desktopBridge.activateInventorySync()).resolves.toBe("session-1");
+    await expect(desktopBridge.syncInventory("session-1")).resolves.toBeNull();
+    await expect(desktopBridge.deactivateInventorySync("session-1")).resolves.toBe(true);
+
+    expect(invoke).toHaveBeenNthCalledWith(1, "activate_inventory_sync");
+    expect(invoke).toHaveBeenNthCalledWith(2, "sync_inventory", { sessionId: "session-1" });
+    expect(invoke).toHaveBeenNthCalledWith(3, "deactivate_inventory_sync", { sessionId: "session-1" });
   });
 
   it("runs Tauri shared inventory cleanup after pending listener registration resolves", async () => {

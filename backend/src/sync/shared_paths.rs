@@ -4,7 +4,7 @@ use crate::{model::InventorySharedStatus, store::InventoryDb};
 
 use super::{
     queue::count_pending_local_operations, SharedSyncPaths, SyncCoreResult, DEFAULT_SHARED_ROOT,
-    SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV, SHARED_SYNC_INTERVAL_MS,
+    SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV,
 };
 
 const SHARED_SYNC_DISABLED_MESSAGE: &str =
@@ -81,7 +81,6 @@ pub(crate) fn startup_inventory_status(message: impl Into<String>) -> InventoryS
         revision: None,
         last_snapshot_id: None,
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
-        sync_interval_ms: Some(SHARED_SYNC_INTERVAL_MS),
     }
 }
 
@@ -118,7 +117,6 @@ pub(crate) fn disabled_shared_status(
         revision: db.and_then(|db| db.sync_revision().ok().map(|revision| revision.to_string())),
         last_snapshot_id: db.and_then(|db| db.last_snapshot_id().ok().flatten()),
         shared_root_path: None,
-        sync_interval_ms: None,
     }
 }
 
@@ -153,7 +151,6 @@ pub(super) fn build_shared_status(
         revision: db.sync_revision().ok().map(|revision| revision.to_string()),
         last_snapshot_id: db.last_snapshot_id().ok().flatten(),
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
-        sync_interval_ms: Some(SHARED_SYNC_INTERVAL_MS),
     }
 }
 

@@ -16,7 +16,6 @@ export const CONNECTED_SHARED_STATUS: InventorySharedStatus = {
   enabled: true,
   message: "",
   mutationMode: "shared",
-  syncIntervalMs: 60_000,
 };
 export const LOCAL_SHARED_STATUS: InventorySharedStatus = {
   available: false,
@@ -25,7 +24,6 @@ export const LOCAL_SHARED_STATUS: InventorySharedStatus = {
   hasLocalOnlyChanges: true,
   message: "Shared workspace unavailable. Saving changes locally.",
   mutationMode: "local",
-  syncIntervalMs: 60_000,
 };
 export const DISABLED_SHARED_STATUS: InventorySharedStatus = {
   available: true,
@@ -102,6 +100,8 @@ export function createDesktopBridge(
 ): NonNullable<Window["inventoryDesktop"]> {
   return {
     isDesktop: true,
+    activateInventorySync: vi.fn().mockResolvedValue("session-1"),
+    deactivateInventorySync: vi.fn().mockResolvedValue(true),
     loadInventory: vi.fn().mockResolvedValue({
       dbPath: TEST_DB_PATH,
       entries: [],

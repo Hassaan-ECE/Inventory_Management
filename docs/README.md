@@ -26,8 +26,12 @@
 Bannered or archive material. Do **not** use for current version, sync default, or updater behavior:
 
 - `planning/PROJECT_DISCUSSION.md`, `SECOND_OPINION_REVIEW.md`, `ENGINEERING_SUGGESTIONS.md`
-- `superpowers/plans/*`, `superpowers/specs/2026-07-13-te-test-equipment-v0.1-design.md`
-- `engineering/archive/*`, ME-shaped notes under `engineering/` until rewritten for TE
+- `superpowers/specs/2026-07-13-te-test-equipment-v0.1-design.md` and other TE-scaffold lineage plans unless still cited by DECISIONS
+- `engineering/archive/*`, ME-shaped notes under `engineering/` until rewritten for this product
+
+## Implemented plans (behavior authority; not “open work”)
+
+- [superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md](superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md) — **IM-011** adaptive TE sync (**implemented 2026-07-20**). Use for regressions and future multi-inventory extension; do not treat as unimplemented backlog.
 
 ## Active cutover design (not yet “done”)
 

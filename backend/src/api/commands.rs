@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::mutations::{
@@ -21,6 +21,9 @@ use crate::{
     sync,
 };
 
+const WATCHER_DEGRADED_MESSAGE: &str =
+    "File watch unavailable; scheduled synchronization remains active.";
+
 #[tauri::command]
 pub(crate) fn load_inventory(
     coordinator: State<'_, SharedSyncCoordinator>,
@@ -39,17 +42,30 @@ pub(crate) fn query_inventory(
 }
 
 #[tauri::command]
+pub(crate) fn activate_inventory_sync(
+    watcher: State<'_, SharedSyncWatcher>,
+) -> CommandResult<String> {
+    watcher.activate_session()
+}
+
+#[tauri::command]
 pub(crate) async fn sync_inventory(
     app: AppHandle,
+    session_id: String,
     coordinator: State<'_, SharedSyncCoordinator>,
     watcher: State<'_, SharedSyncWatcher>,
     db: State<'_, InventoryDb>,
-) -> CommandResult<InventorySyncResult> {
+) -> CommandResult<Option<InventorySyncResult>> {
+    if !watcher.begin_sync(&session_id)? {
+        return Ok(None);
+    }
+
     let coordinator = coordinator.inner().clone();
+    let task_coordinator = coordinator.clone();
     let db = db.inner().clone();
     let (result, entries, db_path) = tauri::async_runtime::spawn_blocking(move || {
-        let result = coordinator.run_exclusive("shared sync", || sync::run_shared_sync(&db))?;
-        let _ = coordinator.set_background_status(result.shared.clone());
+        let result =
+            task_coordinator.run_exclusive("shared sync", || sync::run_shared_sync(&db))?;
         let entries = if result.entries_changed {
             db.load_entries()?
         } else {
@@ -61,17 +77,35 @@ pub(crate) async fn sync_inventory(
     .await
     .map_err(|error| format!("Shared sync task failed: {error}"))??;
 
-    if result.shared.available {
+    let mut result = result;
+    let completion = if result.shared.enabled && result.shared.available {
         let paths = sync::resolved_shared_sync_paths();
-        watcher.ensure_watching(app, &paths.ops_dir)?;
+        watcher.complete_sync(app, &session_id, &paths.ops_dir)?
+    } else {
+        watcher.complete_sync_without_watcher(&session_id)?
+    };
+    if !completion.current {
+        return Ok(None);
     }
+    if completion.watcher_degradation_started {
+        result.shared.message = WATCHER_DEGRADED_MESSAGE.to_string();
+    }
+    coordinator.set_background_status(result.shared.clone())?;
 
-    Ok(InventorySyncResult {
+    Ok(Some(InventorySyncResult {
         db_path,
         entries,
         entries_changed: Some(result.entries_changed),
         shared: result.shared,
-    })
+    }))
+}
+
+#[tauri::command]
+pub(crate) fn deactivate_inventory_sync(
+    session_id: String,
+    watcher: State<'_, SharedSyncWatcher>,
+) -> CommandResult<bool> {
+    watcher.deactivate_session(&session_id)
 }
 
 #[tauri::command]
@@ -248,7 +282,7 @@ fn schedule_shared_publish(app: AppHandle, db: InventoryDb, coordinator: SharedS
         };
         let _ = coordinator.set_background_status(status);
         db.flush();
-        let _ = app.emit(shared_watcher::SHARED_INVENTORY_CHANGED_EVENT, ());
+        shared_watcher::emit_shared_inventory_changed(&app);
     }));
 }
 
@@ -310,7 +344,6 @@ mod tests {
             mutation_mode: "local".to_string(),
             revision: Some("7".to_string()),
             shared_root_path: Some("S:\\TE\\Test_Equipment".to_string()),
-            sync_interval_ms: Some(500),
         };
 
         let loaded = load_inventory_from_store_with_status(&db, Some(status.clone())).unwrap();

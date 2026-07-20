@@ -21,10 +21,10 @@ Do **not** use `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory
 ## Read first (in order)
 
 1. `AGENTS.md`
-2. `docs/SESSION_HANDOFF.md`
+2. `docs/SESSION_HANDOFF.md` (**current state / next slices**)
 3. `docs/planning/DECISIONS.md` (IM-* decisions)
-4. `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md` (**IM-011** — adaptive per-inventory sync; accepted, not implemented)
-5. `README.md`
+4. `README.md`
+5. As needed for sync behavior or regressions: `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md` (**IM-011** — **implemented** for TE 2026-07-20; still the behavioral authority)
 
 Prefer live code + those docs over stale TE planning copies still sitting under `docs/planning/` (many are lineage from TE).
 
@@ -33,7 +33,7 @@ Prefer live code + those docs over stale TE planning copies still sitting under 
 - **One install**, hamburger title switcher across separate inventories (not one merged table/schema).
 - Labels: **TE Test Equipment**, **TE Lab Components**, **ME Storage**, **TE Storage Room**.
 - **Whole redesign monorepo**: shared platform + domain modules; TE quality as UX/ops baseline; room to add modules later.
-- **New GitHub repo** for this product; archive old standalone repos **after** cutover works.
+- **New GitHub repo** for this product (`origin` already connected); archive old standalone repos **after** cutover works.
 - Shared data stays **per module** on S:, not one shared ops stream for everything.
 
 ## Identity (do not casually change)
@@ -50,30 +50,34 @@ Prefer live code + those docs over stale TE planning copies still sitting under 
 
 Updater is **off** until new signing keys + GitHub Releases exist. Do not reuse TE/ME updater keys or endpoints.
 
-## Current state (2026-07-18)
+## Current state (2026-07-20)
 
 **Exists**
 
 - Scaffold from TE Test Equipment (rebranded) at the path above.
 - Switcher UI (menu icon + short labels; placeholders for non-TE modules).
 - S: product tree created (`modules\*`, `release-support\`, `legacy-pointers\`, README).
-- Decisions IM-001…IM-012; adaptive sync plan copied in as implementation authority.
+- Decisions IM-001…IM-012.
+- GitHub: `https://github.com/Hassaan-ECE/Inventory_Management.git` (`origin` / `main`).
+- **IM-011 adaptive TE sync lifecycle** — completion-aware 2s/60s scheduling, session tokens, hard deactivate on deselect, `syncIntervalMs` removed. Plan + verification notes in handoff.
 
 **Not done**
 
-- IM-011 adaptive sync (still ~500 ms fixed polling from TE scaffold).
-- Modular folder extract (`modules/` platform split).
-- GitHub remote (owner creates and connects).
+- Modular folder extract (`modules/` platform split) / monorepo architecture (IM-012).
 - Real ports of Lab Components / ME Storage / TE Storage Room.
-- Team installer on S:; data cutover from legacy `InventoryApps\...` shares.
+- TE data cutover from legacy `InventoryApps\...` shares into `modules\TE_Test_Equipment`.
+- Team installer on S:; updater keys + GitHub Releases.
+- Optional residual: live DevTools call-rate smoke for adaptive cadence (automated/fake-timer coverage already green).
 
 ## Priorities (next work)
 
-1. Confirm git remote after owner creates the new repo; initial push if needed.
-2. Implement **IM-011** adaptive per-inventory sync lifecycle (plan file is authority; TE-first; session tokens; hard deactivate on deselect).
-3. Architecture: shared shell/platform + per-module domains (expandable).
-4. TE module data cutover strategy (new `modules\TE_Test_Equipment` vs temporary env to legacy TE share).
-5. Port other inventories one by one; then archive standalones.
+1. Architecture: shared shell/platform + per-module domains (expandable) — IM-012.
+2. TE module data cutover strategy (new `modules\TE_Test_Equipment` vs temporary env to legacy TE share).
+3. Port other inventories one by one; then archive standalones.
+4. Updater keypair + GitHub Releases for `com.inventory.management` only.
+5. Optional: close IM-011 live cadence smoke when shared root is healthy.
+
+Do **not** restart IM-011 implementation unless fixing a regression or extending the lifecycle to another inventory.
 
 ## Rules
 
@@ -85,4 +89,4 @@ Updater is **off** until new signing keys + GitHub Releases exist. Do not reuse 
 
 ## First reply in the new chat
 
-Summarize: workspace path, product identity, IM-011 status, and ask what to do first (usually: wire git remote **or** start adaptive sync implementation). Wait for the owner if the new GitHub repo URL is not yet known.
+Summarize: workspace path, product identity, that **IM-011 is done for TE**, and the next open slices (architecture extract, TE cutover, other modules, updater). Ask the owner what to do first.

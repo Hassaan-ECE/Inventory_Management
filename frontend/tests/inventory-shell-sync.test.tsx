@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { InventoryShell } from "@/features/inventory/components/InventoryShell";
-import type { InventoryEntry, InventorySharedStatus } from "@/features/inventory/types";
-import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
+import type { InventoryEntry } from "@/features/inventory/types";
+import type {
+  InventorySharedChangedPayload,
+  InventorySyncResult,
+} from "@/integrations/tauri/desktop-bridge";
 import {
   CONNECTED_SHARED_STATUS,
   DISABLED_SHARED_STATUS,
@@ -19,22 +22,31 @@ import {
 
 describe("InventoryShell shared sync", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     localStorage.clear();
     document.documentElement.classList.remove("dark");
     delete window.inventoryDesktop;
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
   });
 
-  it("does not keep shared sync polling active when shared sync is disabled", async () => {
-    const activeIntervals = new Set<number>();
-    let nextIntervalId = 1;
-    const setIntervalSpy = vi.spyOn(window, "setInterval").mockImplementation(() => {
-      const intervalId = nextIntervalId;
-      nextIntervalId += 1;
-      activeIntervals.add(intervalId);
-      return intervalId as unknown as ReturnType<typeof window.setInterval>;
+  it("activates, subscribes, loads locally, then deactivates without syncing when disabled", async () => {
+    const callOrder: string[] = [];
+    const unsubscribe = vi.fn(() => callOrder.push("unsubscribe"));
+    const activateInventorySync = vi.fn(async () => {
+      callOrder.push("activate");
+      return "session-disabled";
     });
-    const clearIntervalSpy = vi.spyOn(window, "clearInterval").mockImplementation((intervalId) => {
-      activeIntervals.delete(Number(intervalId));
+    const deactivateInventorySync = vi.fn(async () => {
+      callOrder.push("deactivate");
+      return true;
+    });
+    const loadInventory = vi.fn(async () => {
+      callOrder.push("load");
+      return buildDesktopSyncResult(DISABLED_SHARED_STATUS);
+    });
+    const onSharedInventoryChanged = vi.fn(() => {
+      callOrder.push("subscribe");
+      return unsubscribe;
     });
     const syncInventory = vi.fn().mockResolvedValue({
       dbPath: TEST_DB_PATH,
@@ -43,75 +55,213 @@ describe("InventoryShell shared sync", () => {
       shared: DISABLED_SHARED_STATUS,
     });
 
-    try {
-      window.inventoryDesktop = createDesktopBridge({
-        loadInventory: vi.fn().mockResolvedValue(buildDesktopSyncResult(DISABLED_SHARED_STATUS)),
-        syncInventory,
-      });
-
-      render(<InventoryShell />);
-
-      await flushAsyncWork();
-      expect(screen.getByText("Showing all 0 entries")).toBeInTheDocument();
-      expect(activeIntervals.size).toBe(0);
-      expect(syncInventory).not.toHaveBeenCalled();
-    } finally {
-      setIntervalSpy.mockRestore();
-      clearIntervalSpy.mockRestore();
-    }
-  });
-
-  it("clamps shared sync intervals before scheduling polling", async () => {
-    const scheduledIntervals: number[] = [];
-    let nextIntervalId = 1;
-    const setIntervalSpy = vi.spyOn(window, "setInterval").mockImplementation((_handler, timeout) => {
-      scheduledIntervals.push(Number(timeout));
-      const intervalId = nextIntervalId;
-      nextIntervalId += 1;
-      return intervalId as unknown as ReturnType<typeof window.setInterval>;
+    window.inventoryDesktop = createDesktopBridge({
+      activateInventorySync,
+      deactivateInventorySync,
+      loadInventory,
+      onSharedInventoryChanged,
+      syncInventory,
     });
-    const clearIntervalSpy = vi.spyOn(window, "clearInterval").mockImplementation(() => undefined);
-    const fastSharedStatus: InventorySharedStatus = {
-      ...CONNECTED_SHARED_STATUS,
-      syncIntervalMs: 1,
-    };
 
-    try {
-      window.inventoryDesktop = createDesktopBridge({
-        loadInventory: vi.fn().mockResolvedValue(buildDesktopSyncResult(fastSharedStatus)),
-        syncInventory: vi.fn().mockResolvedValue({
-          dbPath: TEST_DB_PATH,
-          entries: [],
-          entriesChanged: false,
-          shared: fastSharedStatus,
-        }),
-      });
+    render(<InventoryShell />);
 
-      render(<InventoryShell />);
-
-      await flushAsyncWork();
-      await flushAsyncWork();
-      expect(scheduledIntervals).toContain(500);
-      expect(scheduledIntervals).not.toContain(1);
-    } finally {
-      setIntervalSpy.mockRestore();
-      clearIntervalSpy.mockRestore();
-    }
+    expect(await screen.findByText("Showing all 0 entries")).toBeInTheDocument();
+    await waitFor(() => expect(deactivateInventorySync).toHaveBeenCalledWith("session-disabled"));
+    expect(callOrder).toEqual(["activate", "subscribe", "load", "unsubscribe", "deactivate"]);
+    expect(syncInventory).not.toHaveBeenCalled();
   });
 
-  it("subscribes to shared change events while shared sync polling is enabled", async () => {
-    const activeIntervals = new Set<number>();
-    let nextIntervalId = 1;
-    let sharedChangeCallback: (() => void) | null = null;
+  it("launches selected TE in activate, subscribe, load, initial sync order", async () => {
+    const callOrder: string[] = [];
+    const activateInventorySync = vi.fn(async () => {
+      callOrder.push("activate");
+      return "session-active";
+    });
+    const onSharedInventoryChanged = vi.fn(() => {
+      callOrder.push("subscribe");
+      return () => undefined;
+    });
+    const loadInventory = vi.fn(async () => {
+      callOrder.push("load");
+      return buildDesktopSyncResult(CONNECTED_SHARED_STATUS);
+    });
+    const syncInventory = vi.fn(async (sessionId: string) => {
+      callOrder.push(`sync:${sessionId}`);
+      return {
+        dbPath: TEST_DB_PATH,
+        entries: [],
+        entriesChanged: false,
+        shared: CONNECTED_SHARED_STATUS,
+      };
+    });
+
+    window.inventoryDesktop = createDesktopBridge({
+      activateInventorySync,
+      loadInventory,
+      onSharedInventoryChanged,
+      syncInventory,
+    });
+
+    render(<InventoryShell />);
+
+    expect(await screen.findByText("Showing all 0 entries")).toBeInTheDocument();
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
+    expect(callOrder).toEqual(["activate", "subscribe", "load", "sync:session-active"]);
+  });
+
+  it("subscribes to scoped shared changes and syncs without reloading local rows", async () => {
+    let sharedChangeCallback: ((payload: InventorySharedChangedPayload) => void) | null = null;
     const unsubscribeSharedChanges = vi.fn();
-    const setIntervalSpy = vi.spyOn(window, "setInterval").mockImplementation(() => {
-      const intervalId = nextIntervalId;
-      nextIntervalId += 1;
-      activeIntervals.add(intervalId);
-      return intervalId as unknown as ReturnType<typeof window.setInterval>;
+    const deactivateInventorySync = vi.fn().mockResolvedValue(true);
+    const loadInventory = vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS));
+    const syncInventory = vi.fn().mockResolvedValue({
+      dbPath: TEST_DB_PATH,
+      entries: [],
+      entriesChanged: false,
+      shared: CONNECTED_SHARED_STATUS,
     });
-    const clearIntervalSpy = vi.spyOn(window, "clearInterval").mockImplementation((intervalId) => {
-      activeIntervals.delete(Number(intervalId));
+    const onSharedInventoryChanged = vi.fn((callback: (payload: InventorySharedChangedPayload) => void) => {
+      sharedChangeCallback = callback;
+      return unsubscribeSharedChanges;
+    });
+
+    window.inventoryDesktop = createDesktopBridge({
+      deactivateInventorySync,
+      loadInventory,
+      onSharedInventoryChanged,
+      syncInventory,
+    });
+
+    const { unmount } = render(<InventoryShell />);
+
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
+    expect(onSharedInventoryChanged).toHaveBeenCalledTimes(1);
+    syncInventory.mockClear();
+
+    act(() => {
+      sharedChangeCallback?.({ systemId: "te-test-equipment" });
+    });
+
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
+    expect(syncInventory).toHaveBeenCalledWith("session-1");
+    expect(loadInventory).toHaveBeenCalledTimes(1);
+
+    unmount();
+    expect(unsubscribeSharedChanges).toHaveBeenCalledTimes(1);
+    expect(deactivateInventorySync).toHaveBeenCalledWith("session-1");
+  });
+
+  it("does not activate or load TE when a placeholder is selected at launch", async () => {
+    localStorage.setItem("inventory.activeSystem", "me-storage");
+    const activateInventorySync = vi.fn().mockResolvedValue("unused-session");
+    const deactivateInventorySync = vi.fn().mockResolvedValue(true);
+    const loadInventory = vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS));
+    const onSharedInventoryChanged = vi.fn(() => () => undefined);
+    const syncInventory = vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS));
+    window.inventoryDesktop = createDesktopBridge({
+      activateInventorySync,
+      deactivateInventorySync,
+      loadInventory,
+      onSharedInventoryChanged,
+      syncInventory,
+    });
+
+    render(<InventoryShell />);
+    await flushAsyncWork();
+
+    expect(screen.getByText(/ME Storage — module not connected yet/i)).toBeInTheDocument();
+    expect(activateInventorySync).not.toHaveBeenCalled();
+    expect(loadInventory).not.toHaveBeenCalled();
+    expect(onSharedInventoryChanged).not.toHaveBeenCalled();
+    expect(syncInventory).not.toHaveBeenCalled();
+    expect(deactivateInventorySync).not.toHaveBeenCalled();
+  });
+
+  it("treats a nullable stale sync result as a no-op without entering error state", async () => {
+    const entry = buildTestEntry({ description: "Stale null survives" });
+    const syncInventory = vi.fn().mockResolvedValue(null);
+    window.inventoryDesktop = createDesktopBridge({
+      loadInventory: vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS, [entry])),
+      syncInventory,
+    });
+
+    render(<InventoryShell />);
+
+    expect(await screen.findByText("Stale null survives")).toBeInTheDocument();
+    expect(syncInventory).toHaveBeenCalledWith("session-1");
+    expect(screen.queryByText("Shared workspace unavailable. Saving changes locally.")).not.toBeInTheDocument();
+  });
+
+  it("syncs immediately when window focus is restored", async () => {
+    const syncInventory = vi.fn().mockResolvedValue({
+      dbPath: TEST_DB_PATH,
+      entries: [],
+      entriesChanged: false,
+      shared: CONNECTED_SHARED_STATUS,
+    });
+    window.inventoryDesktop = createDesktopBridge({
+      loadInventory: vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS)),
+      syncInventory,
+    });
+
+    render(<InventoryShell />);
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
+    syncInventory.mockClear();
+
+    act(() => {
+      window.dispatchEvent(new Event("blur"));
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
+    expect(syncInventory).toHaveBeenCalledWith("session-1");
+  });
+
+  it("deactivates a token that resolves after unmount without loading or syncing", async () => {
+    const activation = createDeferred<string>();
+    const activateInventorySync = vi.fn(() => activation.promise);
+    const deactivateInventorySync = vi.fn().mockResolvedValue(true);
+    const loadInventory = vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS));
+    const syncInventory = vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS));
+    window.inventoryDesktop = createDesktopBridge({
+      activateInventorySync,
+      deactivateInventorySync,
+      loadInventory,
+      syncInventory,
+    });
+
+    const { unmount } = render(<InventoryShell />);
+    await waitFor(() => expect(activateInventorySync).toHaveBeenCalledTimes(1));
+    unmount();
+
+    await act(async () => {
+      activation.resolve("late-session");
+      await activation.promise;
+      await Promise.resolve();
+    });
+
+    expect(deactivateInventorySync).toHaveBeenCalledWith("late-session");
+    expect(loadInventory).not.toHaveBeenCalled();
+    expect(syncInventory).not.toHaveBeenCalled();
+  });
+
+  it("keeps cached TE rows visible across placeholder switch and ignores the stale subscription", async () => {
+    const user = userEvent.setup();
+    const cachedEntry = buildTestEntry({ description: "Cached TE row" });
+    const secondLoad = createDeferred<InventorySyncResult>();
+    const activateInventorySync = vi.fn()
+      .mockResolvedValueOnce("session-1")
+      .mockResolvedValueOnce("session-2");
+    const deactivateInventorySync = vi.fn().mockResolvedValue(true);
+    const loadInventory = vi.fn()
+      .mockResolvedValueOnce(buildDesktopSyncResult(CONNECTED_SHARED_STATUS, [cachedEntry]))
+      .mockReturnValueOnce(secondLoad.promise);
+    const sharedCallbacks: Array<(payload: InventorySharedChangedPayload) => void> = [];
+    const unsubscribeCallbacks = [vi.fn(), vi.fn()];
+    const onSharedInventoryChanged = vi.fn((callback: (payload: InventorySharedChangedPayload) => void) => {
+      const index = sharedCallbacks.length;
+      sharedCallbacks.push(callback);
+      return unsubscribeCallbacks[index] ?? (() => undefined);
     });
     const syncInventory = vi.fn().mockResolvedValue({
       dbPath: TEST_DB_PATH,
@@ -119,40 +269,136 @@ describe("InventoryShell shared sync", () => {
       entriesChanged: false,
       shared: CONNECTED_SHARED_STATUS,
     });
-    const onSharedInventoryChanged = vi.fn((callback: () => void) => {
-      sharedChangeCallback = callback;
-      return unsubscribeSharedChanges;
+    window.inventoryDesktop = createDesktopBridge({
+      activateInventorySync,
+      deactivateInventorySync,
+      loadInventory,
+      onSharedInventoryChanged,
+      syncInventory,
     });
 
+    render(<InventoryShell />);
+    expect(await screen.findByText("Cached TE row")).toBeInTheDocument();
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
+
+    await switchInventory(user, "ME Storage");
+    expect(screen.getByText(/ME Storage — module not connected yet/i)).toBeInTheDocument();
+    await waitFor(() => expect(deactivateInventorySync).toHaveBeenCalledWith("session-1"));
+    expect(unsubscribeCallbacks[0]).toHaveBeenCalledTimes(1);
+
+    await switchInventory(user, "TE Test Equipment");
+    expect(screen.getByText("Cached TE row")).toBeInTheDocument();
+    await waitFor(() => expect(loadInventory).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      secondLoad.resolve(buildDesktopSyncResult(CONNECTED_SHARED_STATUS, [cachedEntry]));
+      await secondLoad.promise;
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(2));
+    syncInventory.mockClear();
+
+    act(() => {
+      sharedCallbacks[0]?.({ systemId: "te-test-equipment" });
+      sharedCallbacks[1]?.({ systemId: "te-test-equipment" });
+    });
+
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
+    expect(syncInventory).toHaveBeenCalledWith("session-2");
+    expect(activateInventorySync).toHaveBeenCalledTimes(2);
+    expect(onSharedInventoryChanged).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores an in-flight sync result and does not rearm after TE is deselected", async () => {
+    const user = userEvent.setup();
+    const inFlightSync = createDeferred<InventorySyncResult | null>();
+    let sharedChangeCallback: ((payload: InventorySharedChangedPayload) => void) | null = null;
+    const deactivateInventorySync = vi.fn().mockResolvedValue(true);
+    const syncInventory = vi.fn()
+      .mockResolvedValueOnce({
+        dbPath: TEST_DB_PATH,
+        entries: [],
+        entriesChanged: false,
+        shared: CONNECTED_SHARED_STATUS,
+      })
+      .mockReturnValueOnce(inFlightSync.promise);
+    window.inventoryDesktop = createDesktopBridge({
+      deactivateInventorySync,
+      loadInventory: vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS)),
+      onSharedInventoryChanged: vi.fn((callback: (payload: InventorySharedChangedPayload) => void) => {
+        sharedChangeCallback = callback;
+        return () => undefined;
+      }),
+      syncInventory,
+    });
+
+    render(<InventoryShell />);
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
+    act(() => {
+      sharedChangeCallback?.({ systemId: "te-test-equipment" });
+    });
+    await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(2));
+
+    await switchInventory(user, "ME Storage");
+    await waitFor(() => expect(deactivateInventorySync).toHaveBeenCalledWith("session-1"));
+
+    await act(async () => {
+      inFlightSync.resolve({
+        dbPath: TEST_DB_PATH,
+        entries: [buildTestEntry({ description: "Late inactive result" })],
+        entriesChanged: true,
+        shared: CONNECTED_SHARED_STATUS,
+      });
+      await inFlightSync.promise;
+      sharedChangeCallback?.({ systemId: "te-test-equipment" });
+      await Promise.resolve();
+    });
+
+    expect(syncInventory).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/ME Storage — module not connected yet/i)).toBeInTheDocument();
+  });
+
+  it("cancels the 75 ms mutation sync when TE is deselected", async () => {
+    vi.useFakeTimers();
     try {
+      const entry = buildTestEntry({ description: "Deselect mutation row" });
+      const syncInventory = vi.fn().mockResolvedValue({
+        dbPath: TEST_DB_PATH,
+        entries: [],
+        entriesChanged: false,
+        shared: CONNECTED_SHARED_STATUS,
+      });
+      const deactivateInventorySync = vi.fn().mockResolvedValue(true);
+      const toggleVerifiedEntry = vi.fn().mockResolvedValue({
+        entry: { ...entry, verifiedAt: "2026-07-20T12:00:00Z" },
+        message: "Verified state updated.",
+        mutationMode: "local",
+        shared: CONNECTED_SHARED_STATUS,
+      });
       window.inventoryDesktop = createDesktopBridge({
-        onSharedInventoryChanged,
-        loadInventory: vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS)),
+        deactivateInventorySync,
+        loadInventory: vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS, [entry])),
         syncInventory,
+        toggleVerifiedEntry,
       });
 
-      const { unmount } = render(<InventoryShell />);
-
+      render(<InventoryShell />);
       await flushAsyncWork();
       await flushAsyncWork();
-      expect(onSharedInventoryChanged).toHaveBeenCalledTimes(1);
-      expect(syncInventory).toHaveBeenCalledTimes(1);
-      expect(activeIntervals.size).toBe(1);
-
+      expect(screen.getByText("Deselect mutation row")).toBeInTheDocument();
       syncInventory.mockClear();
-      act(() => {
-        sharedChangeCallback?.();
-      });
 
+      fireEvent.click(screen.getByRole("button", { name: /Verify Deselect mutation row/i }));
       await flushAsyncWork();
-      expect(syncInventory).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByRole("button", { name: "Switch inventory system" }));
+      fireEvent.click(screen.getByRole("option", { name: "ME Storage" }));
+      await flushAsyncWork();
+      await vi.advanceTimersByTimeAsync(75);
 
-      unmount();
-      expect(activeIntervals.size).toBe(0);
-      expect(unsubscribeSharedChanges).toHaveBeenCalledTimes(1);
+      expect(syncInventory).not.toHaveBeenCalled();
+      expect(deactivateInventorySync).toHaveBeenCalledWith("session-1");
     } finally {
-      setIntervalSpy.mockRestore();
-      clearIntervalSpy.mockRestore();
+      vi.useRealTimers();
     }
   });
 
@@ -244,7 +490,7 @@ describe("InventoryShell shared sync", () => {
 
   it("runs one follow-up sync when a shared change arrives during an in-flight sync", async () => {
     const firstSync = createDeferred<Awaited<ReturnType<NonNullable<Window["inventoryDesktop"]>["syncInventory"]>>>();
-    let sharedChangeCallback: (() => void) | null = null;
+    let sharedChangeCallback: ((payload: { systemId: "te-test-equipment" }) => void) | null = null;
     const entry = buildTestEntry({ description: "In-flight sync entry" });
     const syncInventory = vi
       .fn()
@@ -257,7 +503,7 @@ describe("InventoryShell shared sync", () => {
       });
 
     window.inventoryDesktop = createDesktopBridge({
-      onSharedInventoryChanged: vi.fn((callback: () => void) => {
+      onSharedInventoryChanged: vi.fn((callback: (payload: { systemId: "te-test-equipment" }) => void) => {
         sharedChangeCallback = callback;
         return () => undefined;
       }),
@@ -273,8 +519,8 @@ describe("InventoryShell shared sync", () => {
     expect(screen.queryByText("In-flight sync entry")).not.toBeInTheDocument();
 
     act(() => {
-      sharedChangeCallback?.();
-      sharedChangeCallback?.();
+      sharedChangeCallback?.({ systemId: "te-test-equipment" });
+      sharedChangeCallback?.({ systemId: "te-test-equipment" });
     });
     expect(syncInventory).toHaveBeenCalledTimes(1);
 
@@ -403,3 +649,11 @@ describe("InventoryShell shared sync", () => {
     expect(screen.queryByText("Replacement Maker")).not.toBeInTheDocument();
   });
 });
+
+async function switchInventory(
+  user: ReturnType<typeof userEvent.setup>,
+  label: "ME Storage" | "TE Test Equipment",
+): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "Switch inventory system" }));
+  await user.click(screen.getByRole("option", { name: label }));
+}

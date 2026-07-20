@@ -1,11 +1,31 @@
 # Adaptive Per-Inventory Sync Lifecycle — Final Plan
 
-**Status:** Accepted for Inventory Management redesign (not implemented yet)  
+**Status:** **Implemented** for TE Test Equipment in Inventory Management (2026-07-20). Still the behavioral authority for regressions and for future inventories that adopt the same lifecycle.  
 **Decisions:** [IM-011](../../planning/DECISIONS.md) (this product); origin **D-029** in standalone TE Test Equipment Inventory planning  
 **Recorded:** 2026-07-18  
+**Implemented:** 2026-07-20  
 **Home:** `C:\Projects\Active\Inventory_Management` (canonical for the unified product)
 
 This plan is the implementation authority for adaptive, per-inventory synchronization in the Inventory Management shell. Prefer this document over informal chat summaries. Copied from the TE planning tree so the unified product owns the redesign track; implement here, not by shipping a new major TE standalone.
+
+## Implementation record (2026-07-20)
+
+TE-first slice shipped in this repo. Do **not** re-implement IM-011 unless regressing or extending to additional inventories.
+
+| Area | Where it lives |
+|------|----------------|
+| Backend session + guarded watcher | `backend/src/api/commands.rs`, `backend/src/runtime/shared_watcher.rs` |
+| Adaptive controller | `frontend/src/features/inventory/sync/adaptiveSyncController.ts` |
+| Shell wiring + hard deactivate | `frontend/src/features/inventory/components/shell/useDesktopInventory.ts` |
+| Switcher activation | `frontend/src/features/inventory/components/InventoryShell.tsx` |
+| Bridge / guards | `frontend/src/integrations/tauri/tauriInventoryBridge.ts`, `bridgeGuards.ts` |
+| Tests | `frontend/tests/adaptive-sync-controller.test.ts`, `inventory-shell-sync.test.tsx`, backend watcher lifecycle tests |
+
+**Verification (automated):** frontend targeted + full suite, lint, production build, Rust watcher lifecycle + full suite (two external-path audits opt-in/filtered), shared-sync flow 37/37, clippy with warnings denied. Measured notes: [SESSION_HANDOFF.md](../../SESSION_HANDOFF.md) § IM-011 verification.
+
+**Residual (manual):** live DevTools routine call-rate counts (active ≲30/min, idle/unfocused ≲1/min, deselected = 0 after drain) were not captured in the implementation session because the UI stayed on initial shared-sync loading during the smoke window. Fake-timer tests cover cadence and no-rearm. Optional follow-up when shared root is healthy and initial sync completes.
+
+**Out of scope then and now:** monorepo extract, other modules, updater, schema/format migration, scanner optimization.
 
 ## Summary
 
@@ -149,15 +169,17 @@ Do not modify updater scheduling or `useDesktopUpdates`.
 
 ## Implementation Order
 
-1. Record D-029 in `DECISIONS.md` before behavior changes. *(Done at plan acceptance.)*
-2. Add failing Rust tests for token activation, stale sync, stale deactivation, stop idempotency, and in-flight deactivation.
-3. Implement the backend session lifecycle and guarded watcher attachment.
-4. Add scoped event payloads and nullable bridge signatures/guards.
-5. Add failing fake-timer tests for the reusable adaptive controller.
-6. Implement completion-aware scheduling, activity detection, generation invalidation, and unmount cleanup.
-7. Thread `teActive` from the existing switcher into `useDesktopInventory`; preserve cached state and do not recreate the owner’s WIP switcher files.
-8. Remove `syncIntervalMs` end-to-end.
-9. Run full verification and update `SESSION_HANDOFF.md` with measured results.
+All steps below were completed for TE on **2026-07-20** (see Implementation record above).
+
+1. ~~Record D-029 in `DECISIONS.md` before behavior changes.~~ *(Done at plan acceptance as IM-011.)*
+2. ~~Add failing Rust tests for token activation, stale sync, stale deactivation, stop idempotency, and in-flight deactivation.~~
+3. ~~Implement the backend session lifecycle and guarded watcher attachment.~~
+4. ~~Add scoped event payloads and nullable bridge signatures/guards.~~
+5. ~~Add failing fake-timer tests for the reusable adaptive controller.~~
+6. ~~Implement completion-aware scheduling, activity detection, generation invalidation, and unmount cleanup.~~
+7. ~~Thread `teActive` from the existing switcher into `useDesktopInventory`; preserve cached state and do not recreate the owner’s WIP switcher files.~~
+8. ~~Remove `syncIntervalMs` end-to-end.~~
+9. ~~Run full verification and update `SESSION_HANDOFF.md` with measured results.~~
 
 Operation-count/scanner optimization remains outside this change and should be reconsidered only after measuring the revised behavior.
 
@@ -197,7 +219,9 @@ Operation-count/scanner optimization remains outside this change and should be r
 
 ### Verification
 
-Run:
+**Automated (done 2026-07-20):** see Implementation record and [SESSION_HANDOFF.md](../../SESSION_HANDOFF.md).
+
+Run again on any lifecycle regression:
 
 - Targeted frontend sync/switcher tests.
 - `bun run test`
@@ -207,7 +231,7 @@ Run:
 - Clippy.
 - Existing mutation, shared-sync, and two-database flows.
 
-Single-instance DevTools smoke:
+Single-instance DevTools smoke (**optional residual** — not closed 2026-07-20):
 
 - Active TE: ≤ approximately 30 routine calls/minute.
 - Idle, hidden, or unfocused TE: ≤ approximately 1 routine call/minute.

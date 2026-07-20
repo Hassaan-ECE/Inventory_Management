@@ -12,6 +12,8 @@ import {
   parseInventorySyncResult,
   parseImportCommitResult,
   parseImportDryRunReport,
+  parseNonemptyString,
+  parseNullableInventorySyncResult,
   parseNullableString,
   parseUpdateState,
 } from "@/integrations/tauri/bridgeGuards";
@@ -22,6 +24,7 @@ import type {
   ImportCommitInput,
   UpdateState,
 } from "@/features/inventory/types";
+import type { InventorySharedChangedPayload } from "@/integrations/tauri/desktop-bridge";
 
 const updateStateListeners = new Set<(state: UpdateState) => void>();
 let pendingUpdate: Update | null = null;
@@ -32,10 +35,17 @@ let pendingUpdateState: UpdateState | null = null;
 if (typeof window !== "undefined" && isTauri()) {
   window.inventoryDesktop = {
     isDesktop: true,
+    activateInventorySync: () =>
+      invoke("activate_inventory_sync").then((value) => parseNonemptyString(value, "inventory sync session token")),
     loadInventory: () => invoke("load_inventory").then(parseInventorySyncResult),
     queryInventory: (input: InventoryQueryInput) =>
       invoke("query_inventory", { input }).then(parseInventoryQueryResult),
-    syncInventory: () => invoke("sync_inventory").then(parseInventorySyncResult),
+    syncInventory: (sessionId: string) =>
+      invoke("sync_inventory", { sessionId }).then(parseNullableInventorySyncResult),
+    deactivateInventorySync: (sessionId: string) =>
+      invoke("deactivate_inventory_sync", { sessionId }).then((value) =>
+        parseBoolean(value, "deactivate_inventory_sync result"),
+      ),
     toggleVerifiedEntry: (entryId: string, nextVerified: boolean) =>
       invoke("toggle_verified_entry", {
         entryId,
@@ -188,12 +198,17 @@ function listenToUpdateStateChanged(callback: (state: UpdateState) => void): () 
   };
 }
 
-function listenToSharedInventoryChanged(callback: () => void): () => void {
+function listenToSharedInventoryChanged(
+  callback: (payload: InventorySharedChangedPayload) => void,
+): () => void {
   let disposed = false;
   let unlisten: UnlistenFn | null = null;
 
-  void listen("inventory:shared-changed", () => {
-    callback();
+  void listen<unknown>("inventory:shared-changed", (event) => {
+    const payload = parseTeSharedChangedPayload(event.payload);
+    if (payload) {
+      callback(payload);
+    }
   })
     .then((nextUnlisten) => {
       if (disposed) {
@@ -210,6 +225,14 @@ function listenToSharedInventoryChanged(callback: () => void): () => void {
     unlisten?.();
     unlisten = null;
   };
+}
+
+function parseTeSharedChangedPayload(value: unknown): InventorySharedChangedPayload | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const systemId = Reflect.get(value, "systemId");
+  return systemId === "te-test-equipment" ? { systemId } : null;
 }
 
 function publishUpdateState(state: UpdateState): UpdateState {

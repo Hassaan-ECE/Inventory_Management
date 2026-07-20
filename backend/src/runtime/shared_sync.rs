@@ -139,7 +139,6 @@ mod tests {
             mutation_mode: "local".to_string(),
             revision: Some("3".to_string()),
             shared_root_path: Some("S:\\TE\\Test_Equipment".to_string()),
-            sync_interval_ms: Some(500),
         };
 
         coordinator.set_background_status(status).unwrap();

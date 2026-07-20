@@ -12,11 +12,7 @@ import type {
 export const THEME_STORAGE_KEY = "teTestEquipmentInventory.theme";
 export const COLOR_ROWS_STORAGE_KEY = "teTestEquipmentInventory.colorRows";
 export const COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.columnVisibility";
-export const DEFAULT_SHARED_SYNC_INTERVAL_MS = 500;
 export const UPDATE_CHECK_INTERVAL_MS = 5 * 60_000;
-
-const MIN_SHARED_SYNC_INTERVAL_MS = 500;
-const MAX_SHARED_SYNC_INTERVAL_MS = 5 * 60_000;
 
 export const MOCK_SHARED_STATUS: InventorySharedStatus = {
   available: true,
@@ -32,7 +28,6 @@ export const DESKTOP_SHARED_PENDING_STATUS: InventorySharedStatus = {
   enabled: false,
   message: "Checking shared workspace...",
   mutationMode: "local",
-  syncIntervalMs: DEFAULT_SHARED_SYNC_INTERVAL_MS,
 };
 
 export function buildIdleUpdateState(): UpdateState {
@@ -84,26 +79,12 @@ export function sharedStatusesMatch(left: InventorySharedStatus, right: Inventor
     left.mutationMode === right.mutationMode &&
     left.revision === right.revision &&
     left.lastSnapshotId === right.lastSnapshotId &&
-    left.sharedRootPath === right.sharedRootPath &&
-    left.syncIntervalMs === right.syncIntervalMs
+    left.sharedRootPath === right.sharedRootPath
   );
 }
 
 export function normalizeSharedStatus(status: InventorySharedStatus): InventorySharedStatus {
-  if (status.syncIntervalMs === undefined) {
-    return status;
-  }
-
-  const syncIntervalMs = clampSharedSyncIntervalMs(status.syncIntervalMs);
-  return syncIntervalMs === status.syncIntervalMs ? status : { ...status, syncIntervalMs };
-}
-
-export function clampSharedSyncIntervalMs(syncIntervalMs: number | undefined): number {
-  if (typeof syncIntervalMs !== "number" || !Number.isFinite(syncIntervalMs)) {
-    return DEFAULT_SHARED_SYNC_INTERVAL_MS;
-  }
-
-  return Math.min(MAX_SHARED_SYNC_INTERVAL_MS, Math.max(MIN_SHARED_SYNC_INTERVAL_MS, syncIntervalMs));
+  return status;
 }
 
 export function hasDesktopBridge(): boolean {

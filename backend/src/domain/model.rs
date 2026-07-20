@@ -343,7 +343,6 @@ pub(crate) struct InventorySharedStatus {
     pub revision: Option<String>,
     pub last_snapshot_id: Option<String>,
     pub shared_root_path: Option<String>,
-    pub sync_interval_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]

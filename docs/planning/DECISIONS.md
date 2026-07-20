@@ -1,7 +1,7 @@
 # Inventory Management — Decision Register
 
 **Status:** Authoritative for this product  
-**Last updated:** 2026-07-18
+**Last updated:** 2026-07-20
 
 ## Accepted decisions
 
@@ -17,8 +17,8 @@
 | IM-007 | Shared sync env prefix `INVENTORY_MANAGEMENT_*` (not TE_TEST_EQUIPMENT_*). | Distinct from standalone TE env vars. |
 | IM-008 | Updater deferred until product-specific signing key + GitHub Releases exist. | Do not ship TE’s pubkey/endpoints on this product. |
 | IM-009 | Cutover is manual install of the new app; keep old installers available. Auto-install via old-app updater is optional later work, not required for scaffold. | |
-| IM-011 | **Adaptive per-inventory sync lifecycle** (TE-first): selected inventory uses completion-aware polling (~2 s focused+active; ~60 s idle/unfocused/hidden), immediate sync on activate/focus/visibility/mutation/watcher, hard deactivation when deselected, opaque session tokens so stale work cannot rearm an inactive inventory. | Implementation authority: [../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md](../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md). Origin accepted as TE D-029; **implement in Inventory Management**. Future modules use independent DBs/roots/watchers and a `systemId → session` map. Shared formats unchanged. Remove `syncIntervalMs` from status. Sync is not a backup. |
-| IM-012 | Prefer a **whole redesign monorepo** (shared platform + domain modules) under this product, new GitHub repo, archive standalone repos after cutover—not perpetual triple-app maintenance. | TE redesign quality is the UX/ops baseline; do not force one row schema for all modules. |
+| IM-011 | **Adaptive per-inventory sync lifecycle** (TE-first): selected inventory uses completion-aware polling (~2 s focused+active; ~60 s idle/unfocused/hidden), immediate sync on activate/focus/visibility/mutation/watcher, hard deactivation when deselected, opaque session tokens so stale work cannot rearm an inactive inventory. | **Implemented for TE 2026-07-20.** Behavioral authority: [../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md](../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md). Origin TE D-029. Future modules use independent DBs/roots/watchers and a `systemId → session` map. Shared formats unchanged; `syncIntervalMs` removed. Sync is not a backup. Residual optional: live DevTools call-rate smoke (see SESSION_HANDOFF). |
+| IM-012 | Prefer a **whole redesign monorepo** (shared platform + domain modules) under this product, new GitHub repo, archive standalone repos after cutover—not perpetual triple-app maintenance. | TE redesign quality is the UX/ops baseline; do not force one row schema for all modules. GitHub `origin` connected 2026-07-18; monorepo extract still open. |
 
 ## Supersedes (context only)
 

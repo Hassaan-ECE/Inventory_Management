@@ -5,90 +5,154 @@ use std::{
 };
 
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
+use uuid::Uuid;
 
 use crate::model::CommandResult;
 
 pub(crate) const SHARED_INVENTORY_CHANGED_EVENT: &str = "inventory:shared-changed";
+pub(crate) const TE_TEST_EQUIPMENT_SYSTEM_ID: &str = "te-test-equipment";
 const WATCHER_EMIT_DEBOUNCE: Duration = Duration::from_millis(500);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InventorySharedChangedPayload {
+    pub(crate) system_id: &'static str,
+}
+
+/// TE-global lifecycle for this iteration; future inventories should use a system-id session map.
 pub(crate) struct SharedSyncWatcher {
     state: Mutex<SharedSyncWatcherState>,
 }
 
 struct SharedSyncWatcherState {
+    current_session_id: Option<String>,
     watched_path: Option<PathBuf>,
     watcher: Option<RecommendedWatcher>,
     last_emit: Arc<Mutex<Option<Instant>>>,
+    watcher_degraded: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SyncSessionCompletion {
+    pub(crate) current: bool,
+    pub(crate) watcher_degradation_started: bool,
 }
 
 impl SharedSyncWatcher {
     pub(crate) fn new() -> Self {
         Self {
             state: Mutex::new(SharedSyncWatcherState {
+                current_session_id: None,
                 watched_path: None,
                 watcher: None,
                 last_emit: Arc::new(Mutex::new(None)),
+                watcher_degraded: false,
             }),
         }
     }
 
-    pub(crate) fn ensure_watching<R: Runtime>(
+    pub(crate) fn activate_session(&self) -> CommandResult<String> {
+        let session_id = Uuid::new_v4().to_string();
+        let mut state = self.lock_state()?;
+        stop_watching(&mut state);
+        state.current_session_id = Some(session_id.clone());
+        Ok(session_id)
+    }
+
+    pub(crate) fn begin_sync(&self, session_id: &str) -> CommandResult<bool> {
+        let state = self.lock_state()?;
+        Ok(session_is_current(&state, session_id))
+    }
+
+    pub(crate) fn complete_sync<R: Runtime>(
         &self,
         app: AppHandle<R>,
+        session_id: &str,
         ops_dir: &Path,
-    ) -> CommandResult<()> {
-        self.ensure_watching_with_emit(ops_dir, move || {
-            let _ = app.emit(SHARED_INVENTORY_CHANGED_EVENT, ());
+    ) -> CommandResult<SyncSessionCompletion> {
+        self.complete_sync_with_emit(session_id, ops_dir, move || {
+            emit_shared_inventory_changed(&app);
         })
     }
 
-    fn ensure_watching_with_emit<F>(&self, ops_dir: &Path, emit: F) -> CommandResult<()>
+    pub(crate) fn complete_sync_without_watcher(
+        &self,
+        session_id: &str,
+    ) -> CommandResult<SyncSessionCompletion> {
+        let state = self.lock_state()?;
+        Ok(SyncSessionCompletion {
+            current: session_is_current(&state, session_id),
+            watcher_degradation_started: false,
+        })
+    }
+
+    pub(crate) fn deactivate_session(&self, session_id: &str) -> CommandResult<bool> {
+        let mut state = self.lock_state()?;
+        if !session_is_current(&state, session_id) {
+            return Ok(false);
+        }
+
+        state.current_session_id = None;
+        stop_watching(&mut state);
+        Ok(true)
+    }
+
+    fn complete_sync_with_emit<F>(
+        &self,
+        session_id: &str,
+        ops_dir: &Path,
+        emit: F,
+    ) -> CommandResult<SyncSessionCompletion>
     where
         F: Fn() + Send + 'static,
     {
-        if !ops_dir.exists() {
-            return Ok(());
+        self.complete_sync_with_attach(session_id, ops_dir, emit, ensure_watching)
+    }
+
+    fn complete_sync_with_attach<F, A>(
+        &self,
+        session_id: &str,
+        ops_dir: &Path,
+        emit: F,
+        attach: A,
+    ) -> CommandResult<SyncSessionCompletion>
+    where
+        F: Fn() + Send + 'static,
+        A: FnOnce(&mut SharedSyncWatcherState, &Path, F) -> CommandResult<()>,
+    {
+        let mut state = self.lock_state()?;
+        if !session_is_current(&state, session_id) {
+            return Ok(SyncSessionCompletion {
+                current: false,
+                watcher_degradation_started: false,
+            });
         }
 
-        let normalized_path = normalize_watched_path(ops_dir);
-        let mut state = self
-            .state
+        let watcher_degradation_started = match attach(&mut state, ops_dir, emit) {
+            Ok(()) => {
+                state.watcher_degraded = false;
+                false
+            }
+            Err(_) => {
+                let degradation_started = !state.watcher_degraded;
+                stop_watcher_resources(&mut state);
+                state.watcher_degraded = true;
+                degradation_started
+            }
+        };
+
+        Ok(SyncSessionCompletion {
+            current: true,
+            watcher_degradation_started,
+        })
+    }
+
+    fn lock_state(&self) -> CommandResult<std::sync::MutexGuard<'_, SharedSyncWatcherState>> {
+        self.state
             .lock()
-            .map_err(|_| "Shared sync watcher state is unavailable.".to_string())?;
-        if state
-            .watched_path
-            .as_ref()
-            .is_some_and(|current| paths_match(current, &normalized_path))
-        {
-            return Ok(());
-        }
-
-        state.watcher.take();
-        let last_emit = Arc::clone(&state.last_emit);
-        let mut watcher = RecommendedWatcher::new(
-            move |result: notify::Result<notify::Event>| {
-                let Ok(event) = result else {
-                    return;
-                };
-                if !event_kind_should_emit(&event.kind) {
-                    return;
-                }
-                if should_debounce_emit(&last_emit) {
-                    return;
-                }
-                emit();
-            },
-            Config::default(),
-        )
-        .map_err(|error| format!("Could not start shared sync watcher: {error}"))?;
-
-        watcher
-            .watch(&normalized_path, RecursiveMode::Recursive)
-            .map_err(|error| format!("Could not watch shared sync operations: {error}"))?;
-        state.watched_path = Some(normalized_path);
-        state.watcher = Some(watcher);
-        Ok(())
+            .map_err(|_| "Shared sync watcher state is unavailable.".to_string())
     }
 
     #[cfg(test)]
@@ -98,6 +162,78 @@ impl SharedSyncWatcher {
             .ok()
             .and_then(|state| state.watched_path.clone())
     }
+}
+
+pub(crate) fn emit_shared_inventory_changed<R: Runtime>(app: &AppHandle<R>) {
+    let _ = app.emit(
+        SHARED_INVENTORY_CHANGED_EVENT,
+        InventorySharedChangedPayload {
+            system_id: TE_TEST_EQUIPMENT_SYSTEM_ID,
+        },
+    );
+}
+
+fn session_is_current(state: &SharedSyncWatcherState, session_id: &str) -> bool {
+    state.current_session_id.as_deref() == Some(session_id)
+}
+
+fn ensure_watching<F>(
+    state: &mut SharedSyncWatcherState,
+    ops_dir: &Path,
+    emit: F,
+) -> CommandResult<()>
+where
+    F: Fn() + Send + 'static,
+{
+    if !ops_dir.exists() {
+        return Ok(());
+    }
+
+    let normalized_path = normalize_watched_path(ops_dir);
+    if state
+        .watched_path
+        .as_ref()
+        .is_some_and(|current| paths_match(current, &normalized_path))
+    {
+        return Ok(());
+    }
+
+    stop_watcher_resources(state);
+    let last_emit = Arc::clone(&state.last_emit);
+    let mut watcher = RecommendedWatcher::new(
+        move |result: notify::Result<notify::Event>| {
+            let Ok(event) = result else {
+                return;
+            };
+            if !event_kind_should_emit(&event.kind) {
+                return;
+            }
+            if should_debounce_emit(&last_emit) {
+                return;
+            }
+            emit();
+        },
+        Config::default(),
+    )
+    .map_err(|error| format!("Could not start shared sync watcher: {error}"))?;
+
+    watcher
+        .watch(&normalized_path, RecursiveMode::Recursive)
+        .map_err(|error| format!("Could not watch shared sync operations: {error}"))?;
+    state.watched_path = Some(normalized_path);
+    state.watcher = Some(watcher);
+    Ok(())
+}
+
+fn stop_watching(state: &mut SharedSyncWatcherState) {
+    stop_watcher_resources(state);
+    state.watcher_degraded = false;
+}
+
+fn stop_watcher_resources(state: &mut SharedSyncWatcherState) {
+    state.watcher.take();
+    state.watched_path = None;
+    state.last_emit = Arc::new(Mutex::new(None));
 }
 
 fn event_kind_should_emit(kind: &EventKind) -> bool {
@@ -137,14 +273,122 @@ fn paths_match(left: &Path, right: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{sync::Arc, thread};
+
+    #[test]
+    fn activation_is_in_memory_and_replaces_the_previous_session() {
+        let watcher = SharedSyncWatcher::new();
+        let untouched_shared_path = unique_ops_dir("activation");
+
+        let first_session = watcher.activate_session().unwrap();
+        let second_session = watcher.activate_session().unwrap();
+
+        assert!(!first_session.is_empty());
+        assert!(!second_session.is_empty());
+        assert_ne!(first_session, second_session);
+        assert!(!untouched_shared_path.exists());
+        assert!(!watcher.begin_sync(&first_session).unwrap());
+        assert!(watcher.begin_sync(&second_session).unwrap());
+    }
+
+    #[test]
+    fn shared_change_payload_is_scoped_to_te_test_equipment() {
+        let payload = InventorySharedChangedPayload {
+            system_id: TE_TEST_EQUIPMENT_SYSTEM_ID,
+        };
+
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            serde_json::json!({ "systemId": "te-test-equipment" })
+        );
+    }
+
+    #[test]
+    fn stale_sync_is_rejected_before_shared_work_starts() {
+        let watcher = SharedSyncWatcher::new();
+        let current_session = watcher.activate_session().unwrap();
+        let mut shared_work_started = false;
+
+        if watcher.begin_sync("stale-session").unwrap() {
+            shared_work_started = true;
+        }
+
+        assert!(!shared_work_started);
+        assert!(watcher.begin_sync(&current_session).unwrap());
+    }
+
+    #[test]
+    fn stale_deactivation_cannot_stop_a_newer_session() {
+        let watcher = SharedSyncWatcher::new();
+        let stale_session = watcher.activate_session().unwrap();
+        let current_session = watcher.activate_session().unwrap();
+
+        assert!(!watcher.deactivate_session(&stale_session).unwrap());
+        assert!(watcher.begin_sync(&current_session).unwrap());
+        assert!(watcher.deactivate_session(&current_session).unwrap());
+    }
+
+    #[test]
+    fn watcher_stop_is_idempotent_through_repeated_deactivation() {
+        let watcher = SharedSyncWatcher::new();
+        let session = watcher.activate_session().unwrap();
+        let ops_dir = unique_ops_dir("stop-idempotent");
+        std::fs::create_dir_all(&ops_dir).unwrap();
+
+        let completion = watcher
+            .complete_sync_with_emit(&session, &ops_dir, || {})
+            .unwrap();
+        assert!(completion.current);
+        assert!(watcher.watched_path_for_test().is_some());
+
+        assert!(watcher.deactivate_session(&session).unwrap());
+        assert!(watcher.watched_path_for_test().is_none());
+        assert!(!watcher.deactivate_session(&session).unwrap());
+        assert!(watcher.watched_path_for_test().is_none());
+
+        std::fs::remove_dir_all(ops_dir).unwrap();
+    }
+
+    #[test]
+    fn deactivation_during_in_flight_sync_prevents_watcher_attachment() {
+        let watcher = Arc::new(SharedSyncWatcher::new());
+        let session = watcher.activate_session().unwrap();
+        let ops_dir = unique_ops_dir("in-flight-deactivation");
+        std::fs::create_dir_all(&ops_dir).unwrap();
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+        let worker_watcher = Arc::clone(&watcher);
+        let worker_session = session.clone();
+        let worker_ops_dir = ops_dir.clone();
+
+        let worker = thread::spawn(move || {
+            assert!(worker_watcher.begin_sync(&worker_session).unwrap());
+            started_tx.send(()).unwrap();
+            finish_rx.recv().unwrap();
+            worker_watcher
+                .complete_sync_with_emit(&worker_session, &worker_ops_dir, || {})
+                .unwrap()
+        });
+
+        started_rx.recv().unwrap();
+        assert!(watcher.deactivate_session(&session).unwrap());
+        finish_tx.send(()).unwrap();
+
+        let completion = worker.join().unwrap();
+        assert!(!completion.current);
+        assert!(watcher.watched_path_for_test().is_none());
+
+        std::fs::remove_dir_all(ops_dir).unwrap();
+    }
 
     #[test]
     fn missing_ops_dir_is_ignored() {
         let watcher = SharedSyncWatcher::new();
-        let missing_path = std::env::temp_dir().join("inventory-management-missing-ops");
+        let missing_path = unique_ops_dir("missing");
+        let session = watcher.activate_session().unwrap();
 
         watcher
-            .ensure_watching_with_emit(&missing_path, || {})
+            .complete_sync_with_emit(&session, &missing_path, || {})
             .unwrap();
 
         assert!(watcher.watched_path_for_test().is_none());
@@ -153,16 +397,70 @@ mod tests {
     #[test]
     fn watcher_starts_after_ops_dir_becomes_available() {
         let watcher = SharedSyncWatcher::new();
-        let ops_dir = std::env::temp_dir().join(format!(
-            "inventory-management-ops-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let session = watcher.activate_session().unwrap();
+        let ops_dir = unique_ops_dir("available");
 
-        watcher.ensure_watching_with_emit(&ops_dir, || {}).unwrap();
+        watcher
+            .complete_sync_with_emit(&session, &ops_dir, || {})
+            .unwrap();
         assert!(watcher.watched_path_for_test().is_none());
 
         std::fs::create_dir_all(&ops_dir).unwrap();
-        watcher.ensure_watching_with_emit(&ops_dir, || {}).unwrap();
+        watcher
+            .complete_sync_with_emit(&session, &ops_dir, || {})
+            .unwrap();
         assert!(watcher.watched_path_for_test().is_some());
+
+        watcher.deactivate_session(&session).unwrap();
+        std::fs::remove_dir_all(ops_dir).unwrap();
+    }
+
+    #[test]
+    fn watcher_attachment_failure_degrades_once_and_recovers_after_success() {
+        let watcher = SharedSyncWatcher::new();
+        let session = watcher.activate_session().unwrap();
+        let ops_dir = unique_ops_dir("degradation");
+
+        let first_failure = watcher
+            .complete_sync_with_attach(
+                &session,
+                &ops_dir,
+                || {},
+                |_, _, _| Err("watcher unavailable".to_string()),
+            )
+            .unwrap();
+        let repeated_failure = watcher
+            .complete_sync_with_attach(
+                &session,
+                &ops_dir,
+                || {},
+                |_, _, _| Err("watcher unavailable".to_string()),
+            )
+            .unwrap();
+
+        assert!(first_failure.current);
+        assert!(first_failure.watcher_degradation_started);
+        assert!(repeated_failure.current);
+        assert!(!repeated_failure.watcher_degradation_started);
+        assert!(watcher.watched_path_for_test().is_none());
+
+        std::fs::create_dir_all(&ops_dir).unwrap();
+        let recovered = watcher
+            .complete_sync_with_emit(&session, &ops_dir, || {})
+            .unwrap();
+
+        assert!(recovered.current);
+        assert!(!recovered.watcher_degradation_started);
+        assert!(watcher.watched_path_for_test().is_some());
+
+        watcher.deactivate_session(&session).unwrap();
+        std::fs::remove_dir_all(ops_dir).unwrap();
+    }
+
+    fn unique_ops_dir(prefix: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "inventory-management-{prefix}-{}",
+            Uuid::new_v4().simple()
+        ))
     }
 }

@@ -147,7 +147,6 @@ export interface InventorySharedStatus {
   revision?: string;
   lastSnapshotId?: string;
   sharedRootPath?: string;
-  syncIntervalMs?: number;
 }
 
 export interface InventoryCounts {

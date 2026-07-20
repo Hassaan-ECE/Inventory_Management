@@ -53,6 +53,10 @@ export function parseInventorySyncResult(value: unknown): InventorySyncResult {
   };
 }
 
+export function parseNullableInventorySyncResult(value: unknown): InventorySyncResult | null {
+  return value === null || value === undefined ? null : parseInventorySyncResult(value);
+}
+
 export function parseInventoryQueryResult(value: unknown): InventoryQueryResult {
   const record = requireRecord(value, "inventory query payload");
   return {
@@ -167,6 +171,13 @@ export function parseNullableString(value: unknown, label: string): string | nul
   }
   if (typeof value !== "string") {
     throw new Error(`Invalid ${label}: expected a string or null.`);
+  }
+  return value;
+}
+
+export function parseNonemptyString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid ${label}: expected a nonempty string.`);
   }
   return value;
 }
@@ -311,7 +322,6 @@ function parseSharedStatus(value: unknown): InventorySharedStatus {
     mutationMode: record.mutationMode === "shared" ? "shared" : "local",
     revision: optionalString(record.revision),
     sharedRootPath: optionalString(record.sharedRootPath),
-    syncIntervalMs: optionalFiniteNumber(record.syncIntervalMs),
   };
 }
 
