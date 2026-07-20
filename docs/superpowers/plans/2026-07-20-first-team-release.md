@@ -4,7 +4,7 @@
 
 **Goal:** Ship a team-installable **Inventory Management** NSIS build that runs **TE Test Equipment** + **TE Lab Components** against **product module shared roots** on S:, with a clear cutover from InventoryApps pilots. ME Storage and TE Storage Room stay placeholders.
 
-**Architecture:** One installer (`com.inventory.management`). Shared data remains **per module**. Pilot defaults currently point at InventoryApps; release flips to `Inventory_Management_App\modules\...` after a deliberate data copy. Auto-updater is **optional for the first ship** (manual install is enough per IM-009); keys/endpoints are required only if enabling in-app update.
+**Architecture:** One installer (`com.inventory.management`). Shared data remains **per module**. Pilot defaults currently point at InventoryApps; release flips to `Inventory_Management_App\modules\...` after a deliberate data copy. **Auto-updater is required for first ship** so later versions install via the in-app Update button without re-running setup. Details: [UPDATER_AND_RELEASE.md](../../engineering/UPDATER_AND_RELEASE.md).
 
 **Tech / identity (do not change):**
 - Package `inventory-management` (version below)
@@ -33,7 +33,7 @@
 | Decision | Options | Recommendation |
 |----------|---------|----------------|
 | Version string | `0.1.0` / `0.2.0` / `1.0.0` | **`0.1.0`** unless you already distributed 0.1.0 internally |
-| Auto-updater in v1 | On / **Off** | **Off for first ship** (installer only); enable keys+Releases in a fast follow |
+| Auto-updater in v1 | **On** / Off | **On** — pubkey + GitHub `latest.json` endpoint + signed artifacts so Update works for v2+ without reinstall |
 | When to flip shared defaults | After copy + QA / At same time as installer | **After copy + smoke on product roots** |
 | Standalone writers | Stop on cutover day / Parallel temporarily | **Stop writers** on cutover for TE + Lab shares being migrated |
 
@@ -104,27 +104,23 @@ Env overrides remain for diagnostics:
 
 ## 6. Slice D-D — Build NSIS installer (updater optional)
 
-### D-D1 Installer only (recommended first ship)
+### D-D1 Keys + config (required for functional Update button)
 
-- [ ] Align versions in `package.json`, `backend/Cargo.toml`, `backend/tauri.conf.json` (and window title if hardcoded).
-- [ ] Confirm `createUpdaterArtifacts: false` **or** leave true only after keys exist.
-- [ ] `bun run build:desktop` (NSIS).
-- [ ] Copy setup exe to:
-  - `S:\...\Inventory_Management_App\Inventory Management_<ver>_x64-setup.exe` (or Tauri’s produced name)
-  - `S:\...\Inventory_Management_App\release-support\vX.Y.Z\` archive of build outputs + notes
-- [ ] Install on a clean/user profile; launch; both modules Shared on product roots.
+- [x] Generate **new** keypair for this product only (2026-07-20):  
+  private `%USERPROFILE%\.tauri\inventory-management.key` (not in git);  
+  public embedded in `tauri.conf.json`.
+- [x] `createUpdaterArtifacts: true`
+- [x] Endpoint:  
+  `https://github.com/Hassaan-ECE/Inventory_Management/releases/latest/download/latest.json`
+- [ ] Owner: **backup private key offline** (password manager / secure store). Losing it breaks future signed updates for existing installs.
 
-### D-D2 Auto-updater (can be same release or fast follow)
+### D-D2 Build signed NSIS + GitHub Release
 
-- [ ] Generate **new** Tauri signer keypair for this product only (`tauri signer generate` / current Tauri 2 docs).
-- [ ] Store **private** key outside the repo (password manager / secure store). **Never commit.**
-- [ ] Put **public** key in `tauri.conf.json` → `plugins.updater.pubkey`.
-- [ ] Set `createUpdaterArtifacts: true`.
-- [ ] Set `endpoints` to GitHub latest JSON for **this** repo only, e.g.  
-  `https://github.com/Hassaan-ECE/Inventory_Management/releases/latest/download/latest.json`  
-  (exact path must match Tauri 2 updater plugin docs for your CLI version).
-- [ ] Build signed artifacts; create GitHub Release `vX.Y.Z` with installer + `.sig` / updater files.
-- [ ] Verify in-app Update check against the release (one machine).
+- [ ] Align versions in `package.json`, `backend/Cargo.toml`, `backend/tauri.conf.json`.
+- [ ] Set env `TAURI_SIGNING_PRIVATE_KEY` from private key file; build with `bun run build:desktop`.
+- [ ] Create GitHub Release `vX.Y.Z` with: setup `.exe`, `.sig`, and **`latest.json`** (see UPDATER_AND_RELEASE.md).
+- [ ] Copy setup exe to product share root + `release-support\vX.Y.Z\`.
+- [ ] Install once; later bump version, re-release, confirm **Update** downloads without full re-setup.
 
 **Never** copy TE’s pubkey or release URL into this product.
 
@@ -165,9 +161,8 @@ Publish a short note (product share README or email) covering:
 2. Run **D-A** copy script (writers closed).  
 3. Implement **D-B** default flip + tests + docs.  
 4. **D-C** smoke.  
-5. **D-D1** build + place installer.  
-6. **D-E** cutover note.  
-7. Optional **D-D2** updater as same-day or next PR.
+5. **D-D1/D-D2** signed NSIS + GitHub `latest.json` (updater on from day one).  
+6. **D-E** cutover note.
 
 ---
 

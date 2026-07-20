@@ -48,7 +48,7 @@ Do **not** run old + new clients against the same live shared root at once.
 | Lab shared-root env | `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT` |
 | Env sync enable | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` (`0`/`false`/`no`/`off` off) |
 
-Updater is **not** configured yet (new product needs its own signing key + GitHub repo). Do not reuse TE/ME updater keys.
+Updater is **configured for this product** (public key + GitHub `latest.json` endpoint). Sign builds with the private key on the release machine — see `docs/engineering/UPDATER_AND_RELEASE.md`. Do not reuse TE/ME updater keys.
 
 ## Workspace
 

@@ -50,7 +50,7 @@ Prefer live code + those docs over stale TE planning copies still sitting under 
 | Default Lab shared root (pilot) | `...\InventoryApps\TE` (release target: product `modules\TE_Lab_Components`) |
 | Env prefix | `INVENTORY_MANAGEMENT_*` |
 
-Updater is **off** until new signing keys + GitHub Releases exist. Do not reuse TE/ME updater keys or endpoints.
+Updater is **enabled in config** (product-specific pubkey + GitHub Releases `latest.json`). Sign with private key outside the repo — see `docs/engineering/UPDATER_AND_RELEASE.md`. Do not reuse TE/ME keys.
 
 ## Current state (2026-07-20)
 
