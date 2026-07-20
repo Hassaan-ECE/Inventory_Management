@@ -11,7 +11,8 @@ node_modules
 dist
 frontend/dist
 dist-ssr
-release
+# Root-level release output only (not scripts/release tooling)
+/release
 backend/target
 backend/gen
 .tmp
