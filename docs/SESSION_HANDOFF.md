@@ -53,12 +53,18 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 - Decisions **IM-001…IM-013**; implementation plans under `docs/superpowers/plans/`.
 - Git: `main` → `https://github.com/Hassaan-ECE/Inventory_Management.git` (initial scaffold push 2026-07-18).
 
+## First team release (v0.1.0) — 2026-07-20
+
+- Signed NSIS: `backend/target/release/bundle/nsis/Inventory Management_0.1.0_x64-setup.exe` (+ `.sig`)
+- Product share installer: `S:\...\Inventory_Management_App\Inventory Management_0.1.0_x64-setup.exe`
+- Archive: `S:\...\Inventory_Management_App\release-support\v0.1.0\`
+- GitHub Release: https://github.com/Hassaan-ECE/Inventory_Management/releases/tag/v0.1.0  
+  (setup + `.sig` + `latest.json` for in-app Update)
+
 ## What does **not** exist yet
 
-- First signed GitHub Release + published `latest.json` (so Update has a package to download)
 - Port of ME Storage / TE Storage Room data layers
-- Automatic data migration from legacy InventoryApps shares into `modules\...` (manual copy script exists)
-- Team installer on the product share root
+- Team cutover completed (standalone writers retired after team is stable on unified)
 
 ## Standalone apps (unchanged)
 
