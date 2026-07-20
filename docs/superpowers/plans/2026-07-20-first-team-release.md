@@ -102,7 +102,7 @@ Env overrides remain for diagnostics:
 
 ---
 
-## 6. Slice D-D — Build NSIS installer (updater optional)
+## 6. Slice D-D — Build signed NSIS installer + GitHub Release (updater required)
 
 ### D-D1 Keys + config (required for functional Update button)
 
@@ -157,11 +157,11 @@ Publish a short note (product share README or email) covering:
 
 ## 9. Suggested execution order (this week)
 
-1. Owner confirms version + updater on/off for v1.  
+1. Owner confirms version tag for first ship (default `0.1.0`).  
 2. Run **D-A** copy script (writers closed).  
 3. Implement **D-B** default flip + tests + docs.  
-4. **D-C** smoke.  
-5. **D-D1/D-D2** signed NSIS + GitHub `latest.json` (updater on from day one).  
+4. **D-C** smoke on product roots.  
+5. **D-D** signed NSIS + GitHub Release + `latest.json` (Update ready from day one).  
 6. **D-E** cutover note.
 
 ---
@@ -181,8 +181,8 @@ Do not port ME/Storage Room.
 Current pilot defaults still point at InventoryApps until D-B.
 Copy script: scripts/release/copy-shared-to-product-modules.ps1
 
-Order: complete D-A (owner) → D-B code flip → D-C smoke → D-D1 installer.
-Updater D-D2 only if owner approved keys + GitHub Release for this repo.
+Order: complete D-A (owner) → D-B code flip → D-C smoke → D-D signed installer + GitHub latest.json.
+Updater config is already in tree; private key must remain outside git.
 
-First reply: confirm git status, version target, and whether updater is in or out of this ship.
+First reply: confirm git status and version target for the first signed ship.
 ```
