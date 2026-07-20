@@ -16,7 +16,8 @@ export function StatusStrip({ message, counts, resultsLabel }: StatusStripProps)
           {resultsLabel ? <span className="shrink-0 text-muted-foreground">{resultsLabel}</span> : null}
           {message ? <span className="min-w-0 truncate text-muted-foreground">{message}</span> : null}
           {counts ? (
-            <div aria-label="Active calibration counts" className="flex flex-wrap">
+            <div aria-label="Inventory status counts" className="flex flex-wrap">
+              <CountPill label="Verified" value={`${counts.verified}/${counts.total}`} tone="success" />
               <CountPill label="Overdue" value={counts.overdue} tone="danger" />
               <CountPill label="Due soon" value={counts.dueSoon} tone="warning" />
               <CountPill label="Missing due" value={counts.missingDue} tone="muted" />
@@ -39,13 +40,14 @@ function CountPill({
   tone,
 }: {
   label: string;
-  value: number;
-  tone: "danger" | "warning" | "muted" | "info";
+  value: number | string;
+  tone: "danger" | "warning" | "muted" | "info" | "success";
 }) {
   return (
     <span
       className={cn(
         "rounded-none border px-2 py-0.5 font-medium not-first:border-l-0",
+        tone === "success" && "border-success/25 bg-success/10 text-success-foreground",
         tone === "danger" && "border-destructive/25 bg-destructive/10 text-destructive-foreground",
         tone === "warning" && "border-warning/25 bg-warning/10 text-warning-foreground",
         tone === "info" && "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",

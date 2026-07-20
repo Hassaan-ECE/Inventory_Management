@@ -1,5 +1,6 @@
 import { APP_CREDIT } from "@/app/branding";
 import type { InventoryCounts } from "@/modules/te-lab-components/types";
+import { cn } from "@/shared/lib/utils";
 
 interface StatusStripProps {
   counts?: InventoryCounts;
@@ -15,7 +16,12 @@ export function StatusStrip({ message, counts, resultsLabel }: StatusStripProps)
           {resultsLabel ? <span className="shrink-0 text-muted-foreground">{resultsLabel}</span> : null}
           {message ? <span className="min-w-0 truncate text-muted-foreground">{message}</span> : null}
           {counts ? (
-            <span className="shrink-0 border border-border bg-muted/50 px-2 py-0.5 font-medium text-muted-foreground">
+            <span
+              className={cn(
+                "shrink-0 rounded-none border px-2 py-0.5 font-medium",
+                "border-success/25 bg-success/10 text-success-foreground",
+              )}
+            >
               Verified: {counts.verified}/{counts.total}
             </span>
           ) : null}
