@@ -20,6 +20,7 @@ import { useStatusAnnouncer } from "@/modules/te-test-equipment/components/shell
 import { cycleSortState, DEFAULT_FILTERS, getVisibleDataColumnCount } from "@/modules/te-test-equipment/lib";
 import { INVENTORY_COLUMNS } from "@/modules/te-test-equipment/types";
 import type { ColumnKey, FilterState, InventoryScope, SortState } from "@/modules/te-test-equipment/types";
+import type { DesktopModuleViewProps } from "@/platform/modules/types";
 
 interface ContextMenuState {
   entryId: string;
@@ -27,7 +28,13 @@ interface ContextMenuState {
   y: number;
 }
 
-export function TeTestEquipmentView({ active }: { active: boolean }) {
+export function TeTestEquipmentView({
+  active,
+  activeModuleId,
+  onModuleChange,
+  onThemeToggle,
+  theme,
+}: DesktopModuleViewProps) {
   const { announceStatus, statusOverride } = useStatusAnnouncer();
   const {
     dataSource,
@@ -179,6 +186,7 @@ export function TeTestEquipmentView({ active }: { active: boolean }) {
   return (
     <>
       <InventoryHeader
+        activeModuleId={activeModuleId}
         archiveCount={counts.archive}
         canModifyEntries={canModifyEntries}
         inventoryCount={counts.inventory}
@@ -187,12 +195,15 @@ export function TeTestEquipmentView({ active }: { active: boolean }) {
           void handleExportExcel();
         }}
         onExportHtml={handleExportHtml}
+        onModuleChange={onModuleChange}
         onScopeChange={setScope}
+        onThemeToggle={onThemeToggle}
         onUpdateAction={() => {
           void handleUpdateAction();
         }}
         scope={scope}
         sharedStatus={sharedStatus}
+        theme={theme}
         updateState={updateState}
       />
 

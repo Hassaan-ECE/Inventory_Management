@@ -25,13 +25,14 @@ export function ShellHeader({ activeModuleId, onModuleChange, onThemeToggle, the
         systemMenuOpen ? "z-50" : "z-40",
       )}
     >
+      {/* Single top bar for placeholder modules (TE renders its own unified bar). */}
       <div className="flex flex-wrap items-center gap-3">
         <InventorySystemSwitcher
           value={activeModuleId}
           onChange={onModuleChange}
           onOpenChange={setSystemMenuOpen}
         />
-        <Button className="ml-auto" size="sm" variant="outline" onClick={onThemeToggle}>
+        <Button className="ml-auto shrink-0" size="sm" variant="outline" onClick={onThemeToggle}>
           {theme === "light" ? <MoonIcon className="size-3.5" /> : <SunIcon className="size-3.5" />}
           {theme === "light" ? "Dark Theme" : "Light Theme"}
         </Button>

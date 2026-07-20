@@ -22,24 +22,40 @@ export function InventoryShell() {
     document.title = `Inventory Management — ${activeHost.definition.label} v${APP_VERSION}`;
   }, [activeHost.definition.label]);
 
+  const onThemeToggle = (): void => {
+    setTheme((current) => (current === "light" ? "dark" : "light"));
+  };
+
   const placeholderMessage = `${activeHost.definition.label} — module not connected yet. Switch systems from the title menu.`;
 
   return (
     <div className="h-screen overflow-hidden bg-background text-foreground">
       <main className="flex h-full min-h-0 flex-col overflow-hidden">
-        <ShellHeader
-          activeModuleId={activeModuleId}
-          onModuleChange={selectModule}
-          onThemeToggle={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
-          theme={theme}
-        />
+        {/* Placeholder modules: shell-only chrome (switcher + theme). TE owns a unified top bar. */}
+        {activeHost.kind === "placeholder" ? (
+          <ShellHeader
+            activeModuleId={activeModuleId}
+            onModuleChange={selectModule}
+            onThemeToggle={onThemeToggle}
+            theme={theme}
+          />
+        ) : null}
 
         {INVENTORY_MODULE_HOSTS.map((host) => {
           if (host.kind !== "desktop") {
             return null;
           }
           const MainView = host.MainView;
-          return <MainView active={activeModuleId === host.definition.id} key={host.definition.id} />;
+          return (
+            <MainView
+              active={activeModuleId === host.definition.id}
+              activeModuleId={activeModuleId}
+              key={host.definition.id}
+              onModuleChange={selectModule}
+              onThemeToggle={onThemeToggle}
+              theme={theme}
+            />
+          );
         })}
 
         {activeHost.kind === "placeholder" ? (
