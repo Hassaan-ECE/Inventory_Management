@@ -51,15 +51,15 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 - `backend/src/inventory_stores.rs` owns isolated FeOx handles. Shared roots, sync gates, watcher sessions, opaque tokens, statuses, and events are keyed by `ModuleId`; stale work for one module cannot deactivate the other.
 - TE retains its calibration workbook export; Lab has a separate standalone-compatible 19-column workbook without calibration columns.
 - S: tree: `modules\*`, `release-support\`, `legacy-pointers\`, `README.md`.
-- Updater **disabled** (`createUpdaterArtifacts: false`, empty endpoints) until new keys/repo.
+- Updater **configured** for this product (pubkey + GitHub `latest.json` endpoint; `createUpdaterArtifacts: true`). Private key on build PC only — see `docs/engineering/UPDATER_AND_RELEASE.md`.
 - Decisions **IM-001…IM-013**; implementation plans under `docs/superpowers/plans/`.
 - Git: `main` → `https://github.com/Hassaan-ECE/Inventory_Management.git` (initial scaffold push 2026-07-18).
 
 ## What does **not** exist yet
 
-- Signed GitHub Releases / updater keys for this product
+- First signed GitHub Release + published `latest.json` (so Update has a package to download)
 - Port of ME Storage / TE Storage Room data layers
-- Automatic data migration from legacy InventoryApps shares into `modules\...`
+- Automatic data migration from legacy InventoryApps shares into `modules\...` (manual copy script exists)
 - Team installer on the product share root
 
 ## Standalone apps (unchanged)
