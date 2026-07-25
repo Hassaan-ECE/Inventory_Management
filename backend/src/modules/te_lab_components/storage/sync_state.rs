@@ -29,6 +29,11 @@ pub(crate) enum SyncKeyspace {
     CorruptRemote,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct SyncStateBackup {
+    records: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
 impl SyncKeyspace {
     fn prefix(self) -> &'static str {
         match self {
@@ -47,6 +52,74 @@ impl SyncKeyspace {
 // Sync storage exposes recovery/test maintenance helpers in addition to runtime hot paths.
 #[allow(dead_code)]
 impl InventoryDb {
+    pub(crate) fn backup_sync_state(&self) -> CommandResult<SyncStateBackup> {
+        let mut records = Vec::new();
+        self.scan_sync_prefix_from(
+            keys::SYNC_STATE_PREFIX,
+            keys::SYNC_STATE_PREFIX.as_bytes().to_vec(),
+            usize::MAX,
+            |key, value| {
+                records.push((key.to_vec(), value.to_vec()));
+                Ok(true)
+            },
+        )?;
+        for key in [
+            keys::META_SYNC_SCHEMA_VERSION,
+            keys::META_NEXT_LOCAL_SEQ,
+            keys::META_SYNC_REVISION,
+            keys::META_LAST_SNAPSHOT_ID,
+            b"meta:sync_bootstrap_complete",
+            b"meta:snapshot_apply_pending",
+        ] {
+            if self.store.contains_key(key) {
+                records.push((key.to_vec(), self.store.get(key).map_err(db_error)?));
+            }
+        }
+        Ok(SyncStateBackup { records })
+    }
+
+    pub(crate) fn reset_sync_state_for_catalog_v2(&self) -> CommandResult<()> {
+        self.clear_sync_state_for_catalog_migration()?;
+        self.set_sync_schema_version(2)?;
+        self.set_next_local_seq(1)?;
+        Ok(())
+    }
+
+    pub(crate) fn restore_sync_state(&self, backup: SyncStateBackup) -> CommandResult<()> {
+        self.clear_sync_state_for_catalog_migration()?;
+        for (key, value) in backup.records {
+            self.put_bytes(&key, &value)?;
+        }
+        Ok(())
+    }
+
+    fn clear_sync_state_for_catalog_migration(&self) -> CommandResult<()> {
+        let mut keys_to_delete = Vec::new();
+        self.scan_sync_prefix_from(
+            keys::SYNC_STATE_PREFIX,
+            keys::SYNC_STATE_PREFIX.as_bytes().to_vec(),
+            usize::MAX,
+            |key, _| {
+                keys_to_delete.push(key.to_vec());
+                Ok(true)
+            },
+        )?;
+        for key in keys_to_delete {
+            self.delete_key(&key)?;
+        }
+        for key in [
+            keys::META_SYNC_SCHEMA_VERSION,
+            keys::META_NEXT_LOCAL_SEQ,
+            keys::META_SYNC_REVISION,
+            keys::META_LAST_SNAPSHOT_ID,
+            b"meta:sync_bootstrap_complete",
+            b"meta:snapshot_apply_pending",
+        ] {
+            self.delete_key(key)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn sync_watermark(&self, client_id: &str) -> CommandResult<Option<u64>> {
         let key = keys::sync_watermark_key(client_id)?;
         self.get_u64(key.as_bytes(), "sync_watermark")

@@ -70,6 +70,310 @@ export interface InventorySharedStatus {
   sharedRootPath?: string;
 }
 
+export type CatalogScope = "inventory" | "archive";
+export type StockStatus =
+  | "archived"
+  | "no_stock"
+  | "unit_review"
+  | "low_stock"
+  | "in_stock"
+  | "mixed_units";
+
+export interface ComponentAttributeValue {
+  value: string;
+  unit: string;
+}
+
+export type ComponentAttributes = Record<string, ComponentAttributeValue>;
+
+export interface LegacyPartFields {
+  serialNumber: string;
+  projectName: string;
+  assignedTo: string;
+  lifecycleStatus: string;
+  workingStatus: string;
+  condition: string;
+  verifiedInSurvey: boolean;
+  manualEntry: boolean;
+}
+
+export interface Part {
+  id: string;
+  databaseId?: number;
+  entryUuid: string;
+  internalPartNumber: string;
+  category: string;
+  subcategory: string;
+  manufacturer: string;
+  manufacturerPartNumber: string;
+  displayValue: string;
+  mountingType: string;
+  packageType: string;
+  description: string;
+  attributes: ComponentAttributes;
+  supplier: string;
+  supplierSku: string;
+  supplierPackaging: string;
+  productUrl: string;
+  datasheetUrl: string;
+  defaultUnitOfMeasure: string;
+  reorderPoint: number | null;
+  targetQuantity: number | null;
+  partStatus: string;
+  picturePath: string;
+  notes: string;
+  archived: boolean;
+  legacy: LegacyPartFields;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartInput {
+  internalPartNumber: string;
+  category: string;
+  subcategory: string;
+  manufacturer: string;
+  manufacturerPartNumber: string;
+  displayValue: string;
+  mountingType: string;
+  packageType: string;
+  description: string;
+  attributes: ComponentAttributes;
+  supplier: string;
+  supplierSku: string;
+  supplierPackaging: string;
+  productUrl: string;
+  datasheetUrl: string;
+  defaultUnitOfMeasure: string;
+  reorderPoint: number | null;
+  targetQuantity: number | null;
+  partStatus: string;
+  picturePath?: string;
+  notes: string;
+  archived: boolean;
+}
+
+export interface StorageArea {
+  areaUuid: string;
+  name: string;
+  areaType: string;
+  owner: string;
+  description: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StorageAreaInput {
+  name: string;
+  areaType: string;
+  owner: string;
+  description: string;
+  archived: boolean;
+}
+
+export interface StorageContainer {
+  containerUuid: string;
+  areaUuid: string;
+  name: string;
+  containerType: string;
+  gridEnabled: boolean;
+  rowCount: number | null;
+  columnCount: number | null;
+  rowStart: number;
+  origin: string;
+  description: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StorageContainerInput {
+  areaUuid: string;
+  name: string;
+  containerType: string;
+  gridEnabled: boolean;
+  rowCount: number | null;
+  columnCount: number | null;
+  rowStart: number | null;
+  description: string;
+  archived: boolean;
+}
+
+export interface StockPlacement {
+  placementUuid: string;
+  partUuid: string;
+  containerUuid: string;
+  columnIndex: number | null;
+  rowIndex: number | null;
+  freeformPosition: string;
+  quantity: number;
+  unitOfMeasure: string;
+  packaging: string;
+  lotCode: string;
+  dateCode: string;
+  condition: string;
+  countState: string;
+  lastCountedAt: string | null;
+  lastCountedBy: string;
+  notes: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockPlacementInput {
+  partUuid: string;
+  containerUuid: string;
+  columnIndex: number | null;
+  rowIndex: number | null;
+  freeformPosition: string;
+  quantity: number;
+  unitOfMeasure: string;
+  packaging: string;
+  lotCode: string;
+  dateCode: string;
+  condition: string;
+  countState: string;
+  lastCountedAt: string | null;
+  lastCountedBy: string;
+  notes: string;
+  archived: boolean;
+}
+
+export interface StockMoveInput {
+  sourcePlacementUuid: string;
+  destinationPlacementUuid: string | null;
+  destination: StockPlacementInput | null;
+  quantity: number;
+}
+
+export interface StockCountInput {
+  quantity: number;
+  countedBy: string;
+}
+
+export interface QuantityTotal {
+  unitOfMeasure: string;
+  quantity: number;
+}
+
+export interface PartStockSummary {
+  partUuid: string;
+  totals: QuantityTotal[];
+  stockStatus: StockStatus;
+}
+
+export interface CatalogCounts {
+  activeParts: number;
+  archivedParts: number;
+  totalParts: number;
+  noStock: number;
+  lowStock: number;
+  unitReview: number;
+}
+
+export interface CatalogMigrationStatus {
+  schemaVersion: number | null;
+  required: boolean;
+  legacyEntryCount: number;
+  catalogInitialized: boolean;
+  message: string;
+}
+
+export interface CatalogSyncResult {
+  dbPath: string;
+  parts: Part[];
+  storageAreas: StorageArea[];
+  storageContainers: StorageContainer[];
+  stockPlacements: StockPlacement[];
+  summaries: PartStockSummary[];
+  counts: CatalogCounts;
+  migration: CatalogMigrationStatus;
+  entriesChanged?: boolean;
+  shared: InventorySharedStatus;
+}
+
+export interface CatalogMutationResult<T> {
+  value: T;
+  message: string;
+  mutationMode: InventoryMutationMode;
+  shared: InventorySharedStatus;
+}
+
+export interface CatalogDeleteResult {
+  entityUuid: string;
+  message: string;
+  mutationMode: InventoryMutationMode;
+  shared: InventorySharedStatus;
+}
+
+export interface MigrationDuplicateGroup {
+  key: string;
+  entryUuids: string[];
+  entryIds: string[];
+}
+
+export interface CatalogMigrationPreview {
+  mappingVersion: string;
+  sourceFingerprint: string;
+  sourceSchemaVersion: number | null;
+  targetSchemaVersion: number;
+  legacyRows: number;
+  proposedParts: number;
+  proposedPlacements: number;
+  archivedParts: number;
+  blankPositiveQuantityLocations: number;
+  generatedPartUuids: number;
+  duplicateInternalPartNumbers: MigrationDuplicateGroup[];
+  likelyMpnDuplicates: MigrationDuplicateGroup[];
+  invalidRows: string[];
+  warnings: string[];
+  blocking: boolean;
+}
+
+export interface CatalogMigrationCommitInput {
+  sourceFingerprint: string;
+  confirmed: boolean;
+}
+
+export interface CatalogMigrationCommitResult {
+  sourceFingerprint: string;
+  partsCreated: number;
+  placementsCreated: number;
+  areasCreated: number;
+  containersCreated: number;
+  noop: boolean;
+  message: string;
+}
+
+export interface CatalogSharedCutoverPreview {
+  localFingerprint: string;
+  sharedRootPath: string;
+  sharedRootAvailable: boolean;
+  catalogV2Initialized: boolean;
+  legacyStreamState: string;
+  partCount: number;
+  areaCount: number;
+  containerCount: number;
+  placementCount: number;
+  warnings: string[];
+  blocking: boolean;
+}
+
+export interface CatalogSharedCutoverCommitInput {
+  localFingerprint: string;
+  confirmed: boolean;
+}
+
+export interface CatalogSharedCutoverCommitResult {
+  localFingerprint: string;
+  legacyBackupPath: string | null;
+  catalogRootPath: string;
+  noop: boolean;
+  message: string;
+}
+
 export interface InventoryCounts {
   archive: number;
   inventory: number;

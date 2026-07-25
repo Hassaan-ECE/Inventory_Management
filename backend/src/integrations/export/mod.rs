@@ -1,3 +1,4 @@
+mod catalog_workbook;
 mod lab_workbook;
 mod workbook;
 
@@ -11,7 +12,10 @@ use crate::{
     inventory_stores::InventoryStores,
     model::{CommandResult, InventoryEntry},
     modules::te_lab_components::{
-        model::InventoryEntry as LabInventoryEntry, store::InventoryDb as LabInventoryDb,
+        catalog_migration,
+        catalog_model::{Part, StockPlacement, StorageArea, StorageContainer},
+        model::InventoryEntry as LabInventoryEntry,
+        store::InventoryDb as LabInventoryDb,
     },
     platform::ModuleId,
     store::InventoryDb,
@@ -19,7 +23,7 @@ use crate::{
 
 pub(crate) const DEFAULT_EXCEL_EXPORT_FILENAME: &str = "TE_Test_Equipment_Inventory_Export.xlsx";
 pub(crate) const LAB_COMPONENTS_EXCEL_EXPORT_FILENAME: &str =
-    "TE_Lab_Components_Inventory_Export.xlsx";
+    "TE_Lab_Components_Catalog_Export.xlsx";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -87,15 +91,36 @@ pub(crate) fn export_lab_excel_to_path(
     db: &LabInventoryDb,
     output_path: impl AsRef<Path>,
 ) -> CommandResult<ExcelExportStats> {
-    let entries = db.load_entries()?;
-    write_lab_inventory_workbook(&entries, output_path)
+    let migration = catalog_migration::catalog_migration_status(db)?;
+    if migration.required {
+        let entries = db.load_entries()?;
+        return write_lab_legacy_inventory_workbook(&entries, output_path);
+    }
+    catalog_migration::ensure_catalog_initialized(db)?;
+    write_lab_catalog_workbook(
+        &db.load_parts()?,
+        &db.load_storage_areas()?,
+        &db.load_storage_containers()?,
+        &db.load_stock_placements()?,
+        output_path,
+    )
 }
 
-pub(crate) fn write_lab_inventory_workbook(
+pub(crate) fn write_lab_catalog_workbook(
+    parts: &[Part],
+    areas: &[StorageArea],
+    containers: &[StorageContainer],
+    placements: &[StockPlacement],
+    output_path: impl AsRef<Path>,
+) -> CommandResult<ExcelExportStats> {
+    catalog_workbook::write_catalog_workbook(parts, areas, containers, placements, output_path)
+}
+
+pub(crate) fn write_lab_legacy_inventory_workbook(
     entries: &[LabInventoryEntry],
     output_path: impl AsRef<Path>,
 ) -> CommandResult<ExcelExportStats> {
-    lab_workbook::write_inventory_workbook(entries, output_path)
+    lab_workbook::write_legacy_inventory_workbook(entries, output_path)
 }
 
 impl ExcelExportResult {
@@ -256,10 +281,108 @@ mod tests {
     }
 
     #[test]
-    fn lab_workbook_preserves_standalone_schema_without_calibration_columns() {
-        let path = temp_xlsx_path("lab-field-contract");
+    fn lab_catalog_workbook_has_required_sheets_and_stable_projections() {
+        let path = temp_xlsx_path("lab-catalog-contract");
+        let (parts, areas, containers, placements) = lab_catalog_test_data();
 
-        let stats = write_lab_inventory_workbook(
+        let stats =
+            write_lab_catalog_workbook(&parts, &areas, &containers, &placements, &path).unwrap();
+
+        assert_eq!(stats.total_count, 2);
+        assert_eq!(stats.inventory_count, 1);
+        assert_eq!(stats.archived_count, 1);
+
+        let workbook_xml = read_xlsx_member(&path, "xl/workbook.xml");
+        for (sheet_name, _) in lab_catalog_sheet_headers() {
+            assert!(
+                workbook_xml.contains(&format!(r#"name="{sheet_name}""#)),
+                "missing sheet {sheet_name}"
+            );
+        }
+
+        let shared_strings = shared_strings(&path);
+        let expected_headers = lab_catalog_sheet_headers();
+        for (sheet_index, (_, headers)) in expected_headers.iter().enumerate() {
+            let rows = worksheet_rows(
+                &path,
+                &format!("xl/worksheets/sheet{}.xml", sheet_index + 1),
+                &shared_strings,
+            );
+            assert_eq!(rows[0], *headers);
+        }
+
+        let part_rows = worksheet_rows(&path, "xl/worksheets/sheet1.xml", &shared_strings);
+        let part_headers = &part_rows[0];
+        let part = &part_rows[1];
+        assert_eq!(row_value(part_headers, part, "Part UUID"), "part-42");
+        assert_eq!(row_value(part_headers, part, "Derived Totals"), "3.5 pcs");
+        assert_eq!(row_value(part_headers, part, "Stock Status"), "low_stock");
+        assert_eq!(
+            row_value(part_headers, part, "Product URL"),
+            "https://example.com/product"
+        );
+
+        let archived_rows = worksheet_rows(&path, "xl/worksheets/sheet2.xml", &shared_strings);
+        assert_eq!(
+            row_value(&archived_rows[0], &archived_rows[1], "Part UUID"),
+            "part-43"
+        );
+        assert_eq!(
+            row_value(&archived_rows[0], &archived_rows[1], "Archived"),
+            "Yes"
+        );
+
+        let placement_rows = worksheet_rows(&path, "xl/worksheets/sheet3.xml", &shared_strings);
+        let placement_headers = &placement_rows[0];
+        let placement = &placement_rows[1];
+        assert_eq!(
+            row_value(placement_headers, placement, "Placement UUID"),
+            "placement-42"
+        );
+        assert_eq!(row_value(placement_headers, placement, "Coordinate"), "AA7");
+        assert_eq!(
+            row_value(placement_headers, placement, "Full Location Path"),
+            "Main Lab / Cabinet 1 / AA7"
+        );
+        assert_eq!(row_value(placement_headers, placement, "Quantity"), "3.5");
+
+        let storage_rows = worksheet_rows(&path, "xl/worksheets/sheet4.xml", &shared_strings);
+        assert_eq!(
+            row_value(&storage_rows[0], &storage_rows[1], "Column Count"),
+            "28"
+        );
+
+        let attribute_rows = worksheet_rows(&path, "xl/worksheets/sheet5.xml", &shared_strings);
+        assert_eq!(
+            row_value(&attribute_rows[0], &attribute_rows[1], "Attribute Key"),
+            "ratedVoltage"
+        );
+        assert_eq!(
+            row_value(&attribute_rows[0], &attribute_rows[1], "Attribute Unit"),
+            "V"
+        );
+
+        let legacy_rows = worksheet_rows(&path, "xl/worksheets/sheet6.xml", &shared_strings);
+        assert_eq!(
+            row_value(&legacy_rows[0], &legacy_rows[1], "Project Name"),
+            "Project 42"
+        );
+        assert_eq!(
+            row_value(&legacy_rows[0], &legacy_rows[1], "Verified in Survey"),
+            "Yes"
+        );
+
+        let workbook_sheet_xml = read_xlsx_member(&path, "xl/worksheets/sheet1.xml");
+        assert!(!workbook_sheet_xml.contains("<f>"));
+        assert!(!workbook_sheet_xml.contains("<f "));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn lab_legacy_workbook_remains_available_for_pre_migration_backup() {
+        let path = temp_xlsx_path("lab-legacy-backup");
+        let stats = write_lab_legacy_inventory_workbook(
             &[
                 lab_test_entry("42", false, true, Some(3.5)),
                 lab_test_entry("43", true, false, None),
@@ -269,27 +392,14 @@ mod tests {
         .unwrap();
 
         assert_eq!(stats.total_count, 2);
-        assert_eq!(stats.inventory_count, 1);
-        assert_eq!(stats.archived_count, 1);
-
         let workbook_xml = read_xlsx_member(&path, "xl/workbook.xml");
         assert!(workbook_xml.contains(r#"name="Inventory""#));
         assert!(workbook_xml.contains(r#"name="Archive""#));
-
         let shared_strings = shared_strings(&path);
-        let inventory_rows = worksheet_rows(&path, "xl/worksheets/sheet1.xml", &shared_strings);
-        let headers = lab_inventory_headers();
-        assert_eq!(inventory_rows[0], headers);
-        assert_eq!(inventory_rows[1][0], "TE-42");
-        assert_eq!(inventory_rows[1][2], "3.5");
-        assert_eq!(inventory_rows[1][12], "Yes");
-        assert!(headers.iter().all(|header| !header.contains("Calibration")));
-        assert!(!headers.contains(&"Verified At"));
-
-        let archive_rows = worksheet_rows(&path, "xl/worksheets/sheet2.xml", &shared_strings);
-        assert_eq!(archive_rows[0], headers);
-        assert_eq!(archive_rows[1][0], "TE-43");
-        assert_eq!(archive_rows[1][13], "Yes");
+        let rows = worksheet_rows(&path, "xl/worksheets/sheet1.xml", &shared_strings);
+        assert_eq!(rows[0], lab_legacy_inventory_headers());
+        assert_eq!(rows[1][0], "TE-42");
+        assert!(rows[0].iter().all(|header| !header.contains("Calibration")));
 
         let _ = fs::remove_file(path);
     }
@@ -420,12 +530,163 @@ mod tests {
         }
     }
 
+    fn lab_catalog_test_data() -> (
+        Vec<Part>,
+        Vec<StorageArea>,
+        Vec<StorageContainer>,
+        Vec<StockPlacement>,
+    ) {
+        use std::collections::BTreeMap;
+
+        use crate::modules::te_lab_components::catalog_model::{
+            ComponentAttributeValue, LegacyPartFields,
+        };
+
+        let timestamp = "2026-01-01T00:00:00.000Z".to_string();
+        let active_part = Part {
+            id: "42".to_string(),
+            database_id: Some(42),
+            entry_uuid: "part-42".to_string(),
+            internal_part_number: "LAB-42".to_string(),
+            category: "Semiconductor".to_string(),
+            subcategory: "BJT".to_string(),
+            manufacturer: "onsemi".to_string(),
+            manufacturer_part_number: "2N3904BU".to_string(),
+            display_value: "2N3904".to_string(),
+            mounting_type: "through_hole".to_string(),
+            package_type: "TO-92".to_string(),
+            description: "General-purpose transistor".to_string(),
+            attributes: BTreeMap::from([(
+                "ratedVoltage".to_string(),
+                ComponentAttributeValue {
+                    value: "40".to_string(),
+                    unit: "V".to_string(),
+                },
+            )]),
+            supplier: "DigiKey".to_string(),
+            supplier_sku: "2N3904BU-ND".to_string(),
+            supplier_packaging: "bag".to_string(),
+            product_url: "https://example.com/product".to_string(),
+            datasheet_url: "https://example.com/datasheet.pdf".to_string(),
+            default_unit_of_measure: "pcs".to_string(),
+            reorder_point: Some(5.0),
+            target_quantity: Some(20.0),
+            part_status: "active".to_string(),
+            picture_path: r"C:\Pictures\42.jpg".to_string(),
+            notes: "=formula-like text remains text".to_string(),
+            archived: false,
+            legacy: LegacyPartFields {
+                serial_number: "SN-42".to_string(),
+                project_name: "Project 42".to_string(),
+                assigned_to: "TE".to_string(),
+                lifecycle_status: "active".to_string(),
+                working_status: "working".to_string(),
+                condition: "Good".to_string(),
+                verified_in_survey: true,
+                manual_entry: true,
+            },
+            created_at: timestamp.clone(),
+            updated_at: timestamp.clone(),
+        };
+        let archived_part = Part {
+            id: "43".to_string(),
+            database_id: Some(43),
+            entry_uuid: "part-43".to_string(),
+            internal_part_number: "LAB-43".to_string(),
+            category: "Other".to_string(),
+            subcategory: String::new(),
+            manufacturer: String::new(),
+            manufacturer_part_number: "ARCHIVED-43".to_string(),
+            display_value: String::new(),
+            mounting_type: "unknown".to_string(),
+            package_type: String::new(),
+            description: "Archived part".to_string(),
+            attributes: BTreeMap::new(),
+            supplier: String::new(),
+            supplier_sku: String::new(),
+            supplier_packaging: String::new(),
+            product_url: String::new(),
+            datasheet_url: String::new(),
+            default_unit_of_measure: "unknown".to_string(),
+            reorder_point: None,
+            target_quantity: None,
+            part_status: "obsolete".to_string(),
+            picture_path: String::new(),
+            notes: String::new(),
+            archived: true,
+            legacy: LegacyPartFields::default(),
+            created_at: timestamp.clone(),
+            updated_at: timestamp.clone(),
+        };
+        let area = StorageArea {
+            area_uuid: "area-main".to_string(),
+            name: "Main Lab".to_string(),
+            area_type: "lab".to_string(),
+            owner: "TE".to_string(),
+            description: "Main storage".to_string(),
+            archived: false,
+            created_at: timestamp.clone(),
+            updated_at: timestamp.clone(),
+        };
+        let container = StorageContainer {
+            container_uuid: "container-main".to_string(),
+            area_uuid: area.area_uuid.clone(),
+            name: "Cabinet 1".to_string(),
+            container_type: "cabinet".to_string(),
+            grid_enabled: true,
+            row_count: Some(8),
+            column_count: Some(28),
+            row_start: 1,
+            origin: "top_left".to_string(),
+            description: "Drawer bank".to_string(),
+            archived: false,
+            created_at: timestamp.clone(),
+            updated_at: timestamp.clone(),
+        };
+        let placement = StockPlacement {
+            placement_uuid: "placement-42".to_string(),
+            part_uuid: active_part.entry_uuid.clone(),
+            container_uuid: container.container_uuid.clone(),
+            column_index: Some(26),
+            row_index: Some(6),
+            freeform_position: String::new(),
+            quantity: 3.5,
+            unit_of_measure: "pcs".to_string(),
+            packaging: "bag".to_string(),
+            lot_code: "LOT-42".to_string(),
+            date_code: "2601".to_string(),
+            condition: "new".to_string(),
+            count_state: "counted".to_string(),
+            last_counted_at: Some("2026-01-02T00:00:00.000Z".to_string()),
+            last_counted_by: "Taylor".to_string(),
+            notes: "Counted".to_string(),
+            archived: false,
+            created_at: timestamp.clone(),
+            updated_at: timestamp,
+        };
+        (
+            vec![active_part, archived_part],
+            vec![area],
+            vec![container],
+            vec![placement],
+        )
+    }
+
     fn inventory_headers() -> Vec<&'static str> {
         super::workbook::inventory_headers()
     }
 
-    fn lab_inventory_headers() -> Vec<&'static str> {
-        super::lab_workbook::inventory_headers()
+    fn lab_legacy_inventory_headers() -> Vec<&'static str> {
+        super::lab_workbook::legacy_inventory_headers()
+    }
+
+    fn lab_catalog_sheet_headers() -> Vec<(&'static str, Vec<&'static str>)> {
+        super::catalog_workbook::catalog_sheet_headers()
+    }
+
+    fn row_value<'a>(headers: &[String], row: &'a [String], header: &str) -> &'a str {
+        let index = headers.iter().position(|value| value == header).unwrap();
+        row.get(index).map(String::as_str).unwrap_or_default()
     }
 
     fn temp_xlsx_path(test_name: &str) -> PathBuf {

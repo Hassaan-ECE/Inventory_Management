@@ -9,6 +9,8 @@ Windows desktop app that unifies multiple inventory systems in **one install**, 
 
 Stack: Tauri 2, React 19, TypeScript, Vite, Tailwind v4, Bun, Rust, FeOxDB.
 
+TE Lab Components is a generalized electronic-parts catalog: flexible specifications, separate stock placements, area/desk → container → Excel-style bin locations, multiple locations per part, shared-bin warnings, physical counts/moves, reviewed legacy migration, Lab-only sync schema v2, and a six-sheet audit workbook. Live Lab migration remains an owner-coordinated cutover; see `docs/runbooks/te-lab-components-catalog-v2-migration.md`.
+
 **Package version: `0.1.0`** (scaffold / pre-team ship).
 
 ## Product share (S:)

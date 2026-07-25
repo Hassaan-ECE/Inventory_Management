@@ -17,15 +17,35 @@ import {
   parseUpdateState,
 } from "@/integrations/tauri/bridgeGuards";
 import {
+  parseLabCatalogDeleteResult,
+  parseLabCatalogMigrationCommitResult,
+  parseLabCatalogMigrationPreview,
   parseLabDeleteMutationResult,
   parseLabEntryMutationResult,
   parseLabInventoryQueryResult,
   parseLabInventorySyncResult,
+  parseLabPartMutationResult,
+  parseLabSharedCutoverCommitResult,
+  parseLabSharedCutoverPreview,
+  parseLabStockMoveMutationResult,
+  parseLabStockPlacementMutationResult,
+  parseLabStorageAreaMutationResult,
+  parseLabStorageContainerMutationResult,
 } from "@/integrations/tauri/labBridgeGuards";
 import type {
   ImportCommitInput,
   UpdateState,
 } from "@/modules/te-test-equipment/types";
+import type {
+  CatalogMigrationCommitInput,
+  CatalogSharedCutoverCommitInput,
+  PartInput,
+  StockCountInput,
+  StockMoveInput,
+  StockPlacementInput,
+  StorageAreaInput,
+  StorageContainerInput,
+} from "@/modules/te-lab-components/types";
 import type {
   ImplementedInventoryModuleId,
   InventoryDeleteMutationResultFor,
@@ -64,6 +84,46 @@ if (typeof window !== "undefined" && isTauri()) {
     updateEntry,
     setArchivedEntry,
     deleteEntry,
+    createLabPart: (input: PartInput) =>
+      invoke("create_lab_part", { input }).then(parseLabPartMutationResult),
+    updateLabPart: (partId: string, input: PartInput) =>
+      invoke("update_lab_part", { input, partId }).then(parseLabPartMutationResult),
+    deleteLabPart: (partId: string) =>
+      invoke("delete_lab_part", { partId }).then(parseLabCatalogDeleteResult),
+    createLabStorageArea: (input: StorageAreaInput) =>
+      invoke("create_lab_storage_area", { input }).then(parseLabStorageAreaMutationResult),
+    updateLabStorageArea: (areaUuid: string, input: StorageAreaInput) =>
+      invoke("update_lab_storage_area", { areaUuid, input }).then(parseLabStorageAreaMutationResult),
+    deleteLabStorageArea: (areaUuid: string) =>
+      invoke("delete_lab_storage_area", { areaUuid }).then(parseLabCatalogDeleteResult),
+    createLabStorageContainer: (input: StorageContainerInput) =>
+      invoke("create_lab_storage_container", { input }).then(parseLabStorageContainerMutationResult),
+    updateLabStorageContainer: (containerUuid: string, input: StorageContainerInput) =>
+      invoke("update_lab_storage_container", { containerUuid, input }).then(
+        parseLabStorageContainerMutationResult,
+      ),
+    deleteLabStorageContainer: (containerUuid: string) =>
+      invoke("delete_lab_storage_container", { containerUuid }).then(parseLabCatalogDeleteResult),
+    createLabStockPlacement: (input: StockPlacementInput) =>
+      invoke("create_lab_stock_placement", { input }).then(parseLabStockPlacementMutationResult),
+    updateLabStockPlacement: (placementUuid: string, input: StockPlacementInput) =>
+      invoke("update_lab_stock_placement", { input, placementUuid }).then(
+        parseLabStockPlacementMutationResult,
+      ),
+    deleteLabStockPlacement: (placementUuid: string) =>
+      invoke("delete_lab_stock_placement", { placementUuid }).then(parseLabCatalogDeleteResult),
+    moveLabStock: (input: StockMoveInput) =>
+      invoke("move_lab_stock", { input }).then(parseLabStockMoveMutationResult),
+    countLabStock: (placementUuid: string, input: StockCountInput) =>
+      invoke("count_lab_stock", { input, placementUuid }).then(parseLabStockPlacementMutationResult),
+    previewLabCatalogMigration: () =>
+      invoke("preview_lab_catalog_migration").then(parseLabCatalogMigrationPreview),
+    commitLabCatalogMigration: (input: CatalogMigrationCommitInput) =>
+      invoke("commit_lab_catalog_migration", { input }).then(parseLabCatalogMigrationCommitResult),
+    previewLabSharedCutover: () =>
+      invoke("preview_lab_shared_cutover").then(parseLabSharedCutoverPreview),
+    commitLabSharedCutover: (input: CatalogSharedCutoverCommitInput) =>
+      invoke("commit_lab_shared_cutover", { input }).then(parseLabSharedCutoverCommitResult),
     openExternal: async (url: string) =>
       invoke("open_external", { url }).then((value) => parseBoolean(value, "open_external result")),
     openPath: async (path: string) =>

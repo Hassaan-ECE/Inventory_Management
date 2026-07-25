@@ -2,7 +2,9 @@ use feoxdb::FeoxStore;
 use std::{fs, path::PathBuf, sync::Arc};
 use tauri::Manager;
 
+mod catalog;
 mod codec;
+#[allow(dead_code)]
 mod entries;
 mod keys;
 mod metadata;

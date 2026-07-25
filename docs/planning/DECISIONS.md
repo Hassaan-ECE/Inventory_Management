@@ -1,7 +1,7 @@
 # Inventory Management — Decision Register
 
 **Status:** Authoritative for this product  
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-25
 
 ## Accepted decisions
 
@@ -20,6 +20,7 @@
 | IM-011 | **Adaptive per-inventory sync lifecycle** (TE-first): selected inventory uses completion-aware polling (~2 s focused+active; ~60 s idle/unfocused/hidden), immediate sync on activate/focus/visibility/mutation/watcher, hard deactivation when deselected, opaque session tokens so stale work cannot rearm an inactive inventory. | **Implemented for TE 2026-07-20.** Behavioral authority: [../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md](../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md). Origin TE D-029. Future modules use independent DBs/roots/watchers and a `systemId → session` map. Shared formats unchanged; `syncIntervalMs` removed. Sync is not a backup. Residual optional: live DevTools call-rate smoke (see SESSION_HANDOFF). |
 | IM-012 | Prefer a **whole redesign monorepo** (shared platform + domain modules) under this product, new GitHub repo, archive standalone repos after cutover—not perpetual triple-app maintenance. | **Logical extract implemented 2026-07-20** (shell/platform/modules; one package + one crate). Plan: [../superpowers/plans/2026-07-20-platform-module-architecture-extract.md](../superpowers/plans/2026-07-20-platform-module-architecture-extract.md). TE only implemented; no multi-crate; next is Phase C ports. |
 | IM-013 | **Shared-data strategy:** team defaults use product `modules\TE_*` after copy from InventoryApps (done 2026-07-20 for TE + Lab). | Never dual-write unified + standalone to the same root. Future modules each get `modules\<Name>\`. |
+| IM-014 | **TE Lab Components is a generalized electronic-parts catalog:** flexible category attributes; Part separate from StockPlacement; area/desk → container → Excel-style bin; per-placement quantities; shared bins allowed with warnings; totals/status derived by unit; lossless reviewed migration; Lab-only sync schema v2; six-sheet export. | Implementation completed 2026-07-25. Owner copied-data desktop rehearsal and coordinated live Lab root cutover remain mandatory before production migration. Authority: [../superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md](../superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md). |
 
 ## Supersedes (context only)
 

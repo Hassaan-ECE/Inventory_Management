@@ -4,7 +4,6 @@ import { MOCK_INVENTORY } from "@/modules/te-lab-components/data/mockInventory";
 import { TE_LAB_COMPONENTS_MODULE_ID } from "@/modules/te-lab-components/moduleId";
 import type { InventoryEntry, InventorySharedStatus } from "@/modules/te-lab-components/types";
 import { AdaptiveSyncController } from "@/platform/sync/adaptiveSyncController";
-import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 
 import {
   DESKTOP_SHARED_PENDING_STATUS,
@@ -26,6 +25,13 @@ interface RefreshDesktopEntriesOptions {
   keepLoading?: boolean;
   preserveEntriesOnError?: boolean;
   showLoading?: boolean;
+}
+
+interface LegacyLabSyncResult {
+  dbPath: string;
+  entries: InventoryEntry[];
+  entriesChanged?: boolean;
+  shared: InventorySharedStatus;
 }
 
 export function useDesktopInventory({ announceStatus, active }: UseDesktopInventoryOptions) {
@@ -72,7 +78,7 @@ export function useDesktopInventory({ announceStatus, active }: UseDesktopInvent
       keepLoading = false,
       preserveEntriesOnError = false,
       showLoading = false,
-    }: RefreshDesktopEntriesOptions = {}): Promise<InventorySyncResult<"te-lab-components"> | null> => {
+    }: RefreshDesktopEntriesOptions = {}): Promise<LegacyLabSyncResult | null> => {
       const desktopBridge = window.inventoryDesktop;
       if (!desktopBridge?.loadInventory || !isCurrentGeneration(generation)) {
         return null;
@@ -84,7 +90,7 @@ export function useDesktopInventory({ announceStatus, active }: UseDesktopInvent
         setIsLoading(true);
       }
       try {
-        const payload = await desktopBridge.loadInventory(TE_LAB_COMPONENTS_MODULE_ID);
+        const payload = await desktopBridge.loadInventory(TE_LAB_COMPONENTS_MODULE_ID) as unknown as LegacyLabSyncResult;
         if (!isCurrentGeneration(generation) || requestId !== queryRequestRef.current) {
           return null;
         }
@@ -129,7 +135,7 @@ export function useDesktopInventory({ announceStatus, active }: UseDesktopInvent
 
       const startingRequestId = queryRequestRef.current;
       try {
-        const payload = await desktopBridge.syncInventory(TE_LAB_COMPONENTS_MODULE_ID, sessionId);
+        const payload = await desktopBridge.syncInventory(TE_LAB_COMPONENTS_MODULE_ID, sessionId) as unknown as LegacyLabSyncResult | null;
         if (
           payload === null ||
           !isCurrentGeneration(generation) ||

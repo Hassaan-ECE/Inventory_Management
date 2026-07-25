@@ -14,6 +14,15 @@ import type {
   UpdateState,
 } from "@/modules/te-test-equipment/types";
 import type {
+  CatalogDeleteResult as LabCatalogDeleteResult,
+  CatalogMigrationCommitInput,
+  CatalogMigrationCommitResult,
+  CatalogMigrationPreview,
+  CatalogMutationResult as LabCatalogMutationResult,
+  CatalogSharedCutoverCommitInput,
+  CatalogSharedCutoverCommitResult,
+  CatalogSharedCutoverPreview,
+  CatalogSyncResult as LabCatalogSyncResult,
   InventoryDeleteMutationResult as LabInventoryDeleteMutationResult,
   InventoryEntry as LabInventoryEntry,
   InventoryEntryEditContext as LabInventoryEntryEditContext,
@@ -22,6 +31,16 @@ import type {
   InventoryQueryInput as LabInventoryQueryInput,
   InventoryQueryResult as LabInventoryQueryResult,
   InventorySharedStatus as LabInventorySharedStatus,
+  Part,
+  PartInput,
+  StockCountInput,
+  StockMoveInput,
+  StockPlacement,
+  StockPlacementInput,
+  StorageArea,
+  StorageAreaInput,
+  StorageContainer,
+  StorageContainerInput,
 } from "@/modules/te-lab-components/types";
 import type { ModuleId } from "@/platform/modules/types";
 
@@ -61,14 +80,16 @@ export type InventoryDeleteMutationResultFor<M extends ImplementedInventoryModul
 export type InventoryQueryInputFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["queryInput"];
 export type InventoryQueryResultFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["queryResult"];
 
-export interface InventorySyncResult<
-  M extends ImplementedInventoryModuleId = "te-test-equipment",
-> {
+interface TeInventorySyncResult {
   dbPath: string;
-  entries: InventoryEntryFor<M>[];
+  entries: TeInventoryEntry[];
   entriesChanged?: boolean;
-  shared: InventoryModuleContract[M]["sharedStatus"];
+  shared: TeInventorySharedStatus;
 }
+
+export type InventorySyncResult<
+  M extends ImplementedInventoryModuleId = "te-test-equipment",
+> = M extends "te-test-equipment" ? TeInventorySyncResult : LabCatalogSyncResult;
 
 export interface InventorySharedChangedPayload {
   systemId: ModuleId;
@@ -111,6 +132,44 @@ export interface InventoryDesktopBridge {
     moduleId: M,
     entryId: string,
   ) => Promise<InventoryDeleteMutationResultFor<M>>;
+  createLabPart?: (input: PartInput) => Promise<LabCatalogMutationResult<Part>>;
+  updateLabPart?: (partId: string, input: PartInput) => Promise<LabCatalogMutationResult<Part>>;
+  deleteLabPart?: (partId: string) => Promise<LabCatalogDeleteResult>;
+  createLabStorageArea?: (input: StorageAreaInput) => Promise<LabCatalogMutationResult<StorageArea>>;
+  updateLabStorageArea?: (
+    areaUuid: string,
+    input: StorageAreaInput,
+  ) => Promise<LabCatalogMutationResult<StorageArea>>;
+  deleteLabStorageArea?: (areaUuid: string) => Promise<LabCatalogDeleteResult>;
+  createLabStorageContainer?: (
+    input: StorageContainerInput,
+  ) => Promise<LabCatalogMutationResult<StorageContainer>>;
+  updateLabStorageContainer?: (
+    containerUuid: string,
+    input: StorageContainerInput,
+  ) => Promise<LabCatalogMutationResult<StorageContainer>>;
+  deleteLabStorageContainer?: (containerUuid: string) => Promise<LabCatalogDeleteResult>;
+  createLabStockPlacement?: (
+    input: StockPlacementInput,
+  ) => Promise<LabCatalogMutationResult<StockPlacement>>;
+  updateLabStockPlacement?: (
+    placementUuid: string,
+    input: StockPlacementInput,
+  ) => Promise<LabCatalogMutationResult<StockPlacement>>;
+  deleteLabStockPlacement?: (placementUuid: string) => Promise<LabCatalogDeleteResult>;
+  moveLabStock?: (input: StockMoveInput) => Promise<LabCatalogMutationResult<StockPlacement[]>>;
+  countLabStock?: (
+    placementUuid: string,
+    input: StockCountInput,
+  ) => Promise<LabCatalogMutationResult<StockPlacement>>;
+  previewLabCatalogMigration?: () => Promise<CatalogMigrationPreview>;
+  commitLabCatalogMigration?: (
+    input: CatalogMigrationCommitInput,
+  ) => Promise<CatalogMigrationCommitResult>;
+  previewLabSharedCutover?: () => Promise<CatalogSharedCutoverPreview>;
+  commitLabSharedCutover?: (
+    input: CatalogSharedCutoverCommitInput,
+  ) => Promise<CatalogSharedCutoverCommitResult>;
   openExternal?: (url: string) => Promise<boolean>;
   openPath?: (path: string) => Promise<boolean>;
   loadPicturePreview?: (path: string) => Promise<string | null>;

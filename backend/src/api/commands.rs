@@ -17,8 +17,10 @@ use crate::{
         InventoryQueryResult, InventorySharedStatus, InventorySyncResult,
     },
     modules::te_lab_components::{
-        model as lab_model, mutations as lab_mutations, query as lab_query,
-        store::InventoryDb as LabInventoryDb, sync as lab_sync,
+        catalog_migration as lab_catalog_migration, catalog_model as lab_catalog_model,
+        catalog_mutations as lab_catalog_mutations, catalog_query as lab_catalog_query,
+        catalog_sync as lab_catalog_sync, model as lab_model, mutations as lab_mutations,
+        query as lab_query, store::InventoryDb as LabInventoryDb, sync as lab_sync,
     },
     platform::ModuleId,
     query::{get_inventory_counts, query_entries},
@@ -68,6 +70,7 @@ pub(crate) fn query_inventory(
             )?)
         }
         ModuleId::TeLabComponents => {
+            require_legacy_lab_projection(stores.te_lab_components())?;
             let input = parse_command_input::<lab_model::InventoryQueryInput>(
                 input,
                 "Lab inventory query",
@@ -145,26 +148,31 @@ pub(crate) async fn sync_inventory(
             })?))
         }
         ModuleId::TeLabComponents => {
+            let migration =
+                lab_catalog_migration::catalog_migration_status(stores.te_lab_components())?;
+            if migration.required {
+                let value = command_value(load_lab_inventory_from_store_with_status(
+                    stores.te_lab_components(),
+                    coordinator.background_status::<lab_model::InventorySharedStatus>(module)?,
+                )?)?;
+                return Ok(Some(value));
+            }
             let coordinator = coordinator.inner().clone();
             let task_coordinator = coordinator.clone();
             let db = stores.te_lab_components().clone();
-            let (result, entries, db_path) = tauri::async_runtime::spawn_blocking(move || {
-                let result = task_coordinator
-                    .run_exclusive(module, "shared sync", || lab_sync::run_shared_sync(&db))?;
-                let entries = if result.entries_changed {
-                    db.load_entries()?
-                } else {
-                    Vec::new()
-                };
-
-                Ok::<_, String>((result, entries, db.db_path_string()))
+            let result = tauri::async_runtime::spawn_blocking(move || {
+                let result =
+                    task_coordinator.run_exclusive(module, "shared catalog sync", || {
+                        lab_catalog_sync::run_shared_sync(&db)
+                    })?;
+                Ok::<_, String>(result)
             })
             .await
             .map_err(|error| format!("Shared sync task failed: {error}"))??;
 
             let mut result = result;
             let completion = if result.shared.enabled && result.shared.available {
-                let paths = lab_sync::resolved_shared_sync_paths();
+                let paths = lab_catalog_sync::resolved_catalog_shared_sync_paths();
                 watcher.complete_sync_for(app, module, &session_id, &paths.ops_dir)?
             } else {
                 watcher.complete_sync_without_watcher_for(module, &session_id)?
@@ -177,12 +185,13 @@ pub(crate) async fn sync_inventory(
             }
             coordinator.set_background_status(module, result.shared.clone())?;
 
-            Ok(Some(command_value(lab_model::InventorySyncResult {
-                db_path,
-                entries,
-                entries_changed: Some(result.entries_changed),
-                shared: result.shared,
-            })?))
+            Ok(Some(command_value(
+                lab_catalog_query::load_catalog_from_store(
+                    stores.te_lab_components(),
+                    result.shared,
+                    Some(result.entries_changed),
+                )?,
+            )?))
         }
     }
 }
@@ -217,6 +226,7 @@ pub(crate) fn create_entry(
             command_value(result)
         }
         ModuleId::TeLabComponents => {
+            require_legacy_lab_projection(stores.te_lab_components())?;
             let input = parse_command_input::<lab_model::InventoryEntryInput>(input, "Lab entry")?;
             let coordinator = coordinator.inner().clone();
             let db = stores.te_lab_components();
@@ -256,6 +266,7 @@ pub(crate) fn update_entry(
             command_value(result)
         }
         ModuleId::TeLabComponents => {
+            require_legacy_lab_projection(stores.te_lab_components())?;
             let input = parse_command_input::<lab_model::InventoryEntryInput>(input, "Lab entry")?;
             let edit_context = parse_optional_command_input::<lab_model::InventoryEntryEditContext>(
                 edit_context,
@@ -293,6 +304,7 @@ pub(crate) fn toggle_verified_entry(
             command_value(result)
         }
         ModuleId::TeLabComponents => {
+            require_legacy_lab_projection(stores.te_lab_components())?;
             let coordinator = coordinator.inner().clone();
             let db = stores.te_lab_components();
             let result = coordinator.run_exclusive(module, "inventory verify", || {
@@ -325,6 +337,7 @@ pub(crate) fn set_archived_entry(
             command_value(result)
         }
         ModuleId::TeLabComponents => {
+            require_legacy_lab_projection(stores.te_lab_components())?;
             let coordinator = coordinator.inner().clone();
             let db = stores.te_lab_components();
             let result = coordinator.run_exclusive(module, "inventory archive", || {
@@ -356,6 +369,7 @@ pub(crate) fn delete_entry(
             command_value(result)
         }
         ModuleId::TeLabComponents => {
+            require_legacy_lab_projection(stores.te_lab_components())?;
             let coordinator = coordinator.inner().clone();
             let db = stores.te_lab_components();
             let result = coordinator.run_exclusive(module, "inventory delete", || {
@@ -365,6 +379,301 @@ pub(crate) fn delete_entry(
             command_value(result)
         }
     }
+}
+
+#[tauri::command]
+pub(crate) fn create_lab_part(
+    app: AppHandle,
+    input: lab_catalog_model::PartInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "catalog part create", || {
+            lab_catalog_mutations::create_part_in_store(input, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn update_lab_part(
+    app: AppHandle,
+    part_id: String,
+    input: lab_catalog_model::PartInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "catalog part update", || {
+            lab_catalog_mutations::update_part_in_store(&part_id, input, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn delete_lab_part(
+    app: AppHandle,
+    part_id: String,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "catalog part delete", || {
+            lab_catalog_mutations::delete_part_in_store(&part_id, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn create_lab_storage_area(
+    app: AppHandle,
+    input: lab_catalog_model::StorageAreaInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "storage area create", || {
+            lab_catalog_mutations::create_storage_area_in_store(input, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn update_lab_storage_area(
+    app: AppHandle,
+    area_uuid: String,
+    input: lab_catalog_model::StorageAreaInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "storage area update", || {
+            lab_catalog_mutations::update_storage_area_in_store(&area_uuid, input, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn delete_lab_storage_area(
+    app: AppHandle,
+    area_uuid: String,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "storage area delete", || {
+            lab_catalog_mutations::delete_storage_area_in_store(&area_uuid, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn create_lab_storage_container(
+    app: AppHandle,
+    input: lab_catalog_model::StorageContainerInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result = coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "storage container create",
+        || lab_catalog_mutations::create_storage_container_in_store(input, db),
+    )?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn update_lab_storage_container(
+    app: AppHandle,
+    container_uuid: String,
+    input: lab_catalog_model::StorageContainerInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result = coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "storage container update",
+        || lab_catalog_mutations::update_storage_container_in_store(&container_uuid, input, db),
+    )?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn delete_lab_storage_container(
+    app: AppHandle,
+    container_uuid: String,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result = coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "storage container delete",
+        || lab_catalog_mutations::delete_storage_container_in_store(&container_uuid, db),
+    )?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn create_lab_stock_placement(
+    app: AppHandle,
+    input: lab_catalog_model::StockPlacementInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "placement create", || {
+            lab_catalog_mutations::create_stock_placement_in_store(input, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn update_lab_stock_placement(
+    app: AppHandle,
+    placement_uuid: String,
+    input: lab_catalog_model::StockPlacementInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "placement update", || {
+            lab_catalog_mutations::update_stock_placement_in_store(&placement_uuid, input, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn delete_lab_stock_placement(
+    app: AppHandle,
+    placement_uuid: String,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "placement delete", || {
+            lab_catalog_mutations::delete_stock_placement_in_store(&placement_uuid, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn move_lab_stock(
+    app: AppHandle,
+    input: lab_catalog_model::StockMoveInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result = coordinator.run_exclusive(ModuleId::TeLabComponents, "stock move", || {
+        lab_catalog_mutations::move_stock_in_store(input, db)
+    })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn count_lab_stock(
+    app: AppHandle,
+    placement_uuid: String,
+    input: lab_catalog_model::StockCountInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "physical stock count", || {
+            lab_catalog_mutations::count_stock_in_store(&placement_uuid, input, db)
+        })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn preview_lab_catalog_migration(
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    command_value(coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "catalog migration preview",
+        || lab_catalog_migration::preview_catalog_migration(stores.te_lab_components()),
+    )?)
+}
+
+#[tauri::command]
+pub(crate) fn commit_lab_catalog_migration(
+    input: lab_catalog_migration::CatalogMigrationCommitInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    command_value(coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "catalog migration commit",
+        || lab_catalog_migration::commit_catalog_migration(input, stores.te_lab_components()),
+    )?)
+}
+
+#[tauri::command]
+pub(crate) fn preview_lab_shared_cutover(
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    command_value(coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "shared catalog cutover preview",
+        || lab_catalog_sync::preview_shared_cutover(stores.te_lab_components()),
+    )?)
+}
+
+#[tauri::command]
+pub(crate) fn commit_lab_shared_cutover(
+    input: lab_catalog_sync::CatalogSharedCutoverCommitInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    command_value(coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "shared catalog cutover commit",
+        || lab_catalog_sync::commit_shared_cutover(input, stores.te_lab_components()),
+    )?)
 }
 
 #[tauri::command]
@@ -442,6 +751,17 @@ fn require_te_module(module: ModuleId) -> CommandResult<()> {
     }
 }
 
+fn require_legacy_lab_projection(db: &LabInventoryDb) -> CommandResult<()> {
+    if db.schema_version()? == Some(lab_catalog_model::CATALOG_SCHEMA_VERSION) {
+        Err(
+            "This Lab Components database uses catalog schema v2. Use the Lab catalog commands instead of legacy inventory-entry commands."
+                .to_string(),
+        )
+    } else {
+        Ok(())
+    }
+}
+
 fn parse_command_input<T: DeserializeOwned>(value: Value, label: &str) -> CommandResult<T> {
     serde_json::from_value(value).map_err(|error| format!("Invalid {label}: {error}"))
 }
@@ -497,21 +817,13 @@ fn load_inventory_from_store_with_status(
 fn load_lab_inventory_from_store_with_status(
     db: &LabInventoryDb,
     latest_background_status: Option<lab_model::InventorySharedStatus>,
-) -> CommandResult<lab_model::InventorySyncResult> {
+) -> CommandResult<lab_catalog_model::CatalogSyncResult> {
     let shared = latest_background_status.unwrap_or_else(|| {
-        let message = lab_sync::last_local_recovery_message(db).unwrap_or_else(|| {
-            "FeOxDB Lab Components store ready. Shared sync starting.".to_string()
-        });
-        lab_sync::startup_inventory_status(message)
+        lab_catalog_sync::startup_catalog_status(
+            "FeOxDB Lab Components catalog ready. Shared sync starting.",
+        )
     });
-    let entries = db.load_entries()?;
-
-    Ok(lab_model::InventorySyncResult {
-        db_path: db.db_path_string(),
-        entries,
-        entries_changed: Some(true),
-        shared,
-    })
+    lab_catalog_query::load_catalog_from_store(db, shared, Some(true))
 }
 
 fn query_inventory_from_store_with_status(
@@ -587,6 +899,28 @@ fn schedule_lab_shared_publish(
             Err(error) => lab_sync::shared_inventory_status(
                 &db,
                 format!("Background shared publish failed: {error}"),
+            ),
+        };
+        let _ = coordinator.set_background_status(module, status);
+        db.flush();
+        shared_watcher::emit_module_shared_inventory_changed(&app, module);
+    }));
+}
+
+fn schedule_lab_catalog_shared_publish(
+    app: AppHandle,
+    db: LabInventoryDb,
+    coordinator: SharedSyncCoordinator,
+) {
+    let module = ModuleId::TeLabComponents;
+    drop(tauri::async_runtime::spawn_blocking(move || {
+        let status = match coordinator.run_exclusive(module, "shared catalog publish", || {
+            lab_catalog_sync::publish_pending_local_changes(&db)
+        }) {
+            Ok(result) => result.shared,
+            Err(error) => lab_catalog_sync::shared_catalog_status(
+                &db,
+                format!("Background Lab catalog publish failed: {error}"),
             ),
         };
         let _ = coordinator.set_background_status(module, status);

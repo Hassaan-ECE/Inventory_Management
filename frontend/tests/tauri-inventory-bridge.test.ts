@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TE_LAB_COMPONENTS_MODULE_ID } from "@/modules/te-lab-components/moduleId";
 import type {
-  InventoryEntryInput as LabInventoryEntryInput,
-  InventoryQueryInput as LabInventoryQueryInput,
+  PartInput as LabPartInput,
+  StockPlacementInput as LabStockPlacementInput,
 } from "@/modules/te-lab-components/types";
 import { TE_TEST_EQUIPMENT_MODULE_ID } from "@/modules/te-test-equipment/moduleId";
 import type { InventoryEntryInput } from "@/modules/te-test-equipment/types";
@@ -31,7 +31,7 @@ describe("tauri inventory bridge", () => {
         tauriGlobal.isTauri = originalIsTauri;
       }
     }
-  });
+  }, 15_000);
 
   it("registers and cleans up Tauri shared inventory change events", async () => {
     type SharedInventoryChangedEvent = {
@@ -130,112 +130,87 @@ describe("tauri inventory bridge", () => {
     });
   });
 
-  it("parses Lab payloads and scopes Lab lifecycle, CRUD, and export invocations", async () => {
-    const labEntry = validLabBridgeEntry();
+  it("parses Lab catalog payloads and scopes catalog, placement, migration, and export invocations", async () => {
+    const part = validLabCatalogPart();
+    const placement = validLabStockPlacement();
     const invoke = vi.fn((command: string) => {
       switch (command) {
         case "load_inventory":
+          return Promise.resolve(validLabCatalogSyncPayload(part, placement));
+        case "create_lab_part":
           return Promise.resolve({
-            dbPath: "te-lab-components.feox",
-            entries: [labEntry],
-            shared: validLabSharedStatus(),
-          });
-        case "query_inventory":
-          return Promise.resolve({
-            counts: { archive: 0, inventory: 1, total: 1, verified: 1 },
-            dbPath: "te-lab-components.feox",
-            entries: [labEntry],
-            shared: validLabSharedStatus(),
-            totalFiltered: 1,
-          });
-        case "create_entry":
-        case "toggle_verified_entry":
-          return Promise.resolve({
-            entry: labEntry,
-            message: "Lab entry saved.",
+            value: part,
+            message: "Part added.",
             mutationMode: "shared",
             shared: validLabSharedStatus(),
           });
+        case "create_lab_stock_placement":
+          return Promise.resolve({
+            value: placement,
+            message: "Placement added.",
+            mutationMode: "shared",
+            shared: validLabSharedStatus(),
+          });
+        case "preview_lab_catalog_migration":
+          return Promise.resolve(validLabMigrationPreview());
         case "export_excel":
           return Promise.resolve({
             canceled: false,
-            outputPath: "D:/exports/TE_Lab_Components_Inventory_Export.xlsx",
+            outputPath: "D:/exports/TE_Lab_Components_Catalog_Export.xlsx",
           });
         default:
           return Promise.reject(new Error(`Unexpected command: ${command}`));
       }
     });
     const desktopBridge = await registerDesktopBridge(invoke);
-    const queryInput: LabInventoryQueryInput = {
-      filters: {
-        assetNumber: "",
-        description: "",
-        location: "",
-        manufacturer: "",
-        model: "",
-      },
-      query: "",
-      scope: "inventory",
-      sort: { column: "manufacturer", direction: "asc" },
-    };
-    const entryInput = validLabEntryInput();
+    const partInput = validLabPartInput();
+    const placementInput = validLabStockPlacementInput();
 
     const loaded = await desktopBridge.loadInventory(TE_LAB_COMPONENTS_MODULE_ID);
     await expect(
-      desktopBridge.queryInventory!(TE_LAB_COMPONENTS_MODULE_ID, queryInput),
-    ).resolves.toMatchObject({ counts: { total: 1, verified: 1 } });
-    await expect(
-      desktopBridge.createEntry(TE_LAB_COMPONENTS_MODULE_ID, entryInput),
+      desktopBridge.createLabPart?.(partInput),
     ).resolves.toMatchObject({
-      entry: { id: "lab-1", verifiedInSurvey: true },
+      value: { entryUuid: "lab-part-1", manufacturerPartNumber: "GHR-04V-S" },
       mutationMode: "shared",
     });
     await expect(
-      desktopBridge.toggleVerifiedEntry(
-        TE_LAB_COMPONENTS_MODULE_ID,
-        "lab-1",
-        true,
-      ),
-    ).resolves.toMatchObject({ entry: { verifiedInSurvey: true } });
+      desktopBridge.createLabStockPlacement?.(placementInput),
+    ).resolves.toMatchObject({ value: { placementUuid: "lab-placement-1", quantity: 12 } });
+    await expect(desktopBridge.previewLabCatalogMigration?.()).resolves.toMatchObject({
+      sourceFingerprint: "sha256:legacy",
+      proposedParts: 1,
+      blocking: false,
+    });
     await expect(
       desktopBridge.exportExcel?.(TE_LAB_COMPONENTS_MODULE_ID),
     ).resolves.toEqual({
       canceled: false,
       error: undefined,
-      outputPath: "D:/exports/TE_Lab_Components_Inventory_Export.xlsx",
+      outputPath: "D:/exports/TE_Lab_Components_Catalog_Export.xlsx",
     });
 
     expect(loaded).toMatchObject({
       dbPath: "te-lab-components.feox",
-      entries: [
+      parts: [
         {
-          id: "lab-1",
-          qty: 12,
-          verifiedInSurvey: true,
-          workingStatus: "working",
+          entryUuid: "lab-part-1",
+          manufacturerPartNumber: "GHR-04V-S",
+          defaultUnitOfMeasure: "pcs",
         },
       ],
+      stockPlacements: [{ placementUuid: "lab-placement-1", quantity: 12 }],
+      counts: { activeParts: 1, totalParts: 1 },
       shared: { enabled: true, mutationMode: "shared" },
     });
-    expect(loaded.entries[0]).not.toHaveProperty("calibrationRequirement");
-    expect(loaded.entries[0]).not.toHaveProperty("outToCalibration");
+    expect(loaded.parts[0]).not.toHaveProperty("calibrationRequirement");
+    expect(loaded.parts[0]).not.toHaveProperty("outToCalibration");
 
     expect(invoke).toHaveBeenNthCalledWith(1, "load_inventory", {
       moduleId: TE_LAB_COMPONENTS_MODULE_ID,
     });
-    expect(invoke).toHaveBeenNthCalledWith(2, "query_inventory", {
-      input: queryInput,
-      moduleId: TE_LAB_COMPONENTS_MODULE_ID,
-    });
-    expect(invoke).toHaveBeenNthCalledWith(3, "create_entry", {
-      input: entryInput,
-      moduleId: TE_LAB_COMPONENTS_MODULE_ID,
-    });
-    expect(invoke).toHaveBeenNthCalledWith(4, "toggle_verified_entry", {
-      entryId: "lab-1",
-      moduleId: TE_LAB_COMPONENTS_MODULE_ID,
-      nextVerified: true,
-    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "create_lab_part", { input: partInput });
+    expect(invoke).toHaveBeenNthCalledWith(3, "create_lab_stock_placement", { input: placementInput });
+    expect(invoke).toHaveBeenNthCalledWith(4, "preview_lab_catalog_migration");
     expect(invoke).toHaveBeenNthCalledWith(5, "export_excel", {
       moduleId: TE_LAB_COMPONENTS_MODULE_ID,
     });
@@ -732,41 +707,151 @@ function validEntryInput(): InventoryEntryInput {
   };
 }
 
-function validLabBridgeEntry(): Record<string, unknown> {
+function validLabCatalogPart(): Record<string, unknown> {
   return {
     id: "lab-1",
-    archived: false,
-    assetNumber: "LAB-1",
-    description: "Bench connector",
-    lifecycleStatus: "active",
+    databaseId: 1,
+    entryUuid: "lab-part-1",
+    internalPartNumber: "LAB-JST-1",
+    category: "Connector",
+    subcategory: "Housing",
     manufacturer: "JST",
-    model: "GHR-04V-S",
-    qty: 12,
+    manufacturerPartNumber: "GHR-04V-S",
+    displayValue: "4 position",
+    mountingType: "wire",
+    packageType: "GH housing",
+    description: "Bench connector",
+    attributes: { positions: { value: "4", unit: "" } },
+    supplier: "DigiKey",
+    supplierSku: "455-1165-ND",
+    supplierPackaging: "bag",
+    productUrl: "https://example.test/product",
+    datasheetUrl: "https://example.test/datasheet.pdf",
+    defaultUnitOfMeasure: "pcs",
+    reorderPoint: 5,
+    targetQuantity: 20,
+    partStatus: "active",
+    picturePath: "",
+    notes: "",
+    archived: false,
+    legacy: {
+      serialNumber: "",
+      projectName: "Harnesses",
+      assignedTo: "",
+      lifecycleStatus: "active",
+      workingStatus: "working",
+      condition: "Good",
+      verifiedInSurvey: true,
+      manualEntry: true,
+    },
+    createdAt: "2026-07-20T12:00:00.000Z",
     updatedAt: "2026-07-20T12:00:00.000Z",
-    verifiedInSurvey: true,
-    workingStatus: "working",
   };
 }
 
-function validLabEntryInput(): LabInventoryEntryInput {
+function validLabPartInput(): LabPartInput {
   return {
-    archived: false,
-    assetNumber: "LAB-1",
-    assignedTo: "",
-    condition: "Good",
-    description: "Bench connector",
-    lifecycleStatus: "active",
-    links: "",
-    location: "Cabinet A / Bin 1",
+    internalPartNumber: "LAB-JST-1",
+    category: "Connector",
+    subcategory: "Housing",
     manufacturer: "JST",
-    model: "GHR-04V-S",
-    notes: "",
+    manufacturerPartNumber: "GHR-04V-S",
+    displayValue: "4 position",
+    mountingType: "wire",
+    packageType: "GH housing",
+    description: "Bench connector",
+    attributes: { positions: { value: "4", unit: "" } },
+    supplier: "DigiKey",
+    supplierSku: "455-1165-ND",
+    supplierPackaging: "bag",
+    productUrl: "https://example.test/product",
+    datasheetUrl: "https://example.test/datasheet.pdf",
+    defaultUnitOfMeasure: "pcs",
+    reorderPoint: 5,
+    targetQuantity: 20,
+    partStatus: "active",
     picturePath: "",
-    projectName: "Harnesses",
-    qty: 12,
-    serialNumber: "",
-    verifiedInSurvey: true,
-    workingStatus: "working",
+    notes: "",
+    archived: false,
+  };
+}
+
+function validLabStockPlacement(): Record<string, unknown> {
+  return {
+    placementUuid: "lab-placement-1",
+    partUuid: "lab-part-1",
+    containerUuid: "lab-container-1",
+    columnIndex: 2,
+    rowIndex: 6,
+    freeformPosition: "",
+    quantity: 12,
+    unitOfMeasure: "pcs",
+    packaging: "bag",
+    lotCode: "",
+    dateCode: "",
+    condition: "new",
+    countState: "counted",
+    lastCountedAt: "2026-07-20T12:00:00.000Z",
+    lastCountedBy: "Avery",
+    notes: "",
+    archived: false,
+    createdAt: "2026-07-20T12:00:00.000Z",
+    updatedAt: "2026-07-20T12:00:00.000Z",
+  };
+}
+
+function validLabStockPlacementInput(): LabStockPlacementInput {
+  return {
+    partUuid: "lab-part-1",
+    containerUuid: "lab-container-1",
+    columnIndex: 2,
+    rowIndex: 6,
+    freeformPosition: "",
+    quantity: 12,
+    unitOfMeasure: "pcs",
+    packaging: "bag",
+    lotCode: "",
+    dateCode: "",
+    condition: "new",
+    countState: "uncounted",
+    lastCountedAt: null,
+    lastCountedBy: "",
+    notes: "",
+    archived: false,
+  };
+}
+
+function validLabCatalogSyncPayload(part: Record<string, unknown>, placement: Record<string, unknown>): Record<string, unknown> {
+  return {
+    dbPath: "te-lab-components.feox",
+    parts: [part],
+    storageAreas: [{ areaUuid: "lab-area-1", name: "Main Lab", areaType: "lab", owner: "TE", description: "", archived: false, createdAt: "2026-07-20T12:00:00.000Z", updatedAt: "2026-07-20T12:00:00.000Z" }],
+    storageContainers: [{ containerUuid: "lab-container-1", areaUuid: "lab-area-1", name: "Cabinet 1", containerType: "cabinet", gridEnabled: true, rowCount: 8, columnCount: 8, rowStart: 1, origin: "top_left", description: "", archived: false, createdAt: "2026-07-20T12:00:00.000Z", updatedAt: "2026-07-20T12:00:00.000Z" }],
+    stockPlacements: [placement],
+    summaries: [{ partUuid: "lab-part-1", totals: [{ unitOfMeasure: "pcs", quantity: 12 }], stockStatus: "in_stock" }],
+    counts: { activeParts: 1, archivedParts: 0, totalParts: 1, noStock: 0, lowStock: 0, unitReview: 0 },
+    migration: { schemaVersion: 2, required: false, legacyEntryCount: 0, catalogInitialized: true, message: "ready" },
+    shared: validLabSharedStatus(),
+  };
+}
+
+function validLabMigrationPreview(): Record<string, unknown> {
+  return {
+    mappingVersion: "te-lab-components-catalog-v2",
+    sourceFingerprint: "sha256:legacy",
+    sourceSchemaVersion: 1,
+    targetSchemaVersion: 2,
+    legacyRows: 1,
+    proposedParts: 1,
+    proposedPlacements: 1,
+    archivedParts: 0,
+    blankPositiveQuantityLocations: 0,
+    generatedPartUuids: 0,
+    duplicateInternalPartNumbers: [],
+    likelyMpnDuplicates: [],
+    invalidRows: [],
+    warnings: ["Units require review."],
+    blocking: false,
   };
 }
 

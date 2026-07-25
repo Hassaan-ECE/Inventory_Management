@@ -1,9 +1,9 @@
 # Session handoff — Inventory Management
 
-**Last updated:** 2026-07-20  
-**State:** Product `0.1.0` — stable identity + S: product share; TE Test Equipment and TE Lab Components are implemented as isolated modules with separate DBs, roots, domain types, and sync streams; ME Storage and TE Storage Room remain placeholders.
-**Implemented redesigns:** Adaptive per-inventory sync lifecycle **IM-011** ([plan](superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md)), logical platform/module architecture **IM-012** ([plan](superpowers/plans/2026-07-20-platform-module-architecture-extract.md)), and Phase **C1 TE Lab Components** ([plan](superpowers/plans/2026-07-20-te-lab-components-port.md)).
-**Docs hygiene:** SESSION_START_PROMPT, AGENTS, capability roadmap, and this handoff describe the implemented architecture so new chats do not re-open IM-011, IM-012, or C1 as greenfield work.
+**Last updated:** 2026-07-25
+**State:** Product `0.1.0` — stable identity + S: product share; TE Test Equipment remains isolated; **IM-014** implements the TE Lab Components generalized catalog and Lab-only sync schema v2. Owner copied-data rehearsal and coordinated live Lab migration/cutover are still pending. ME Storage and TE Storage Room remain placeholders.
+**Implemented redesigns:** Adaptive per-inventory sync lifecycle **IM-011** ([plan](superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md)), logical platform/module architecture **IM-012** ([plan](superpowers/plans/2026-07-20-platform-module-architecture-extract.md)), Phase **C1 TE Lab Components** ([plan](superpowers/plans/2026-07-20-te-lab-components-port.md)), and generalized Lab catalog/grid storage **IM-014** ([plan](superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md)).
+**Docs hygiene:** SESSION_START_PROMPT, AGENTS, capability roadmap, and this handoff describe the implemented architecture so new chats do not re-open IM-011, IM-012, C1, or IM-014 as greenfield work. IM-014 rollout tasks remain explicitly listed as pre-cutover work.
 **Desktop runtime fixes (2026-07-20):** `devUrl` uses `http://127.0.0.1:5173` (avoid localhost→IPv6); capability `core:window:allow-set-title`; adaptive controller wraps `setTimeout`/`clearTimeout` to avoid WebView `Illegal invocation`. Full restart of `bun run desktop` required after capability change.
 
 **New chat:** paste [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md). Move context: [CHAT_HANDOFF.md](CHAT_HANDOFF.md).
@@ -42,15 +42,15 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 - Real TE Test Equipment and TE Lab Components desktop modules; placeholders only for ME Storage and TE Storage Room.
 - Product chrome and switching live under `frontend/src/shell/`; module registry/persistence and adaptive sync live under `frontend/src/platform/`.
 - TE UI/domain remains under `frontend/src/modules/te-test-equipment/` and the existing `inventory.feox`; its calibration schema and sync schema v2 are unchanged except for module-scoped bridge calls.
-- Lab UI/domain lives under `frontend/src/modules/te-lab-components/`; it has no calibration fields, uses `verifiedInSurvey`, sync schema v1, and the separate `te-lab-components.feox` DB.
+- Lab UI/domain lives under `frontend/src/modules/te-lab-components/`; it has no calibration fields and now models generalized Parts, flexible attributes, StorageAreas, StorageContainers, and StockPlacements in the separate `te-lab-components.feox` DB.
 - The shell keeps both desktop hosts mounted, runs lifecycle work only for the active module, hard-deactivates the inactive session, and preserves each module's cached rows across switches.
 - Both real modules reuse the completion-aware IM-011 schedule: approximately 2 seconds while selected/active and approximately 60 seconds while idle, hidden, or unfocused; activation, restoration, activity, mutation, and correctly scoped watcher events can request immediate sync.
 - Backend inventory lifecycle, query, CRUD, and export commands are module-scoped. The Tauri JSON boundary dispatches into distinct TE and Lab types instead of merging schemas; TE import remains TE-only.
 - `backend/src/inventory_stores.rs` owns isolated FeOx handles. Shared roots, sync gates, watcher sessions, opaque tokens, statuses, and events are keyed by `ModuleId`; stale work for one module cannot deactivate the other.
-- TE retains its calibration workbook export; Lab has a separate standalone-compatible 19-column workbook without calibration columns.
+- TE retains its calibration workbook export. Migrated Lab catalog data exports to six sheets: Parts, Archived Parts, Stock Placements, Storage Layout, Attributes, and Legacy Fields; pre-migration Lab data retains a legacy flat backup export path.
 - S: tree: `modules\*`, `release-support\`, `legacy-pointers\`, `README.md`.
 - Updater **configured** for this product (pubkey + GitHub `latest.json` endpoint; `createUpdaterArtifacts: true`). Private key on build PC only — see `docs/engineering/UPDATER_AND_RELEASE.md`.
-- Decisions **IM-001…IM-013**; implementation plans under `docs/superpowers/plans/`.
+- Decisions **IM-001…IM-014**; implementation plans under `docs/superpowers/plans/`.
 - Git: `main` → `https://github.com/Hassaan-ECE/Inventory_Management.git` (initial scaffold push 2026-07-18).
 
 ## First team release (v0.1.0) — 2026-07-20
@@ -65,6 +65,8 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 
 - Port of ME Storage / TE Storage Room data layers
 - Team cutover completed (standalone writers retired after team is stable on unified)
+- Owner copied-data rehearsal and live schema-v2 migration of the current Lab database/shared root
+- Single-instance copied-data desktop smoke for IM-014 restart persistence and stock workflows
 
 ## Standalone apps (unchanged)
 
@@ -133,6 +135,18 @@ App code defaults now point at those product roots (see `backend/src/platform/sh
 - Single-instance live desktop smoke: preflight found no unified/standalone writer and no listeners on **5173/9222**; Lab opened **Shared** with **1 inventory / 0 archive** and its known row; TE switched in **Shared** with **529 inventory / 13 archive**; ME Storage remained a placeholder; returning to Lab preserved its row and no runtime exception or `Illegal invocation` was observed. The process and both listeners were fully stopped afterward.
 - The smoke was intentionally non-mutating on live shared data. Automated tests cover Lab create/update/delete/archive/verify; owner release QA should still add/edit one Lab entry and confirm persistence after restart.
 
+## IM-014 verification — 2026-07-25
+
+- Isolated implementation workspace: `C:\Projects\Active\Inventory_Management_IM014`, branch `feature/im-014-lab-components`; no live database, workbook, product shared root, or IM-015 worktree was modified.
+- Implemented generalized electronic-parts identity, flexible category attributes, separate per-location stock placements, area/desk → container → Excel-style grid bins, shared-bin warnings, moves, counts, archived locations, detailed filters/sorting/preferences, reviewed migration, Lab sync schema v2 cutover protection, and six-sheet export.
+- Focused frontend: Lab shell **6/6 passed** and Tauri bridge **26/26 passed**; coverage includes TE↔Lab cache/session isolation, generalized fields, `AA` coordinates, keyboard grid navigation, occupied bins, detailed persisted filters/sorting, duplicate-placement merge, and migration fingerprint confirmation.
+- Frontend lint passed. Production build passed (`tsc -b` + Vite; JS **466.64 kB**, CSS **59.57 kB** before gzip).
+- Raw full frontend suite on **July 25, 2026**: **151 passed, 1 failed, 1 skipped**. The only failure is the unrelated TE seeded-count assertion in `frontend/tests/inventory-shell.test.tsx`, which expects `Overdue: 1` from fixed 2026 dates while the production view intentionally evaluates the real current date. The other five tests in that file and all IM-014 tests pass. The existing non-failing React `act(...)` warning remains in `entry-dialog.test.tsx`.
+- Rust format and strict Clippy passed. Regular non-live Rust gates passed **347 tests** with **1 ignored** benchmark across library, import, performance, shared-sync, conflict, and sync-core targets.
+- Raw `cargo test` also reaches green code paths but the two opt-in `live_db_audit` cases require `TE_LEGACY_AUDIT_XLSX` and `TE_INVENTORY_AUDIT_DB`; owner data was deliberately not supplied.
+- Fixture-backed migration/export rehearsal uses temporary FeOx databases and validates no-data-loss identity, quantities, locations, compatibility fields, deterministic fingerprint confirmation, rerun behavior, two-database catalog sync, old-v1 writer blocking, and stable workbook projections.
+- Remaining pre-cutover work: rehearse with an owner-provided copy of the current Lab DB/shared root, run the single-instance copied-data desktop smoke in the IM-014 plan, then coordinate the live root upgrade with every other Lab writer stopped and rollback artifacts retained.
+
 ## Next slices
 
 1. ~~Connect new GitHub remote; initial push~~ done (`origin` / `main`)  
@@ -141,5 +155,6 @@ App code defaults now point at those product roots (see `backend/src/platform/sh
 4. ~~Phase A TE path: shared health + cutover~~ **done** — owner confirmed **Shared** on product module path; **IM-013** = long-term `modules\TE_Test_Equipment` (not default legacy pilot)  
 5. ~~Phase B architecture extract (IM-012)~~ **done and verified 2026-07-20** — plan: [superpowers/plans/2026-07-20-platform-module-architecture-extract.md](superpowers/plans/2026-07-20-platform-module-architecture-extract.md); results in § IM-012 verification  
 6. ~~Phase C1 TE Lab Components port~~ **done and verified 2026-07-20** — plan: [superpowers/plans/2026-07-20-te-lab-components-port.md](superpowers/plans/2026-07-20-te-lab-components-port.md).
-7. ~~Phase C1~~ done. **Next: Phase D first team release** — plan: [superpowers/plans/2026-07-20-first-team-release.md](superpowers/plans/2026-07-20-first-team-release.md). Copy script: `scripts/release/copy-shared-to-product-modules.ps1`. Order: copy shared data → flip defaults → smoke → **signed** NSIS + GitHub Release/`latest.json` (Update button ready from v1).
-8. ME Storage + TE Storage Room remain deferred to a later post-release update; optional IM-011 live cadence soak A2 remains non-blocking.
+7. **IM-014 implementation complete 2026-07-25; rollout pending** — plan: [superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md](superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md); runbook: [runbooks/te-lab-components-catalog-v2-migration.md](runbooks/te-lab-components-catalog-v2-migration.md). Next: copied-owner-data rehearsal → single-instance desktop smoke → coordinated live Lab cutover.
+8. First team release artifacts exist. Team adoption/cutover remains owner-coordinated; do not retire standalone writers until the applicable module is validated.
+9. ME Storage + TE Storage Room remain deferred to a later post-release update; optional IM-011 live cadence soak A2 remains non-blocking.

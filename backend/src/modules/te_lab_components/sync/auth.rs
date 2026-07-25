@@ -41,7 +41,7 @@ pub(crate) fn set_test_hmac_key(raw_key: Option<&str>) -> TestHmacKeyGuard {
     })
 }
 
-pub(super) fn sign_canonical_bytes(
+pub(crate) fn sign_canonical_bytes(
     domain: &str,
     canonical_bytes: &[u8],
 ) -> SyncCoreResult<Option<String>> {
@@ -55,7 +55,7 @@ pub(super) fn sign_canonical_bytes(
     )))
 }
 
-pub(super) fn verify_canonical_bytes(
+pub(crate) fn verify_canonical_bytes(
     domain: &str,
     canonical_bytes: &[u8],
     provided_auth: Option<&str>,

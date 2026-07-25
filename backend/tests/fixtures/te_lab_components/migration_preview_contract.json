@@ -1,0 +1,14 @@
+{
+  "mappingVersion": "te-lab-components-catalog-v2",
+  "targetSchemaVersion": 2,
+  "legacyRows": 6,
+  "proposedParts": 6,
+  "proposedPlacements": 5,
+  "archivedParts": 1,
+  "blankPositiveQuantityLocations": 1,
+  "generatedPartUuids": 0,
+  "duplicateInternalPartNumberGroups": 0,
+  "likelyMpnDuplicateGroups": 1,
+  "invalidRows": 0,
+  "blocking": false
+}

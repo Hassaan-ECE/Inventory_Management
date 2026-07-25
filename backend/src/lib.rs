@@ -29,7 +29,13 @@ pub fn run() {
             let _ =
                 deprecated_db_cleanup::quarantine_deprecated_databases_once(app.handle(), te_db);
             sync::recover_local_sync_state(te_db)?;
-            modules::te_lab_components::sync::recover_local_sync_state(lab_db)?;
+            if lab_db.schema_version()?
+                == Some(modules::te_lab_components::catalog_model::CATALOG_SCHEMA_VERSION)
+            {
+                modules::te_lab_components::catalog_sync::recover_local_sync_state(lab_db)?;
+            } else {
+                modules::te_lab_components::sync::recover_local_sync_state(lab_db)?;
+            }
             app.manage(stores);
             app.manage(shared_sync::SharedSyncCoordinator::new());
             app.manage(shared_watcher::SharedSyncWatcher::new());
@@ -46,6 +52,24 @@ pub fn run() {
             commands::toggle_verified_entry,
             commands::set_archived_entry,
             commands::delete_entry,
+            commands::create_lab_part,
+            commands::update_lab_part,
+            commands::delete_lab_part,
+            commands::create_lab_storage_area,
+            commands::update_lab_storage_area,
+            commands::delete_lab_storage_area,
+            commands::create_lab_storage_container,
+            commands::update_lab_storage_container,
+            commands::delete_lab_storage_container,
+            commands::create_lab_stock_placement,
+            commands::update_lab_stock_placement,
+            commands::delete_lab_stock_placement,
+            commands::move_lab_stock,
+            commands::count_lab_stock,
+            commands::preview_lab_catalog_migration,
+            commands::commit_lab_catalog_migration,
+            commands::preview_lab_shared_cutover,
+            commands::commit_lab_shared_cutover,
             commands::pick_import_file,
             commands::preview_import,
             commands::commit_import,

@@ -1,7 +1,7 @@
 # What works on `bun run desktop` + product roadmap
 
 **Status:** Planning authority for “current capability vs remaining work”  
-**Date:** 2026-07-20  
+**Date:** 2026-07-25
 **Product:** Inventory Management `0.1.0` (`com.inventory.management`)  
 **Workspace:** `C:\Projects\Active\Inventory_Management`  
 **Related:** [SESSION_HANDOFF.md](../../SESSION_HANDOFF.md), [DECISIONS.md](../../planning/DECISIONS.md), IM-011 plan (implemented for TE)
@@ -31,14 +31,14 @@ That runs **Tauri dev** (`backend` + Vite frontend). It is a **developer desktop
 %LOCALAPPDATA%\com.inventory.management\te-lab-components.feox
 ```
 
-**Default pilot shared roots:**
+**Default product shared roots:**
 
 ```text
-TE Test Equipment: S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory
-TE Lab Components: S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE
+TE Test Equipment: S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Test_Equipment
+TE Lab Components: S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Lab_Components
 ```
 
-Override TE with `INVENTORY_MANAGEMENT_SHARED_ROOT` and Lab with `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT`. Opt out of shared sync with `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED=0` (or `false` / `no` / `off`). Release defaults move to the product `modules\TE_*` roots only after owner-driven data copy/cutover.
+Override TE with `INVENTORY_MANAGEMENT_SHARED_ROOT` and Lab with `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT`. Opt out of shared sync with `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED=0` (or `false` / `no` / `off`).
 
 **Hard rule:** do not run this app and a standalone inventory app as writers against the **same** live shared root at the same time.
 
@@ -76,12 +76,13 @@ Override TE with `INVENTORY_MANAGEMENT_SHARED_ROOT` and Lab with `INVENTORY_MANA
 | Capability | Expected behavior |
 |------------|-------------------|
 | Local inventory | Separate `te-lab-components.feox`; never shares TE calibration rows |
-| CRUD | Add, edit, archive, delete, and toggle `verifiedInSurvey` |
-| Domain/UI | Quantity, manufacturer, model, description, location, links, and verified state; **no calibration** fields |
-| Search / filter / sort | Lab-shaped client-side view model and module-scoped preferences |
-| Excel export | Separate 19-column Lab workbook; no TE import pipeline invented |
-| Adaptive shared sync | Reuses IM-011 controller with Lab session token, Lab watcher events, and sync schema v1 |
-| Shared root | Pilot `InventoryApps\TE`; independent from the TE Test Equipment ops stream |
+| CRUD | Parts, flexible attributes, areas, containers, placements, move, adjust, archive/restore, count, and delete with dependency checks |
+| Domain/UI | General electronic-parts catalog; Part identity separate from per-location StockPlacement; **no calibration** fields |
+| Search / filter / sort | MPN/value/attribute/supplier/location search; detailed persisted filters and sorting; versioned Lab preferences |
+| Storage | Area or desk → container → Excel-style grid coordinate; `Z`→`AA`; shared bins allowed with warnings and contents |
+| Excel export | Six sheets: Parts, Archived Parts, Stock Placements, Storage Layout, Attributes, Legacy Fields; legacy pre-migration backup path retained |
+| Adaptive shared sync | Reuses IM-011 lifecycle with Lab entity-aware sync schema v2 and old-v1 writer blocking |
+| Shared root | Product `modules\TE_Lab_Components`; independent from the TE Test Equipment ops stream |
 
 ### Placeholder modules (switcher works; data does not)
 
@@ -102,10 +103,10 @@ If the UI sits on **initial shared-sync loading** for a long time, treat that as
 
 | Item | Status |
 |------|--------|
-| In-app auto-updater | **Off** (no product keys / release endpoints) |
-| Team installer on product share root | **Not shipped** |
+| In-app auto-updater | Configured for the Inventory Management GitHub release stream |
+| Team installer on product share root | Shipped for `0.1.0`; team adoption remains owner-coordinated |
 | ME Storage / TE Storage Room inventory | **Placeholders only** |
-| Auto-migration from legacy `InventoryApps\...` shares | **Not built** |
+| Lab catalog migration | Reviewed local migration is built; copied-owner-data rehearsal and live schema-v2 cutover are not yet performed |
 | Multi-inventory backend sessions | **Implemented for TE + Lab** with separate stores, roots, gates, tokens, statuses, and events |
 | Physical npm/Cargo workspaces | **Not planned**; IM-012 intentionally uses logical folders in one frontend package and one Rust crate |
 
@@ -117,9 +118,9 @@ Run once after `bun run desktop` (single instance only):
 
 1. Window opens; title/switcher show Inventory Management modules.
 2. TE: table loads from `inventory.feox`; calibration columns remain present.
-3. Lab: table loads from `te-lab-components.feox`; verified/quantity fields appear and calibration fields do not.
+3. Lab: generalized parts catalog loads from `te-lab-components.feox`; part fields, derived stock, and location hierarchy appear; calibration fields do not.
 4. TE↔Lab switching preserves cached rows while only the active module owns a sync session.
-5. Create/edit a Lab row → persists after restart; do not run the standalone Lab writer during this check.
+5. On copied data only: create one part, add two placements, select an occupied bin, move stock, count stock, restart, and verify persistence; do not run another Lab writer against the same root.
 6. ME Storage and TE Storage Room still show placeholder text.
 7. Status strip shows Shared or a clear local/unavailable state; optional IM-011 cadence soak remains non-blocking.
 
@@ -158,6 +159,7 @@ Ordered for product value and risk. Each slice should end with **verify + update
 | ID | Slice | Status | Done means |
 |----|-------|--------|------------|
 | C1 | **TE Lab Components** | **Done 2026-07-20** — [2026-07-20-te-lab-components-port.md](./2026-07-20-te-lab-components-port.md) | Real module + own DB + pilot share `InventoryApps\TE`; shell style match; no cal schema |
+| C1.1 | **IM-014 generalized Lab catalog + grid storage** | **Implementation done 2026-07-25; copied-data/live rollout pending** — [2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md](./2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md) | Parts/placements/storage hierarchy, migration, Lab sync v2, six-sheet export, verified automated gates |
 | C2 | **ME Storage** | Deferred (post first release) | Own share under `modules\ME_Storage` |
 | C3 | **TE Storage Room** | Deferred (post first release) | Own share under `modules\TE_Storage_Room` |
 | C4 | **Multi-module session wiring** | **Done in C1** | Lab + TE stores, roots, gates, sessions, statuses, and events are isolated |
@@ -170,13 +172,13 @@ Owner intent: ship first release after **C1**, then C2/C3 in a later update.
 
 | ID | Slice | Status | Done means |
 |----|-------|--------|------------|
-| D0 | **Release plan + copy tooling** | **Started 2026-07-20** | Plan + `scripts/release/copy-shared-to-product-modules.ps1` |
-| D-A | **Copy shared data to product modules** | Open | TE + Lab inventory trees on product paths |
-| D-B | **Flip app defaults to product roots** | Open | `shared_root.rs` + docs |
-| D-C | **Smoke on product roots** | Open | Both modules Shared after flip |
-| D-D1 | **NSIS installer on product share** | Open | Installer at product root + release-support |
-| D-D2 | **Updater keys + GitHub Releases** | Optional same ship / fast follow | New keys only; never TE/ME keys |
-| D-E | **Cutover playbook** | Open | Team note + handoff; archive standalones later |
+| D0 | **Release plan + copy tooling** | Done 2026-07-20 | Plan + `scripts/release/copy-shared-to-product-modules.ps1` |
+| D-A | **Copy shared data to product modules** | Done 2026-07-20 | TE + Lab inventory trees on product paths |
+| D-B | **Flip app defaults to product roots** | Done 2026-07-20 | `shared_root.rs` + docs |
+| D-C | **Smoke on product roots** | Done for `0.1.0` baseline | Both modules Shared after flip |
+| D-D1 | **NSIS installer on product share** | Done 2026-07-20 | Installer at product root + release-support |
+| D-D2 | **Updater keys + GitHub Releases** | Done 2026-07-20 | Product-specific keys and release endpoint |
+| D-E | **Team adoption / standalone retirement** | Open | Owner rollout note; archive standalones only after validation |
 
 ### Explicit non-goals until later
 

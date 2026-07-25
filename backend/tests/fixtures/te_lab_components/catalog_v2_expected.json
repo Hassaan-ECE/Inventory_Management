@@ -1,0 +1,131 @@
+{
+  "parts": [
+    {
+      "entryUuid": "fixture-part-resistor",
+      "internalPartNumber": "LAB-R-001",
+      "manufacturerPartNumber": "CF14JT1K00",
+      "productUrl": "https://www.digikey.com/en/products/detail/stackpole-electronics-inc/CF14JT1K00/1741314",
+      "archived": false,
+      "legacySerialNumber": "legacy-bag-r1",
+      "legacyProjectName": "Bench Controls",
+      "legacyAssignedTo": "Lab Team",
+      "legacyLifecycleStatus": "active",
+      "legacyWorkingStatus": "unknown",
+      "legacyCondition": "New old stock",
+      "legacyVerifiedInSurvey": true,
+      "legacyManualEntry": true
+    },
+    {
+      "entryUuid": "fixture-part-capacitor",
+      "internalPartNumber": "LAB-C-001",
+      "manufacturerPartNumber": "C315C104Z5U5TA",
+      "productUrl": "https://example.com/capacitor",
+      "archived": false,
+      "legacySerialNumber": "",
+      "legacyProjectName": "",
+      "legacyAssignedTo": "",
+      "legacyLifecycleStatus": "active",
+      "legacyWorkingStatus": "unknown",
+      "legacyCondition": "",
+      "legacyVerifiedInSurvey": false,
+      "legacyManualEntry": false
+    },
+    {
+      "entryUuid": "fixture-part-transistor",
+      "internalPartNumber": "LAB-Q-001",
+      "manufacturerPartNumber": "2N3904BU",
+      "productUrl": "https://example.com/2n3904",
+      "archived": false,
+      "legacySerialNumber": "tray-q1",
+      "legacyProjectName": "Signal Trainer",
+      "legacyAssignedTo": "Alex",
+      "legacyLifecycleStatus": "repair",
+      "legacyWorkingStatus": "limited",
+      "legacyCondition": "Bent leads",
+      "legacyVerifiedInSurvey": false,
+      "legacyManualEntry": true
+    },
+    {
+      "entryUuid": "fixture-part-ic",
+      "internalPartNumber": "LAB-IC-001",
+      "manufacturerPartNumber": "LM358P",
+      "productUrl": "https://example.com/lm358",
+      "archived": true,
+      "legacySerialNumber": "",
+      "legacyProjectName": "",
+      "legacyAssignedTo": "",
+      "legacyLifecycleStatus": "retired",
+      "legacyWorkingStatus": "unknown",
+      "legacyCondition": "",
+      "legacyVerifiedInSurvey": true,
+      "legacyManualEntry": false
+    },
+    {
+      "entryUuid": "fixture-part-diode-a",
+      "internalPartNumber": "LAB-D-001",
+      "manufacturerPartNumber": "1N4148-TAP",
+      "productUrl": "https://example.com/1n4148-a",
+      "archived": false,
+      "legacySerialNumber": "",
+      "legacyProjectName": "",
+      "legacyAssignedTo": "",
+      "legacyLifecycleStatus": "active",
+      "legacyWorkingStatus": "unknown",
+      "legacyCondition": "",
+      "legacyVerifiedInSurvey": false,
+      "legacyManualEntry": false
+    },
+    {
+      "entryUuid": "fixture-part-diode-b",
+      "internalPartNumber": "LAB-D-002",
+      "manufacturerPartNumber": "1N4148-TAP",
+      "productUrl": "https://example.com/1n4148-b",
+      "archived": false,
+      "legacySerialNumber": "",
+      "legacyProjectName": "",
+      "legacyAssignedTo": "",
+      "legacyLifecycleStatus": "active",
+      "legacyWorkingStatus": "unknown",
+      "legacyCondition": "",
+      "legacyVerifiedInSurvey": false,
+      "legacyManualEntry": false
+    }
+  ],
+  "placements": [
+    {
+      "partUuid": "fixture-part-resistor",
+      "freeformPosition": "Main Cabinet / C7",
+      "quantity": 100.0,
+      "unitOfMeasure": "unknown",
+      "countState": "legacy_verified"
+    },
+    {
+      "partUuid": "fixture-part-capacitor",
+      "freeformPosition": "Unassigned",
+      "quantity": 12.5,
+      "unitOfMeasure": "unknown",
+      "countState": "uncounted"
+    },
+    {
+      "partUuid": "fixture-part-transistor",
+      "freeformPosition": "Desk — Alex / Organizer 1 / B4",
+      "quantity": 25.0,
+      "unitOfMeasure": "unknown",
+      "countState": "uncounted"
+    },
+    {
+      "partUuid": "fixture-part-diode-a",
+      "freeformPosition": "Cabinet A / A1",
+      "quantity": 50.0,
+      "unitOfMeasure": "unknown",
+      "countState": "uncounted"
+    },
+    {
+      "partUuid": "fixture-part-diode-b",
+      "freeformPosition": "Cabinet A / A2",
+      "quantity": 10.0,
+      "unitOfMeasure": "unknown",
+      "countState": "uncounted"
+    }
+  ]
+}

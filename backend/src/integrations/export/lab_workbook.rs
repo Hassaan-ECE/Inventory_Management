@@ -16,7 +16,7 @@ use super::ExcelExportStats;
 const INVENTORY_SHEET: &str = "Inventory";
 const ARCHIVE_SHEET: &str = "Archive";
 
-pub(crate) fn write_inventory_workbook(
+pub(crate) fn write_legacy_inventory_workbook(
     entries: &[InventoryEntry],
     output_path: impl AsRef<Path>,
 ) -> CommandResult<ExcelExportStats> {
@@ -60,7 +60,7 @@ pub(crate) fn write_inventory_workbook(
 }
 
 #[cfg(test)]
-pub(super) fn inventory_headers() -> Vec<&'static str> {
+pub(super) fn legacy_inventory_headers() -> Vec<&'static str> {
     INVENTORY_COLUMNS
         .iter()
         .map(|column| column.header)
