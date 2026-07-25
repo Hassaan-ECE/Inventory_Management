@@ -1,10 +1,16 @@
 import { useState } from "react";
-import { MoonIcon, PlusIcon, SunIcon } from "lucide-react";
+import { FileSpreadsheetIcon, MoonIcon, PlusIcon, SunIcon } from "lucide-react";
 
 import { ExportMenu } from "@/modules/te-test-equipment/components/header/ExportMenu";
 import { ScopeToggle } from "@/modules/te-test-equipment/components/header/ScopeToggle";
 import { UpdateActionButton } from "@/modules/te-test-equipment/components/header/UpdateActionButton";
-import type { InventoryScope, InventorySharedStatus, UpdateState } from "@/modules/te-test-equipment/types";
+import { WorkspaceToggle } from "@/modules/te-test-equipment/components/header/WorkspaceToggle";
+import type {
+  InventoryScope,
+  InventorySharedStatus,
+  TeTestEquipmentWorkspace,
+  UpdateState,
+} from "@/modules/te-test-equipment/types";
 import type { ModuleId } from "@/platform/modules/types";
 import type { ThemeMode } from "@/platform/ui/theme";
 import { Button } from "@/shared/components/ui/button";
@@ -16,35 +22,43 @@ interface InventoryHeaderProps {
   archiveCount: number;
   canModifyEntries: boolean;
   inventoryCount: number;
+  calibrationRosterAvailable: boolean;
   onAddEntry: () => void;
   onExportExcel: () => void;
   onExportHtml: () => void;
   onModuleChange: (id: ModuleId) => void;
+  onInitializeCalibrationRoster: () => void;
   onScopeChange: (scope: InventoryScope) => void;
   onThemeToggle: () => void;
   onUpdateAction: () => void;
+  onWorkspaceChange: (workspace: TeTestEquipmentWorkspace) => void;
   scope: InventoryScope;
   sharedStatus?: InventorySharedStatus;
   theme: ThemeMode;
   updateState: UpdateState;
+  workspace: TeTestEquipmentWorkspace;
 }
 
 export function InventoryHeader({
   activeModuleId,
   archiveCount,
+  calibrationRosterAvailable,
   canModifyEntries,
   inventoryCount,
   onAddEntry,
   onExportExcel,
   onExportHtml,
   onModuleChange,
+  onInitializeCalibrationRoster,
   onScopeChange,
   onThemeToggle,
   onUpdateAction,
+  onWorkspaceChange,
   scope,
   sharedStatus,
   theme,
   updateState,
+  workspace,
 }: InventoryHeaderProps) {
   const [exportOpen, setExportOpen] = useState(false);
   const [systemMenuOpen, setSystemMenuOpen] = useState(false);
@@ -83,6 +97,7 @@ export function InventoryHeader({
         </div>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <WorkspaceToggle workspace={workspace} onWorkspaceChange={onWorkspaceChange} />
           <ScopeToggle
             archiveCount={archiveCount}
             inventoryCount={inventoryCount}
@@ -94,9 +109,15 @@ export function InventoryHeader({
             {theme === "light" ? "Dark Theme" : "Light Theme"}
           </Button>
           <ExportMenu onExportExcel={onExportExcel} onExportHtml={onExportHtml} onOpenChange={setExportOpen} />
+          {workspace === "calibration" && calibrationRosterAvailable ? (
+            <Button disabled={!canModifyEntries} size="sm" variant="outline" onClick={onInitializeCalibrationRoster}>
+              <FileSpreadsheetIcon className="size-3.5" />
+              Initialize from Calibration Workbook
+            </Button>
+          ) : null}
           <Button disabled={!canModifyEntries} size="sm" onClick={onAddEntry}>
             <PlusIcon className="size-3.5" />
-            Add Entry
+            {workspace === "calibration" ? "Add Equipment" : "Add Entry"}
           </Button>
         </div>
       </div>

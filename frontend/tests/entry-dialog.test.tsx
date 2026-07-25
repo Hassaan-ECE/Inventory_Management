@@ -228,7 +228,7 @@ describe("EntryDialog", () => {
   it("shows and preserves every calibration and verification field while editing", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
-    render(<EntryDialog mode="edit" entry={{ ...BASE_ENTRY, calibrationRequirement: "reference_only", outToCalibration: true }} onClose={vi.fn()} onSave={onSave} />);
+    render(<EntryDialog defaultSection="calibration" mode="edit" entry={{ ...BASE_ENTRY, calibrationRequirement: "reference_only", outToCalibration: true }} onClose={vi.fn()} onSave={onSave} />);
 
     expect(screen.getByRole("button", { name: "Calibration requirement" })).toHaveTextContent(/Reference only/i);
     expect(screen.getByLabelText("Out to calibration")).toBeChecked();
@@ -261,6 +261,7 @@ describe("EntryDialog", () => {
     const onSave = vi.fn();
     render(<EntryDialog mode="edit" entry={BASE_ENTRY} onClose={vi.fn()} onSave={onSave} />);
 
+    await user.click(screen.getByRole("button", { name: "Calibration" }));
     await user.clear(screen.getByLabelText("Calibration due"));
     await user.type(screen.getByLabelText("Calibration due"), "2025-12-31");
     await user.click(screen.getByRole("button", { name: "Save Entry" }));
@@ -279,6 +280,7 @@ describe("EntryDialog", () => {
     const user = userEvent.setup();
     render(<EntryDialog mode="add" onClose={vi.fn()} onSave={vi.fn()} />);
     await user.type(screen.getByLabelText("Asset Number"), "TE-900");
+    await user.click(screen.getByRole("button", { name: "Calibration" }));
     await user.click(screen.getByRole("button", { name: "Calibration requirement" }));
     await user.click(screen.getByRole("option", { name: "Required" }));
     await user.type(screen.getByLabelText("Last calibrated"), "2026-01-31");
@@ -290,7 +292,7 @@ describe("EntryDialog", () => {
   });
 
   it("labels only the calibration interval input instead of wrapping its action button", () => {
-    render(<EntryDialog mode="add" onClose={vi.fn()} onSave={vi.fn()} />);
+    render(<EntryDialog defaultSection="calibration" mode="add" onClose={vi.fn()} onSave={vi.fn()} />);
 
     const input = screen.getByLabelText("Calibration interval (months)");
     const label = screen.getByText("Calibration interval (months)");
@@ -298,6 +300,24 @@ describe("EntryDialog", () => {
 
     expect(label).toHaveAttribute("for", input.id);
     expect(label).not.toContainElement(suggestButton);
+  });
+
+  it("preselects required calibration membership for new equipment without verifying it", async () => {
+    const user = userEvent.setup();
+    render(
+      <EntryDialog
+        defaultCalibrationRequirement="required"
+        defaultSection="calibration"
+        mode="add"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Calibration requirement" })).toHaveTextContent(/Required/i);
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Equipment" }));
+    expect(screen.getByLabelText("Asset Number")).toBeInTheDocument();
   });
 });
 

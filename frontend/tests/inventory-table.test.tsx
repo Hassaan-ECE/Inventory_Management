@@ -4,7 +4,11 @@ import userEvent from "@testing-library/user-event";
 
 import { InventoryTable } from "@/modules/te-test-equipment/components/InventoryTable";
 import { OVERSCAN_ROWS, ROW_HEIGHT, getVisibleRange } from "@/modules/te-test-equipment/components/table/virtualization";
-import { INVENTORY_COLUMNS, type InventoryEntry } from "@/modules/te-test-equipment/types";
+import {
+  CALIBRATION_COLUMNS,
+  INVENTORY_COLUMNS,
+  type InventoryEntry,
+} from "@/modules/te-test-equipment/types";
 import { InventoryShell } from "@/shell/InventoryShell";
 
 describe("InventoryShell table controls", () => {
@@ -179,16 +183,16 @@ describe("InventoryShell table controls", () => {
       verifiedBy: "Avery",
     });
     render(
-      <InventoryTable canModifyEntries colorRows={false} columns={INVENTORY_COLUMNS} entries={[entry]}
+      <InventoryTable canModifyEntries colorRows columns={CALIBRATION_COLUMNS} entries={[entry]}
         localDate="2026-07-13"
         sortState={{ column: "calibrationHealth", direction: "asc" }} onOpenContextMenu={() => undefined}
         onOpenEntry={() => undefined} onOpenExternalLink={() => undefined} onSortChange={() => undefined}
-        onToggleVerified={() => undefined} />,
+        onToggleVerified={() => undefined} workspace="calibration" />,
     );
-    expect(screen.getByText("Required")).toBeInTheDocument();
     expect(screen.getAllByText("Out to cal").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("2026-07-20")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Clear verification.*2026-07-13T12:00:00Z.*Avery/i })).toBeInTheDocument();
+    expect(screen.getByText("Table row entry").closest("tr")?.className).toContain("bg-warning/10");
   });
 
   it("hides a selected column from the table", async () => {
@@ -232,8 +236,6 @@ describe("InventoryShell table controls", () => {
     await user.click(screen.getByRole("checkbox", { name: "Model" }));
     await user.click(screen.getByRole("checkbox", { name: "Manufacturer" }));
     await user.click(screen.getByRole("checkbox", { name: "Serial #" }));
-    await user.click(screen.getByRole("checkbox", { name: "Calibration" }));
-    await user.click(screen.getByRole("checkbox", { name: "Out to cal" }));
     await user.click(screen.getByRole("checkbox", { name: "Calibration due" }));
     await user.click(screen.getByRole("checkbox", { name: "Calibration health" }));
 

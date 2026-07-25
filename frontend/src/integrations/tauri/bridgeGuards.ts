@@ -1,6 +1,15 @@
 import { APP_VERSION } from "@/app/branding";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 import {
+  type CalibrationRosterAbsentEntry,
+  type CalibrationRosterCandidateContext,
+  type CalibrationRosterClassification,
+  type CalibrationRosterCommitResult,
+  type CalibrationRosterCounts,
+  type CalibrationRosterFieldChange,
+  type CalibrationRosterPreviewReport,
+  type CalibrationRosterRowOutcome,
+  type CalibrationRosterSemanticFlag,
   CALIBRATION_REQUIREMENT_OPTIONS,
   LIFECYCLE_OPTIONS,
   WORKING_STATUS_OPTIONS,
@@ -8,6 +17,7 @@ import {
   type InventoryCounts,
   type InventoryDeleteMutationResult,
   type InventoryEntry,
+  type InventoryEntryInput,
   type InventoryEntryMutationResult,
   type InventoryQueryResult,
   type InventorySharedStatus,
@@ -31,6 +41,22 @@ const IMPORT_CLASSIFICATIONS = new Set<ImportClassification>([
 ]);
 const IMPORT_COLUMN_TREATMENTS = new Set<ImportColumnTreatment>([
   "mapped", "intentionally_ignored", "unknown",
+]);
+const CALIBRATION_ROSTER_CLASSIFICATIONS = new Set<CalibrationRosterClassification>([
+  "matched_update",
+  "create_candidate",
+  "conflict_review_required",
+  "duplicate_source_row",
+  "ignored_junk",
+]);
+const CALIBRATION_ROSTER_SEMANTIC_FLAGS = new Set<CalibrationRosterSemanticFlag>([
+  "normal_dated",
+  "reference_only",
+  "needs_calibration",
+  "out_to_calibration",
+  "failed_calibration",
+  "inactive_or_scrapped",
+  "unclear",
 ]);
 const UPDATE_STATUSES = new Set<UpdateStatus>([
   "idle",
@@ -162,6 +188,89 @@ export function parseImportCommitResult(value: unknown): ImportCommitResult {
     noop: requireNonnegativeInteger(record.noop, "Invalid import commit result: noop must be a nonnegative integer."),
     entriesChanged: requireBoolean(record.entriesChanged, "Invalid import commit result: entriesChanged must be a boolean."),
     message: requireString(record.message, "Invalid import commit result: message must be a string."),
+  };
+}
+
+export function parseCalibrationRosterPreviewReport(value: unknown): CalibrationRosterPreviewReport {
+  const record = requireRecord(value, "calibration roster preview report");
+  const counts = parseCalibrationRosterCounts(record.counts);
+  const report: CalibrationRosterPreviewReport = {
+    batchId: requireString(record.batchId, "Invalid calibration roster preview: batchId must be a string."),
+    sourceFingerprint: requireString(
+      record.sourceFingerprint,
+      "Invalid calibration roster preview: sourceFingerprint must be a string.",
+    ),
+    sourceFilename: requireString(
+      record.sourceFilename,
+      "Invalid calibration roster preview: sourceFilename must be a string.",
+    ),
+    mappingVersion: requireString(
+      record.mappingVersion,
+      "Invalid calibration roster preview: mappingVersion must be a string.",
+    ),
+    contributingSheets: requireArray(record.contributingSheets, "calibration roster contributing sheets").map(
+      (sheet) => requireString(sheet, "Invalid calibration roster preview: sheet names must be strings."),
+    ),
+    totalSourceRows: requireNonnegativeInteger(
+      record.totalSourceRows,
+      "Invalid calibration roster preview: totalSourceRows must be a nonnegative integer.",
+    ),
+    counts,
+    rowOutcomes: requireArray(record.rowOutcomes, "calibration roster row outcomes").map(
+      parseCalibrationRosterRowOutcome,
+    ),
+    currentRequiredAbsent: requireArray(
+      record.currentRequiredAbsent,
+      "calibration roster absent entries",
+    ).map(parseCalibrationRosterAbsentEntry),
+    prospectiveRequiredCount: requireNonnegativeInteger(
+      record.prospectiveRequiredCount,
+      "Invalid calibration roster preview: prospectiveRequiredCount must be a nonnegative integer.",
+    ),
+    reconciliationBasis: requireString(
+      record.reconciliationBasis,
+      "Invalid calibration roster preview: reconciliationBasis must be a string.",
+    ),
+    blocking: requireBoolean(
+      record.blocking,
+      "Invalid calibration roster preview: blocking must be a boolean.",
+    ),
+  };
+  const classifiedTotal = counts.matchedUpdates
+    + counts.createCandidates
+    + counts.conflicts
+    + counts.duplicateSourceRows
+    + counts.ignoredJunk;
+  if (classifiedTotal !== report.totalSourceRows || report.rowOutcomes.length !== report.totalSourceRows) {
+    throw new Error("Invalid calibration roster preview: source-row totals are inconsistent.");
+  }
+  if (
+    counts.currentRequiredAbsent !== report.currentRequiredAbsent.length
+    || report.contributingSheets.length === 0
+  ) {
+    throw new Error("Invalid calibration roster preview: absent-entry or sheet totals are inconsistent.");
+  }
+  return report;
+}
+
+export function parseCalibrationRosterCommitResult(value: unknown): CalibrationRosterCommitResult {
+  const record = requireRecord(value, "calibration roster commit result");
+  return {
+    batchId: requireString(record.batchId, "Invalid calibration roster commit result: batchId must be a string."),
+    updated: requireNonnegativeInteger(record.updated, "Invalid calibration roster commit result: updated is invalid."),
+    created: requireNonnegativeInteger(record.created, "Invalid calibration roster commit result: created is invalid."),
+    reset: requireNonnegativeInteger(record.reset, "Invalid calibration roster commit result: reset is invalid."),
+    ignored: requireNonnegativeInteger(record.ignored, "Invalid calibration roster commit result: ignored is invalid."),
+    noop: requireNonnegativeInteger(record.noop, "Invalid calibration roster commit result: noop is invalid."),
+    finalRequired: requireNonnegativeInteger(
+      record.finalRequired,
+      "Invalid calibration roster commit result: finalRequired is invalid.",
+    ),
+    entriesChanged: requireBoolean(
+      record.entriesChanged,
+      "Invalid calibration roster commit result: entriesChanged must be a boolean.",
+    ),
+    message: requireString(record.message, "Invalid calibration roster commit result: message must be a string."),
   };
 }
 
@@ -307,6 +416,169 @@ function parseImportRowOutcome(value: unknown): ImportRowOutcome {
     originalSerialNumber: parseNullableStrictString(record.originalSerialNumber, "Invalid import dry-run report: originalSerialNumber must be a string or null."),
     candidateEntryUuid: parseNullableStrictString(record.candidateEntryUuid, "Invalid import dry-run report: candidateEntryUuid must be a string or null."),
     rawValues,
+  };
+}
+
+function parseCalibrationRosterCounts(value: unknown): CalibrationRosterCounts {
+  const record = requireRecord(value, "calibration roster counts");
+  return {
+    matchedUpdates: requireNonnegativeInteger(record.matchedUpdates, "Invalid calibration roster counts: matchedUpdates is invalid."),
+    createCandidates: requireNonnegativeInteger(record.createCandidates, "Invalid calibration roster counts: createCandidates is invalid."),
+    conflicts: requireNonnegativeInteger(record.conflicts, "Invalid calibration roster counts: conflicts is invalid."),
+    duplicateSourceRows: requireNonnegativeInteger(
+      record.duplicateSourceRows,
+      "Invalid calibration roster counts: duplicateSourceRows is invalid.",
+    ),
+    ignoredJunk: requireNonnegativeInteger(record.ignoredJunk, "Invalid calibration roster counts: ignoredJunk is invalid."),
+    currentRequiredAbsent: requireNonnegativeInteger(
+      record.currentRequiredAbsent,
+      "Invalid calibration roster counts: currentRequiredAbsent is invalid.",
+    ),
+  };
+}
+
+function parseCalibrationRosterRowOutcome(value: unknown): CalibrationRosterRowOutcome {
+  const record = requireRecord(value, "calibration roster row outcome");
+  if (!CALIBRATION_ROSTER_CLASSIFICATIONS.has(record.classification as CalibrationRosterClassification)) {
+    throw new Error("Invalid calibration roster row outcome: classification is invalid.");
+  }
+  const semanticFlags = requireArray(record.semanticFlags, "calibration roster semantic flags").map((flag) => {
+    if (!CALIBRATION_ROSTER_SEMANTIC_FLAGS.has(flag as CalibrationRosterSemanticFlag)) {
+      throw new Error("Invalid calibration roster row outcome: semantic flag is invalid.");
+    }
+    return flag as CalibrationRosterSemanticFlag;
+  });
+  return {
+    sourceSheet: requireString(record.sourceSheet, "Invalid calibration roster row outcome: sourceSheet is invalid."),
+    sourceRow: requirePositiveInteger(record.sourceRow, "Invalid calibration roster row outcome: sourceRow is invalid."),
+    classification: record.classification as CalibrationRosterClassification,
+    issues: requireArray(record.issues, "calibration roster row issues").map((issue) =>
+      requireString(issue, "Invalid calibration roster row outcome: issues must be strings."),
+    ),
+    ignoredIdentityPlaceholders: requireArray(
+      record.ignoredIdentityPlaceholders,
+      "calibration roster ignored identity placeholders",
+    ).map((issue) => requireString(issue, "Invalid calibration roster row outcome: placeholder issues must be strings.")),
+    assetNumber: parseNullableStrictString(record.assetNumber, "Invalid calibration roster row outcome: assetNumber is invalid."),
+    serialNumber: parseNullableStrictString(record.serialNumber, "Invalid calibration roster row outcome: serialNumber is invalid."),
+    manufacturer: parseNullableStrictString(record.manufacturer, "Invalid calibration roster row outcome: manufacturer is invalid."),
+    model: parseNullableStrictString(record.model, "Invalid calibration roster row outcome: model is invalid."),
+    description: parseNullableStrictString(record.description, "Invalid calibration roster row outcome: description is invalid."),
+    candidateEntryUuid: parseNullableStrictString(
+      record.candidateEntryUuid,
+      "Invalid calibration roster row outcome: candidateEntryUuid is invalid.",
+    ),
+    candidateEntries: requireArray(record.candidateEntries, "calibration roster candidate entries").map(
+      parseCalibrationRosterCandidate,
+    ),
+    proposedRequirement: parseCalibrationRequirement(record.proposedRequirement),
+    proposedOutToCalibration: requireBoolean(
+      record.proposedOutToCalibration,
+      "Invalid calibration roster row outcome: proposedOutToCalibration is invalid.",
+    ),
+    proposedInput: record.proposedInput === null || record.proposedInput === undefined
+      ? null
+      : parseCalibrationRosterEntryInput(record.proposedInput),
+    changes: requireArray(record.changes, "calibration roster field changes").map(parseCalibrationRosterFieldChange),
+    semanticFlags,
+    requiresReview: requireBoolean(
+      record.requiresReview,
+      "Invalid calibration roster row outcome: requiresReview must be a boolean.",
+    ),
+  };
+}
+
+function parseCalibrationRosterCandidate(value: unknown): CalibrationRosterCandidateContext {
+  const record = requireRecord(value, "calibration roster candidate");
+  return {
+    entryUuid: requireString(record.entryUuid, "Invalid calibration roster candidate: entryUuid is invalid."),
+    id: requireString(record.id, "Invalid calibration roster candidate: id is invalid."),
+    assetNumber: requireString(record.assetNumber, "Invalid calibration roster candidate: assetNumber is invalid."),
+    serialNumber: requireString(record.serialNumber, "Invalid calibration roster candidate: serialNumber is invalid."),
+    manufacturer: requireString(record.manufacturer, "Invalid calibration roster candidate: manufacturer is invalid."),
+    model: requireString(record.model, "Invalid calibration roster candidate: model is invalid."),
+    description: requireString(record.description, "Invalid calibration roster candidate: description is invalid."),
+  };
+}
+
+function parseCalibrationRosterFieldChange(value: unknown): CalibrationRosterFieldChange {
+  const record = requireRecord(value, "calibration roster field change");
+  return {
+    field: requireString(record.field, "Invalid calibration roster field change: field is invalid."),
+    before: parseNullableStrictString(record.before, "Invalid calibration roster field change: before is invalid."),
+    after: parseNullableStrictString(record.after, "Invalid calibration roster field change: after is invalid."),
+    destructive: requireBoolean(
+      record.destructive,
+      "Invalid calibration roster field change: destructive must be a boolean.",
+    ),
+  };
+}
+
+function parseCalibrationRosterAbsentEntry(value: unknown): CalibrationRosterAbsentEntry {
+  const record = requireRecord(value, "calibration roster absent entry");
+  return {
+    entry: parseCalibrationRosterCandidate(record.entry),
+    calibrationDueAt: parseNullableStrictString(
+      record.calibrationDueAt,
+      "Invalid calibration roster absent entry: calibrationDueAt is invalid.",
+    ),
+    calibrationVendor: parseNullableStrictString(
+      record.calibrationVendor,
+      "Invalid calibration roster absent entry: calibrationVendor is invalid.",
+    ),
+    calibrationNotes: parseNullableStrictString(
+      record.calibrationNotes,
+      "Invalid calibration roster absent entry: calibrationNotes is invalid.",
+    ),
+  };
+}
+
+function parseCalibrationRosterEntryInput(value: unknown): InventoryEntryInput {
+  const record = requireRecord(value, "calibration roster proposed input");
+  const lastCalibratedAt = parseOptionalDateOnly(record.lastCalibratedAt, "lastCalibratedAt");
+  const calibrationDueAt = parseOptionalDateOnly(record.calibrationDueAt, "calibrationDueAt");
+  if (lastCalibratedAt && calibrationDueAt && calibrationDueAt < lastCalibratedAt) {
+    throw new Error("Invalid calibration roster proposed input: due date is before last calibration date.");
+  }
+  return {
+    assetNumber: optionalString(record.assetNumber) ?? "",
+    serialNumber: optionalString(record.serialNumber) ?? "",
+    qty: parseNullableFiniteNumber(record.qty),
+    manufacturer: optionalString(record.manufacturer) ?? "",
+    model: optionalString(record.model) ?? "",
+    description: optionalString(record.description) ?? "",
+    projectName: optionalString(record.projectName) ?? "",
+    location: optionalString(record.location) ?? "",
+    assignedTo: optionalString(record.assignedTo) ?? "",
+    links: optionalString(record.links) ?? "",
+    notes: optionalString(record.notes) ?? "",
+    lifecycleStatus: parseLifecycleStatus(record.lifecycleStatus),
+    workingStatus: parseWorkingStatus(record.workingStatus),
+    condition: optionalString(record.condition) ?? "",
+    calibrationRequirement: parseCalibrationRequirement(record.calibrationRequirement),
+    outToCalibration: parseDefaultedBoolean(
+      record.outToCalibration,
+      false,
+      "Invalid calibration roster proposed input: outToCalibration is invalid.",
+    ),
+    lastCalibratedAt,
+    calibrationDueAt,
+    calibrationIntervalMonths: parseOptionalPositiveInteger(
+      record.calibrationIntervalMonths,
+      "calibrationIntervalMonths",
+      1_200,
+    ),
+    certificateRef: parseOptionalString(record.certificateRef, "certificateRef"),
+    calibrationVendor: parseOptionalString(record.calibrationVendor, "calibrationVendor"),
+    calibrationNotes: parseOptionalString(record.calibrationNotes, "calibrationNotes"),
+    verifiedAt: parseOptionalRfc3339(record.verifiedAt, "verifiedAt"),
+    verifiedBy: parseOptionalString(record.verifiedBy, "verifiedBy"),
+    archived: parseDefaultedBoolean(
+      record.archived,
+      false,
+      "Invalid calibration roster proposed input: archived is invalid.",
+    ),
+    picturePath: parseOptionalString(record.picturePath, "picturePath"),
   };
 }
 

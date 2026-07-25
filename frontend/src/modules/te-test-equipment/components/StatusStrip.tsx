@@ -1,14 +1,24 @@
 import { APP_CREDIT } from "@/app/branding";
-import type { InventoryCounts } from "@/modules/te-test-equipment/types";
+import type { InventoryCounts, TeTestEquipmentWorkspace } from "@/modules/te-test-equipment/types";
 import { cn } from "@/shared/lib/utils";
 
 interface StatusStripProps {
   counts?: InventoryCounts;
   message?: string;
+  resultCount?: number;
   resultsLabel?: string;
+  trackedCount?: number;
+  workspace?: TeTestEquipmentWorkspace;
 }
 
-export function StatusStrip({ message, counts, resultsLabel }: StatusStripProps) {
+export function StatusStrip({
+  message,
+  counts,
+  resultCount,
+  resultsLabel,
+  trackedCount,
+  workspace = "equipment",
+}: StatusStripProps) {
   return (
     <footer className="relative shrink-0 border-t border-border bg-card/80 px-3 text-xs text-muted-foreground sm:px-5">
       <div className="flex items-center gap-3 overflow-hidden py-0 pr-40">
@@ -16,7 +26,9 @@ export function StatusStrip({ message, counts, resultsLabel }: StatusStripProps)
           {resultsLabel ? <span className="shrink-0 text-muted-foreground">{resultsLabel}</span> : null}
           {message ? <span className="min-w-0 truncate text-muted-foreground">{message}</span> : null}
           {counts ? (
-            <div aria-label="Inventory status counts" className="flex flex-wrap">
+            <div aria-label={workspace === "calibration" ? "Calibration status counts" : "Inventory status counts"} className="flex flex-wrap">
+              {workspace === "calibration" ? <CountPill label="Tracked" value={trackedCount ?? 0} tone="info" /> : null}
+              {workspace === "calibration" ? <CountPill label="Results" value={resultCount ?? 0} tone="muted" /> : null}
               <CountPill label="Verified" value={`${counts.verified}/${counts.total}`} tone="success" />
               <CountPill label="Overdue" value={counts.overdue} tone="danger" />
               <CountPill label="Due soon" value={counts.dueSoon} tone="warning" />

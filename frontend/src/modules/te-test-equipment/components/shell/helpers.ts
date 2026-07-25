@@ -1,16 +1,22 @@
 import { APP_VERSION } from "@/app/branding";
-import { buildDefaultColumnVisibility, mergeColumnVisibility } from "@/modules/te-test-equipment/lib";
+import {
+  buildDefaultColumnVisibility,
+  getColumnsForWorkspace,
+  mergeColumnVisibility,
+} from "@/modules/te-test-equipment/lib";
 import type {
   ColumnKey,
   InventoryEntry,
   InventoryEntryInput,
   InventorySharedStatus,
+  TeTestEquipmentWorkspace,
   UpdateState,
 } from "@/modules/te-test-equipment/types";
 
 export { THEME_STORAGE_KEY, readTheme } from "@/platform/ui/theme";
 export const COLOR_ROWS_STORAGE_KEY = "teTestEquipmentInventory.colorRows";
 export const COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.columnVisibility";
+export const CALIBRATION_COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.calibrationColumnVisibility";
 export const UPDATE_CHECK_INTERVAL_MS = 5 * 60_000;
 
 export const MOCK_SHARED_STATUS: InventorySharedStatus = {
@@ -221,6 +227,37 @@ export function buildLocalUpdatedEntry(existingEntry: InventoryEntry, input: Inv
   };
 }
 
+export function inventoryEntryToInput(entry: InventoryEntry): InventoryEntryInput {
+  return {
+    archived: entry.archived,
+    assetNumber: entry.assetNumber,
+    assignedTo: entry.assignedTo,
+    calibrationDueAt: entry.calibrationDueAt,
+    calibrationIntervalMonths: entry.calibrationIntervalMonths,
+    calibrationNotes: entry.calibrationNotes,
+    calibrationRequirement: entry.calibrationRequirement,
+    calibrationVendor: entry.calibrationVendor,
+    certificateRef: entry.certificateRef,
+    condition: entry.condition,
+    description: entry.description,
+    lastCalibratedAt: entry.lastCalibratedAt,
+    lifecycleStatus: entry.lifecycleStatus,
+    links: entry.links,
+    location: entry.location,
+    manufacturer: entry.manufacturer,
+    model: entry.model,
+    notes: entry.notes,
+    outToCalibration: entry.outToCalibration,
+    picturePath: entry.picturePath,
+    projectName: entry.projectName,
+    qty: entry.qty,
+    serialNumber: entry.serialNumber,
+    verifiedAt: entry.verifiedAt,
+    verifiedBy: entry.verifiedBy,
+    workingStatus: entry.workingStatus,
+  };
+}
+
 export function readColorRows(): boolean {
   if (typeof window === "undefined") {
     return true;
@@ -230,19 +267,28 @@ export function readColorRows(): boolean {
   return storedValue == null ? true : storedValue === "true";
 }
 
-export function readColumnVisibility(): Record<ColumnKey, boolean> {
+export function readColumnVisibility(
+  workspace: TeTestEquipmentWorkspace = "equipment",
+): Record<ColumnKey, boolean> {
+  const columns = getColumnsForWorkspace(workspace);
   if (typeof window === "undefined") {
-    return buildDefaultColumnVisibility();
+    return buildDefaultColumnVisibility(columns);
   }
 
-  const storedValue = window.localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY);
+  const storageKey = workspace === "calibration"
+    ? CALIBRATION_COLUMN_VISIBILITY_STORAGE_KEY
+    : COLUMN_VISIBILITY_STORAGE_KEY;
+  const storedValue = window.localStorage.getItem(storageKey);
   if (!storedValue) {
-    return buildDefaultColumnVisibility();
+    return buildDefaultColumnVisibility(columns);
   }
 
   try {
-    return mergeColumnVisibility(JSON.parse(storedValue) as Partial<Record<ColumnKey, boolean>>);
+    return mergeColumnVisibility(
+      JSON.parse(storedValue) as Partial<Record<ColumnKey, boolean>>,
+      columns,
+    );
   } catch {
-    return buildDefaultColumnVisibility();
+    return buildDefaultColumnVisibility(columns);
   }
 }

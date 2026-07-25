@@ -628,6 +628,100 @@ describe("tauri inventory bridge", () => {
       desktopBridge.commitImport?.(TE_TEST_EQUIPMENT_MODULE_ID, { batchId: "batch-1", confirmed: true }),
     ).rejects.toThrow("Invalid import commit result");
   });
+
+  it("invokes and parses calibration roster pick, preview, and commit commands", async () => {
+    const invoke = vi.fn((command: string) => {
+      if (command === "pick_calibration_roster_file") return Promise.resolve("C:/imports/calibration.xlsx");
+      if (command === "preview_calibration_roster") return Promise.resolve(validCalibrationRosterReport());
+      if (command === "commit_calibration_roster") {
+        return Promise.resolve({
+          batchId: "calibration-batch-1",
+          updated: 1,
+          created: 1,
+          reset: 2,
+          ignored: 1,
+          noop: 0,
+          finalRequired: 2,
+          entriesChanged: true,
+          message: "Calibration roster applied.",
+        });
+      }
+      return Promise.reject(new Error(`Unexpected command: ${command}`));
+    });
+    const desktopBridge = await registerDesktopBridge(invoke);
+    const commitInput = {
+      batchId: "calibration-batch-1",
+      confirmed: true,
+      replaceActiveRequiredRoster: true,
+      verificationAttribution: "Calibration roster cutover",
+      resolutions: [],
+    };
+
+    await expect(desktopBridge.pickCalibrationRosterFile?.(TE_TEST_EQUIPMENT_MODULE_ID)).resolves.toBe(
+      "C:/imports/calibration.xlsx",
+    );
+    await expect(
+      desktopBridge.previewCalibrationRoster?.(TE_TEST_EQUIPMENT_MODULE_ID, "C:/imports/calibration.xlsx"),
+    ).resolves.toMatchObject({ counts: { matchedUpdates: 1 }, totalSourceRows: 1 });
+    await expect(
+      desktopBridge.commitCalibrationRoster?.(TE_TEST_EQUIPMENT_MODULE_ID, commitInput),
+    ).resolves.toMatchObject({ created: 1, entriesChanged: true, finalRequired: 2 });
+
+    expect(invoke).toHaveBeenNthCalledWith(1, "pick_calibration_roster_file", {
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "preview_calibration_roster", {
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
+      path: "C:/imports/calibration.xlsx",
+    });
+    expect(invoke).toHaveBeenNthCalledWith(3, "commit_calibration_roster", {
+      input: commitInput,
+      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
+    });
+  });
+
+  it.each([
+    ["mismatched row total", { totalSourceRows: 2 }],
+    ["invalid classification", {
+      rowOutcomes: [{ ...validCalibrationRosterReport().rowOutcomes[0], classification: "other" }],
+    }],
+    ["missing contributing sheets", { contributingSheets: [] }],
+    ["invalid absent count", {
+      counts: { ...validCalibrationRosterReport().counts, currentRequiredAbsent: 1 },
+    }],
+  ])("rejects malformed calibration roster preview %s", async (_label, override) => {
+    const desktopBridge = await registerDesktopBridge(
+      vi.fn().mockResolvedValue({ ...validCalibrationRosterReport(), ...override }),
+    );
+
+    await expect(
+      desktopBridge.previewCalibrationRoster?.(TE_TEST_EQUIPMENT_MODULE_ID, "C:/imports/calibration.xlsx"),
+    ).rejects.toThrow("Invalid calibration roster");
+  });
+
+  it("rejects malformed calibration roster commit results", async () => {
+    const desktopBridge = await registerDesktopBridge(vi.fn().mockResolvedValue({
+      batchId: "calibration-batch-1",
+      updated: 0,
+      created: 0,
+      reset: 0,
+      ignored: 0,
+      noop: false,
+      finalRequired: -1,
+      entriesChanged: 1,
+      message: "bad",
+    }));
+
+    await expect(
+      desktopBridge.commitCalibrationRoster?.(TE_TEST_EQUIPMENT_MODULE_ID, {
+        batchId: "calibration-batch-1",
+        confirmed: true,
+        replaceActiveRequiredRoster: true,
+        verificationAttribution: "Calibration roster cutover",
+        resolutions: [],
+      }),
+    ).rejects.toThrow("Invalid calibration roster commit result");
+  });
 });
 
 async function registerDesktopBridge(invoke: ReturnType<typeof vi.fn>): Promise<NonNullable<Window["inventoryDesktop"]>> {
@@ -683,6 +777,75 @@ function validImportReport() {
     ],
     blocking: false,
     reconciliationBasis: "inventory-revision-1",
+  } as const;
+}
+
+function validCalibrationRosterReport() {
+  return {
+    batchId: "calibration-batch-1",
+    sourceFingerprint: "sha256-calibration-source",
+    sourceFilename: "calibration.xlsx",
+    mappingVersion: "te-calibration-roster-v1",
+    contributingSheets: ["May"],
+    totalSourceRows: 1,
+    counts: {
+      matchedUpdates: 1,
+      createCandidates: 0,
+      conflicts: 0,
+      duplicateSourceRows: 0,
+      ignoredJunk: 0,
+      currentRequiredAbsent: 0,
+    },
+    rowOutcomes: [
+      {
+        sourceSheet: "May",
+        sourceRow: 4,
+        classification: "matched_update",
+        issues: [],
+        ignoredIdentityPlaceholders: ["Serial placeholder NSN ignored."],
+        assetNumber: "TE-1",
+        serialNumber: "NSN",
+        manufacturer: "Maker",
+        model: "Model",
+        description: "Meter",
+        candidateEntryUuid: "entry-1",
+        candidateEntries: [
+          {
+            entryUuid: "entry-1",
+            id: "1",
+            assetNumber: "TE-1",
+            serialNumber: "SER-1",
+            manufacturer: "Maker",
+            model: "Model",
+            description: "Meter",
+          },
+        ],
+        proposedRequirement: "required",
+        proposedOutToCalibration: false,
+        proposedInput: {
+          ...validEntryInput(),
+          assetNumber: "TE-1",
+          serialNumber: "",
+          calibrationRequirement: "required",
+          lastCalibratedAt: "2026-05-31",
+          calibrationDueAt: "2027-05-31",
+        },
+        changes: [
+          {
+            field: "calibrationDueAt",
+            before: "2026-05-31",
+            after: "2027-05-31",
+            destructive: false,
+          },
+        ],
+        semanticFlags: ["normal_dated"],
+        requiresReview: false,
+      },
+    ],
+    currentRequiredAbsent: [],
+    prospectiveRequiredCount: 1,
+    reconciliationBasis: "basis-1",
+    blocking: false,
   } as const;
 }
 

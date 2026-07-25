@@ -4,7 +4,11 @@ import { Badge } from "@/shared/components/ui/badge";
 import { toSafeExternalUrl } from "@/shared/lib/externalUrl";
 import { calibrationHealthLabel, calibrationRequirementLabel, deriveCalibrationHealth, formatLinkLabel } from "@/modules/te-test-equipment/lib";
 import { cn } from "@/shared/lib/utils";
-import type { ColumnConfig, InventoryEntry } from "@/modules/te-test-equipment/types";
+import type {
+  ColumnConfig,
+  InventoryEntry,
+  TeTestEquipmentWorkspace,
+} from "@/modules/te-test-equipment/types";
 
 interface InventoryTableBodyProps {
   activeEntryId: string | null;
@@ -19,6 +23,7 @@ interface InventoryTableBodyProps {
   topSpacerHeight: number;
   visibleEntries: InventoryEntry[];
   localDate: string;
+  workspace: TeTestEquipmentWorkspace;
 }
 
 interface InventoryTableRowProps {
@@ -32,6 +37,7 @@ interface InventoryTableRowProps {
   onOpenEntry: (entryId: string) => void;
   onOpenExternalLink: (url: string) => void;
   onToggleVerified: (entryId: string) => void;
+  workspace: TeTestEquipmentWorkspace;
 }
 
 export function InventoryTableBody({
@@ -47,6 +53,7 @@ export function InventoryTableBody({
   topSpacerHeight,
   visibleEntries,
   localDate,
+  workspace,
 }: InventoryTableBodyProps) {
   return (
     <tbody>
@@ -64,6 +71,7 @@ export function InventoryTableBody({
           onOpenEntry={onOpenEntry}
           onOpenExternalLink={onOpenExternalLink}
           onToggleVerified={onToggleVerified}
+          workspace={workspace}
         />
       ))}
       {bottomSpacerHeight > 0 ? <SpacerRow colSpan={columns.length} height={bottomSpacerHeight} /> : null}
@@ -82,11 +90,12 @@ function InventoryTableRow({
   onOpenEntry,
   onOpenExternalLink,
   onToggleVerified,
+  workspace,
 }: InventoryTableRowProps) {
   return (
     <tr
       className={cn(
-        rowToneClass(entry, colorRows),
+        rowToneClass(entry, colorRows, workspace, localDate),
         activeEntryId === entry.id ? "ring-1 ring-inset ring-primary/25" : "",
         "cursor-default transition-colors hover:bg-accent/35",
       )}
@@ -166,12 +175,24 @@ function renderCell(
       return renderText(entry.projectName);
     case "location":
       return renderText(entry.location);
+    case "assignedTo":
+      return renderText(entry.assignedTo);
     case "calibrationRequirement":
       return <Badge size="sm" variant="outline">{calibrationRequirementLabel(entry.calibrationRequirement)}</Badge>;
     case "outToCalibration":
       return entry.outToCalibration ? <Badge size="sm" variant="warning">Out to cal</Badge> : renderText("No");
+    case "lastCalibratedAt":
+      return renderText(entry.lastCalibratedAt ?? "");
     case "calibrationDueAt":
       return renderText(entry.calibrationDueAt ?? "");
+    case "calibrationIntervalMonths":
+      return renderText(entry.calibrationIntervalMonths == null ? "" : String(entry.calibrationIntervalMonths));
+    case "certificateRef":
+      return renderText(entry.certificateRef ?? "");
+    case "calibrationVendor":
+      return renderText(entry.calibrationVendor ?? "");
+    case "calibrationNotes":
+      return renderText(entry.calibrationNotes ?? "");
     case "calibrationHealth": {
       const health = deriveCalibrationHealth(entry, localDate);
       if (!health) return renderText("");
@@ -217,9 +238,31 @@ function renderText(value: string | null | undefined) {
   );
 }
 
-function rowToneClass(entry: InventoryEntry, colorRows: boolean): string {
+function rowToneClass(
+  entry: InventoryEntry,
+  colorRows: boolean,
+  workspace: TeTestEquipmentWorkspace,
+  localDate: string,
+): string {
   if (!colorRows) {
     return "bg-transparent";
+  }
+
+  if (workspace === "calibration") {
+    switch (deriveCalibrationHealth(entry, localDate)) {
+      case "overdue":
+      case "missing_due":
+        return "bg-destructive/10";
+      case "due_soon":
+      case "out_to_cal":
+        return "bg-warning/10";
+      case "current":
+        return "bg-success/10";
+      case "not_applicable":
+      case "unknown":
+      case null:
+        return "bg-muted/30";
+    }
   }
 
   switch (entry.lifecycleStatus) {

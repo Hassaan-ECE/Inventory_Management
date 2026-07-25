@@ -1,4 +1,8 @@
-import type { FilterState, InventoryScope } from "@/modules/te-test-equipment/types";
+import type {
+  FilterState,
+  InventoryScope,
+  TeTestEquipmentWorkspace,
+} from "@/modules/te-test-equipment/types";
 
 import { hasActiveFilters } from "./filtering";
 
@@ -7,9 +11,37 @@ export function buildResultsLabel(
   scope: InventoryScope,
   query: string,
   filters: FilterState,
+  workspace: TeTestEquipmentWorkspace = "equipment",
 ): string {
-  const filtersActive = hasActiveFilters(filters);
+  const filtersActive = hasActiveFilters(filters, workspace);
   const trimmedQuery = query.trim();
+
+  if (workspace === "calibration") {
+    if (!trimmedQuery) {
+      if (scope === "archive" && count === 0 && !filtersActive) {
+        return "No archived calibration equipment yet";
+      }
+      if (filtersActive) {
+        return scope === "archive"
+          ? `Showing ${count} filtered archived calibration equipment`
+          : `Showing ${count} filtered calibration equipment`;
+      }
+      return scope === "archive"
+        ? `Showing all ${count} archived calibration equipment`
+        : `Showing all ${count} calibration equipment`;
+    }
+
+    if (count === 0) {
+      return scope === "archive"
+        ? `No archived calibration results for "${trimmedQuery}"`
+        : `No calibration results for "${trimmedQuery}"`;
+    }
+
+    const suffix = filtersActive ? " after calibration filters" : "";
+    return scope === "archive"
+      ? `${count} archived calibration results for "${trimmedQuery}"${suffix}`
+      : `${count} calibration results for "${trimmedQuery}"${suffix}`;
+  }
 
   if (!trimmedQuery) {
     if (scope === "archive" && count === 0 && !filtersActive) {

@@ -15,6 +15,23 @@ export function getColumnStyle(columnKey: ColumnConfig["key"]): CSSProperties {
       return { width: "8rem" };
     case "projectName":
       return { width: "8.5rem" };
+    case "calibrationHealth":
+      return { width: "9.5rem" };
+    case "lastCalibratedAt":
+    case "calibrationDueAt":
+      return { width: "8.5rem" };
+    case "calibrationIntervalMonths":
+      return { width: "7rem" };
+    case "outToCalibration":
+      return { width: "7.5rem" };
+    case "certificateRef":
+      return { width: "9rem" };
+    case "calibrationVendor":
+      return { width: "10rem" };
+    case "assignedTo":
+      return { width: "9rem" };
+    case "calibrationNotes":
+      return { width: "14rem" };
     default:
       return {};
   }

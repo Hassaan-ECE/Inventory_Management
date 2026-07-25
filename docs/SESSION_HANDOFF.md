@@ -1,9 +1,9 @@
 # Session handoff — Inventory Management
 
-**Last updated:** 2026-07-20  
-**State:** Product `0.1.0` — stable identity + S: product share; TE Test Equipment and TE Lab Components are implemented as isolated modules with separate DBs, roots, domain types, and sync streams; ME Storage and TE Storage Room remain placeholders.
-**Implemented redesigns:** Adaptive per-inventory sync lifecycle **IM-011** ([plan](superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md)), logical platform/module architecture **IM-012** ([plan](superpowers/plans/2026-07-20-platform-module-architecture-extract.md)), and Phase **C1 TE Lab Components** ([plan](superpowers/plans/2026-07-20-te-lab-components-port.md)).
-**Docs hygiene:** SESSION_START_PROMPT, AGENTS, capability roadmap, and this handoff describe the implemented architecture so new chats do not re-open IM-011, IM-012, or C1 as greenfield work.
+**Last updated:** 2026-07-25
+**State:** Product `0.1.0` — stable identity + S: product share; TE Test Equipment and TE Lab Components are implemented as isolated modules. **IM-015 Calibration workspace and roster tooling are implemented and pre-cutover verified; no live calibration workbook commit has occurred.** ME Storage and TE Storage Room remain placeholders.
+**Implemented redesigns:** Adaptive per-inventory sync lifecycle **IM-011** ([plan](superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md)), logical platform/module architecture **IM-012** ([plan](superpowers/plans/2026-07-20-platform-module-architecture-extract.md)), Phase **C1 TE Lab Components** ([plan](superpowers/plans/2026-07-20-te-lab-components-port.md)), and the implementation side of **IM-015** ([plan](superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md)).
+**Docs hygiene:** SESSION_START_PROMPT, AGENTS, capability roadmap, and this handoff describe the implemented architecture so new chats do not re-open IM-011, IM-012, C1, or IM-015 implementation as greenfield work. IM-015 Phase 8 remains an owner-controlled live operation.
 **Desktop runtime fixes (2026-07-20):** `devUrl` uses `http://127.0.0.1:5173` (avoid localhost→IPv6); capability `core:window:allow-set-title`; adaptive controller wraps `setTimeout`/`clearTimeout` to avoid WebView `Illegal invocation`. Full restart of `bun run desktop` required after capability change.
 
 **New chat:** paste [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md). Move context: [CHAT_HANDOFF.md](CHAT_HANDOFF.md).
@@ -15,6 +15,13 @@ C:\Projects\Active\Inventory_Management
 ```
 
 (Not under `Inventory_Apps` — that tree holds the standalone sibling apps only.)
+
+IM-015 was developed and verified in the isolated checkout below so concurrent work could proceed safely. Check branch/worktree integration status before continuing from `main`:
+
+```text
+C:\Projects\Active\Inventory_Management_IM015
+branch: feature/im-015-calibration
+```
 
 Product share (verified created this session):
 
@@ -41,16 +48,17 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 - Header **hamburger** switcher: TE Test Equipment, TE Lab Components, ME Storage, TE Storage Room.
 - Real TE Test Equipment and TE Lab Components desktop modules; placeholders only for ME Storage and TE Storage Room.
 - Product chrome and switching live under `frontend/src/shell/`; module registry/persistence and adaptive sync live under `frontend/src/platform/`.
-- TE UI/domain remains under `frontend/src/modules/te-test-equipment/` and the existing `inventory.feox`; its calibration schema and sync schema v2 are unchanged except for module-scoped bridge calls.
+- TE UI/domain remains under `frontend/src/modules/te-test-equipment/` and the existing `inventory.feox`. It now exposes **Equipment** and **Calibration** as two projections of the same records; the persisted calibration fields and sync schema v2 remain unchanged.
 - Lab UI/domain lives under `frontend/src/modules/te-lab-components/`; it has no calibration fields, uses `verifiedInSurvey`, sync schema v1, and the separate `te-lab-components.feox` DB.
 - The shell keeps both desktop hosts mounted, runs lifecycle work only for the active module, hard-deactivates the inactive session, and preserves each module's cached rows across switches.
 - Both real modules reuse the completion-aware IM-011 schedule: approximately 2 seconds while selected/active and approximately 60 seconds while idle, hidden, or unfocused; activation, restoration, activity, mutation, and correctly scoped watcher events can request immediate sync.
 - Backend inventory lifecycle, query, CRUD, and export commands are module-scoped. The Tauri JSON boundary dispatches into distinct TE and Lab types instead of merging schemas; TE import remains TE-only.
 - `backend/src/inventory_stores.rs` owns isolated FeOx handles. Shared roots, sync gates, watcher sessions, opaque tokens, statuses, and events are keyed by `ModuleId`; stale work for one module cannot deactivate the other.
 - TE retains its calibration workbook export; Lab has a separate standalone-compatible 19-column workbook without calibration columns.
+- TE now has a calibration-specific `.xlsx` roster preview/review/commit flow with explicit resolutions, stale-preview guards, deterministic creates, field-scoped updates, resumable completion markers, and one final shared publish. The approved general inventory importer remains unchanged.
 - S: tree: `modules\*`, `release-support\`, `legacy-pointers\`, `README.md`.
 - Updater **configured** for this product (pubkey + GitHub `latest.json` endpoint; `createUpdaterArtifacts: true`). Private key on build PC only — see `docs/engineering/UPDATER_AND_RELEASE.md`.
-- Decisions **IM-001…IM-013**; implementation plans under `docs/superpowers/plans/`.
+- Decisions **IM-001…IM-013** plus **IM-015** in this branch; implementation plans live under `docs/superpowers/plans/`.
 - Git: `main` → `https://github.com/Hassaan-ECE/Inventory_Management.git` (initial scaffold push 2026-07-18).
 
 ## First team release (v0.1.0) — 2026-07-20
@@ -65,6 +73,8 @@ S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App
 
 - Port of ME Storage / TE Storage Room data layers
 - Team cutover completed (standalone writers retired after team is stable on unified)
+- IM-015 live calibration roster cutover: no live backup, owner row resolutions, commit, shared publish, or restart verification has been performed.
+- Final integration of the concurrent implementation branches into `main`; resolve shared-document conflicts carefully and rerun gates after integration.
 
 ## Standalone apps (unchanged)
 
@@ -133,13 +143,23 @@ App code defaults now point at those product roots (see `backend/src/platform/sh
 - Single-instance live desktop smoke: preflight found no unified/standalone writer and no listeners on **5173/9222**; Lab opened **Shared** with **1 inventory / 0 archive** and its known row; TE switched in **Shared** with **529 inventory / 13 archive**; ME Storage remained a placeholder; returning to Lab preserved its row and no runtime exception or `Illegal invocation` was observed. The process and both listeners were fully stopped afterward.
 - The smoke was intentionally non-mutating on live shared data. Automated tests cover Lab create/update/delete/archive/verify; owner release QA should still add/edit one Lab entry and confirm persistence after restart.
 
+## IM-015 verification — 2026-07-25
+
+- Dedicated TE **Equipment / Calibration** workspace implemented against the same `InventoryEntry` records. Equipment retains calibration due + health; Calibration owns detailed columns, independent search/filter/sort/visibility state, current-state row coloring, focused editing, and explicit manual membership changes.
+- Calibration roster desktop flow implemented under `backend/src/integrations/calibration_roster_import/` and `frontend/src/modules/te-test-equipment/components/calibration/`. The general importer was not changed.
+- Focused frontend gates: calibration workspace **7/7**, roster dialog **4/4**, and inventory table **9/9** passed.
+- Full frontend suite: **21 files passed, 1 skipped; 166 tests passed, 1 skipped**. The existing unrelated React `act(...)` warning in `entry-dialog.test.tsx` remains non-failing.
+- `npm run lint` and `npm run build` passed.
+- Calibration roster Rust flow: **43/43 passed**. Existing general import regression: **60/60 passed**. Shared sync regression: **40/40 passed**.
+- Full Rust suite passed with only the two documented owner-path audits filtered: `inspect_legacy_headers_only` and `audit_live_database_snapshot_aggregates_only`. The performance benchmark remained intentionally ignored.
+- `cargo fmt --all` and `cargo clippy --all-targets --all-features -- -D warnings` passed.
+- Isolated single-instance desktop smoke passed with shared sync disabled against copied data: Equipment/Calibration switching, workspace-specific columns, roster dialog preview-only copy, Calibration-default editor section, and return to Equipment all worked without runtime exceptions. The app and listeners on **5173/9222** were fully stopped afterward.
+- Aggregate-only copied-data preview passed without changing copied entry or outbox counts: **97** source rows = **78 matched + 8 create candidates + 3 conflicts + 4 duplicates + 4 junk**; **110** current required entries were absent; pre-resolution prospective required count was **86**; preview remained blocking. Of the eight create candidates, review hints were absent for three, unique for one, and multiple for four. No row values, identifiers, UUIDs, or hashes were documented.
+- No live database, live shared root, or source workbook was mutated. Sync is not a backup. Phase 8 requires dated local/shared backups, one writer, a fresh preview, explicit owner resolutions, one commit, publish completion, restart verification, and retained rollback artifacts.
+
 ## Next slices
 
-1. ~~Connect new GitHub remote; initial push~~ done (`origin` / `main`)  
-2. ~~Implement IM-011 adaptive sync against switcher + TE module~~ done and verified 2026-07-20 (optional residual: live DevTools cadence counts when owner soak-tests)  
-3. **Capability map + roadmap:** [superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md](superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md)  
-4. ~~Phase A TE path: shared health + cutover~~ **done** — owner confirmed **Shared** on product module path; **IM-013** = long-term `modules\TE_Test_Equipment` (not default legacy pilot)  
-5. ~~Phase B architecture extract (IM-012)~~ **done and verified 2026-07-20** — plan: [superpowers/plans/2026-07-20-platform-module-architecture-extract.md](superpowers/plans/2026-07-20-platform-module-architecture-extract.md); results in § IM-012 verification  
-6. ~~Phase C1 TE Lab Components port~~ **done and verified 2026-07-20** — plan: [superpowers/plans/2026-07-20-te-lab-components-port.md](superpowers/plans/2026-07-20-te-lab-components-port.md).
-7. ~~Phase C1~~ done. **Next: Phase D first team release** — plan: [superpowers/plans/2026-07-20-first-team-release.md](superpowers/plans/2026-07-20-first-team-release.md). Copy script: `scripts/release/copy-shared-to-product-modules.ps1`. Order: copy shared data → flip defaults → smoke → **signed** NSIS + GitHub Release/`latest.json` (Update button ready from v1).
-8. ME Storage + TE Storage Room remain deferred to a later post-release update; optional IM-011 live cadence soak A2 remains non-blocking.
+1. Integrate the concurrent feature worktrees into `main`, preserving each plan's ownership boundaries and rerunning frontend tests/lint/build plus Rust tests/clippy after conflict resolution.
+2. Perform IM-015 Phase 8 only in an owner-controlled maintenance window: verify the workbook is still current, close every writer, take dated local/shared backups, run a fresh preview, resolve every blocking row, commit once, wait for publish, restart, and verify persistence.
+3. Keep the copied-data preview aggregate as rehearsal evidence only; do not treat **8 create candidates**, **4 junk**, **110 absent**, or **86 prospective required** as final live outcomes before fresh owner resolutions.
+4. Complete remaining owner QA for live Lab persistence if still outstanding; ME Storage and TE Storage Room remain deferred.

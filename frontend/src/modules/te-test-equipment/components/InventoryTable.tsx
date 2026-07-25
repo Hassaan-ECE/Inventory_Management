@@ -4,7 +4,12 @@ import { InventoryTableBody } from "@/modules/te-test-equipment/components/table
 import { InventoryTableColumnGroup, InventoryTableHeader } from "@/modules/te-test-equipment/components/table/InventoryTableHeader";
 import { ROW_HEIGHT, clampScrollTop, getVisibleRange } from "@/modules/te-test-equipment/components/table/virtualization";
 import { getLocalDateString } from "@/modules/te-test-equipment/lib";
-import type { ColumnConfig, InventoryEntry, SortState } from "@/modules/te-test-equipment/types";
+import type {
+  ColumnConfig,
+  InventoryEntry,
+  SortState,
+  TeTestEquipmentWorkspace,
+} from "@/modules/te-test-equipment/types";
 import { ScrollRegion } from "@/shared/components/ui/ScrollRegion";
 
 interface InventoryTableProps {
@@ -20,6 +25,7 @@ interface InventoryTableProps {
   entries: InventoryEntry[];
   sortState: SortState | null;
   localDate?: string;
+  workspace?: TeTestEquipmentWorkspace;
 }
 
 export const InventoryTable = memo(function InventoryTable({
@@ -35,6 +41,7 @@ export const InventoryTable = memo(function InventoryTable({
   entries,
   sortState,
   localDate = getLocalDateString(),
+  workspace = "equipment",
 }: InventoryTableProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLTableSectionElement | null>(null);
@@ -97,7 +104,7 @@ export const InventoryTable = memo(function InventoryTable({
   return (
     <section className="flex h-full min-h-0 flex-1 overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-sm">
       <ScrollRegion
-        aria-label="Inventory table"
+        aria-label={workspace === "calibration" ? "Calibration equipment table" : "Inventory table"}
         className="min-h-0 h-full flex-1"
         scrollClassName="overflow-x-hidden"
         scrollRef={scrollRef}
@@ -125,6 +132,7 @@ export const InventoryTable = memo(function InventoryTable({
             topSpacerHeight={topSpacerHeight}
             visibleEntries={visibleEntries}
             localDate={localDate}
+            workspace={workspace}
             onOpenContextMenu={onOpenContextMenu}
             onOpenEntry={onOpenEntry}
             onOpenExternalLink={onOpenExternalLink}

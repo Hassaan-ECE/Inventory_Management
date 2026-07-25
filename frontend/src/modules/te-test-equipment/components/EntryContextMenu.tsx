@@ -1,9 +1,20 @@
 import { useEffect, useRef } from "react";
 
 import { DropdownItem } from "@/shared/components/ui/DropdownMenu";
-import type { InventoryEntry, InventoryScope } from "@/modules/te-test-equipment/types";
+import type {
+  InventoryEntry,
+  InventoryScope,
+  TeTestEquipmentWorkspace,
+} from "@/modules/te-test-equipment/types";
 
-export type EntryContextAction = "open" | "open-link" | "search-online" | "archive-toggle" | "delete";
+export type EntryContextAction =
+  | "open"
+  | "open-link"
+  | "search-online"
+  | "calibration-add"
+  | "calibration-remove"
+  | "archive-toggle"
+  | "delete";
 
 interface EntryContextMenuProps {
   canModifyEntries: boolean;
@@ -15,9 +26,18 @@ interface EntryContextMenuProps {
   };
   entry: InventoryEntry;
   scope: InventoryScope;
+  workspace?: TeTestEquipmentWorkspace;
 }
 
-export function EntryContextMenu({ canModifyEntries, onAction, onClose, position, entry, scope }: EntryContextMenuProps) {
+export function EntryContextMenu({
+  canModifyEntries,
+  onAction,
+  onClose,
+  position,
+  entry,
+  scope,
+  workspace = "equipment",
+}: EntryContextMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const archiveLabel = scope === "archive" || entry.archived ? "Restore Entry" : "Archive Entry";
   const hasSavedLink = entry.links.trim().length > 0;
@@ -61,6 +81,16 @@ export function EntryContextMenu({ canModifyEntries, onAction, onClose, position
           <DropdownItem onClick={() => onAction("open")}>Open Full Entry</DropdownItem>
           {hasSavedLink ? <DropdownItem onClick={() => onAction("open-link")}>Open Saved Link</DropdownItem> : null}
           <DropdownItem onClick={() => onAction("search-online")}>Search Online</DropdownItem>
+          {workspace === "equipment" && entry.calibrationRequirement !== "required" ? (
+            <DropdownItem disabled={!canModifyEntries} onClick={() => onAction("calibration-add")}>
+              Add to Calibration
+            </DropdownItem>
+          ) : null}
+          {workspace === "calibration" ? (
+            <DropdownItem disabled={!canModifyEntries} onClick={() => onAction("calibration-remove")}>
+              Remove from Calibration
+            </DropdownItem>
+          ) : null}
           <div className="my-1 h-px bg-border/70" />
           <DropdownItem disabled={!canModifyEntries} onClick={() => onAction("archive-toggle")}>
             {archiveLabel}

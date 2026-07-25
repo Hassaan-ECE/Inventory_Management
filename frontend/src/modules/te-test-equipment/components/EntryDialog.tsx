@@ -14,15 +14,18 @@ import type {
   InventoryEntryInput,
   CalibrationRequirement,
   LifecycleStatus,
+  TeTestEquipmentWorkspace,
   WorkingStatus,
 } from "@/modules/te-test-equipment/types";
 
 import { ContextRow, DialogActions } from "./entry-dialog/components";
 import {
-  ENTRY_BOOLEAN_FIELDS,
+  ENTRY_CALIBRATION_BOOLEAN_FIELDS,
+  ENTRY_CALIBRATION_SELECT_FIELDS,
   ENTRY_CONDITION_FIELD,
+  ENTRY_EQUIPMENT_BOOLEAN_FIELDS,
+  ENTRY_EQUIPMENT_SELECT_FIELDS,
   ENTRY_MAIN_INPUT_FIELDS,
-  ENTRY_SELECT_FIELDS,
   buildEntryContextRows,
   type EntrySelectField,
 } from "./entry-dialog/fieldMetadata";
@@ -41,6 +44,8 @@ import { useMountedRef } from "./entry-dialog/useMountedRef";
 
 interface EntryDialogProps {
   defaultArchived?: boolean;
+  defaultCalibrationRequirement?: CalibrationRequirement;
+  defaultSection?: TeTestEquipmentWorkspace;
   mode: "add" | "edit";
   onClose: () => void;
   onSave: (input: InventoryEntryInput, editContext?: InventoryEntryEditContext) => Promise<void> | void;
@@ -48,10 +53,22 @@ interface EntryDialogProps {
   entry?: InventoryEntry | null;
 }
 
-export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, readOnly = false, entry }: EntryDialogProps) {
+export function EntryDialog({
+  defaultArchived = false,
+  defaultCalibrationRequirement = "unknown",
+  defaultSection = "equipment",
+  mode,
+  onClose,
+  onSave,
+  readOnly = false,
+  entry,
+}: EntryDialogProps) {
   const isMountedRef = useMountedRef();
-  const [initialForm] = useState<EntryFormState>(() => buildFormState(entry, defaultArchived));
+  const [initialForm] = useState<EntryFormState>(() => (
+    buildFormState(entry, defaultArchived, defaultCalibrationRequirement)
+  ));
   const [form, setForm] = useState<EntryFormState>(initialForm);
+  const [section, setSection] = useState<TeTestEquipmentWorkspace>(defaultSection);
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
   const calibrationIntervalId = useId();
@@ -141,110 +158,187 @@ export function EntryDialog({ defaultArchived = false, mode, onClose, onSave, re
                 </Badge>
               </div>
             </div>
+            <div aria-label="Entry editor section" className="mt-3 inline-flex rounded-2xl border border-border/70 bg-background/60 p-1">
+              <button
+                aria-pressed={section === "equipment"}
+                className={cn(
+                  "rounded-xl px-3 py-1.5 text-sm font-medium transition-colors",
+                  section === "equipment" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                )}
+                type="button"
+                onClick={() => setSection("equipment")}
+              >
+                Equipment
+              </button>
+              <button
+                aria-pressed={section === "calibration"}
+                className={cn(
+                  "rounded-xl px-3 py-1.5 text-sm font-medium transition-colors",
+                  section === "calibration" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                )}
+                type="button"
+                onClick={() => setSection("calibration")}
+              >
+                Calibration
+              </button>
+            </div>
           </div>
 
           <fieldset className="contents" disabled={readOnly || isSaving}>
             <ScrollRegion className="min-h-0 flex-1" contentClassName="px-5 py-4 lg:py-4">
-              <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
-                {ENTRY_MAIN_INPUT_FIELDS.map((field) => (
-                  <Field className={field.className} key={field.key} label={field.label}>
-                    <Input
-                      autoFocus={field.autoFocus}
-                      inputMode={field.inputMode}
-                      placeholder={field.placeholder}
-                      value={form[field.key]}
-                      onChange={(event) => updateForm(setForm, field.key, event.currentTarget.value)}
-                    />
-                  </Field>
-                ))}
+              {section === "equipment" ? (
+                <>
+                  <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
+                    {ENTRY_MAIN_INPUT_FIELDS.map((field) => (
+                      <Field className={field.className} key={field.key} label={field.label}>
+                        <Input
+                          autoFocus={field.autoFocus}
+                          inputMode={field.inputMode}
+                          placeholder={field.placeholder}
+                          value={form[field.key]}
+                          onChange={(event) => updateForm(setForm, field.key, event.currentTarget.value)}
+                        />
+                      </Field>
+                    ))}
 
-                {ENTRY_SELECT_FIELDS.map((field) => (
-                  <Field key={field.key} label={field.label}>
-                    <DropdownSelect
-                      aria-label={field.label}
-                      options={field.options.map((option) => ({
-                        value: option,
-                        label: formatOptionLabel(option),
-                      }))}
-                      value={form[field.key]}
-                      onChange={(value) => handleSelectChange(field, value)}
-                    />
-                  </Field>
-                ))}
+                    {ENTRY_EQUIPMENT_SELECT_FIELDS.map((field) => (
+                      <Field key={field.key} label={field.label}>
+                        <DropdownSelect
+                          aria-label={field.label}
+                          options={field.options.map((option) => ({ value: option, label: formatOptionLabel(option) }))}
+                          value={form[field.key]}
+                          onChange={(value) => handleSelectChange(field, value)}
+                        />
+                      </Field>
+                    ))}
 
-                <Field className={ENTRY_CONDITION_FIELD.className} label={ENTRY_CONDITION_FIELD.label}>
-                  <Input
-                    placeholder={ENTRY_CONDITION_FIELD.placeholder}
-                    value={form[ENTRY_CONDITION_FIELD.key]}
-                    onChange={(event) => updateForm(setForm, ENTRY_CONDITION_FIELD.key, event.currentTarget.value)}
-                  />
-                </Field>
+                    <Field className={ENTRY_CONDITION_FIELD.className} label={ENTRY_CONDITION_FIELD.label}>
+                      <Input
+                        placeholder={ENTRY_CONDITION_FIELD.placeholder}
+                        value={form[ENTRY_CONDITION_FIELD.key]}
+                        onChange={(event) => updateForm(setForm, ENTRY_CONDITION_FIELD.key, event.currentTarget.value)}
+                      />
+                    </Field>
 
-                <Field label="Last calibrated"><Input type="date" value={form.lastCalibratedAt} onChange={(event) => updateForm(setForm, "lastCalibratedAt", event.currentTarget.value)} /></Field>
-                <Field label="Calibration due"><Input type="date" value={form.calibrationDueAt} onChange={(event) => updateForm(setForm, "calibrationDueAt", event.currentTarget.value)} /></Field>
-                <div className="block">
-                  <label
-                    className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-                    htmlFor={calibrationIntervalId}
-                  >
-                    Calibration interval (months)
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      id={calibrationIntervalId}
-                      inputMode="numeric"
-                      type="number"
-                      value={form.calibrationIntervalMonths}
-                      onChange={(event) => updateForm(setForm, "calibrationIntervalMonths", event.currentTarget.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        const suggestion = suggestCalibrationDueDate(
-                          form.lastCalibratedAt.trim(),
-                          Number(form.calibrationIntervalMonths),
-                        );
-                        if (suggestion) updateForm(setForm, "calibrationDueAt", suggestion);
-                      }}
-                    >
-                      Suggest calibration due date
-                    </Button>
+                    {showInlinePicturePreview ? (
+                      <div className="lg:col-span-2">
+                        <PicturePreviewPanel picturePath={picturePath} preview={picturePreview} />
+                      </div>
+                    ) : null}
+
+                    <Field className="lg:col-span-2" label="Notes">
+                      <Textarea
+                        placeholder="Operational notes, repair history, or provenance"
+                        value={form.notes}
+                        onChange={(event) => updateForm(setForm, "notes", event.currentTarget.value)}
+                      />
+                    </Field>
                   </div>
-                </div>
-                <Field label="Certificate reference"><Input value={form.certificateRef} onChange={(event) => updateForm(setForm, "certificateRef", event.currentTarget.value)} /></Field>
-                <Field label="Calibration vendor"><Input value={form.calibrationVendor} onChange={(event) => updateForm(setForm, "calibrationVendor", event.currentTarget.value)} /></Field>
-                <Field label="Verified by"><Input value={form.verifiedBy} onChange={(event) => updateForm(setForm, "verifiedBy", event.currentTarget.value)} /></Field>
-                <Field className="lg:col-span-2" label="Calibration notes"><Textarea value={form.calibrationNotes} onChange={(event) => updateForm(setForm, "calibrationNotes", event.currentTarget.value)} /></Field>
 
-                {showInlinePicturePreview ? (
-                  <div className="lg:col-span-2">
-                    <PicturePreviewPanel picturePath={picturePath} preview={picturePreview} />
+                  <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+                    {ENTRY_EQUIPMENT_BOOLEAN_FIELDS.map((field) => (
+                      <label className="flex items-center gap-2 text-sm text-foreground" key={field.key}>
+                        <input
+                          checked={form[field.key]}
+                          className="size-4 accent-[var(--primary)]"
+                          type="checkbox"
+                          onChange={(event) => updateForm(setForm, field.key, event.currentTarget.checked)}
+                        />
+                        {field.label}
+                      </label>
+                    ))}
                   </div>
-                ) : null}
+                </>
+              ) : (
+                <>
+                  <div className="mb-4 rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Equipment Identity</p>
+                    <p className="mt-1 font-medium text-foreground">
+                      {form.description || [form.manufacturer, form.model].filter(Boolean).join(" ") || form.assetNumber || form.serialNumber || "New equipment"}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {[form.assetNumber, form.serialNumber, form.manufacturer, form.model, form.location].filter(Boolean).join(" • ") || "Complete identity fields in the Equipment section."}
+                    </p>
+                  </div>
 
-                <Field className="lg:col-span-2" label="Notes">
-                  <Textarea
-                    placeholder="Operational notes, repair history, or provenance"
-                    value={form.notes}
-                    onChange={(event) => updateForm(setForm, "notes", event.currentTarget.value)}
-                  />
-                </Field>
-              </div>
+                  <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
+                    {ENTRY_CALIBRATION_SELECT_FIELDS.map((field) => (
+                      <Field key={field.key} label={field.label}>
+                        <DropdownSelect
+                          aria-label={field.label}
+                          options={field.options.map((option) => ({ value: option, label: formatOptionLabel(option) }))}
+                          value={form[field.key]}
+                          onChange={(value) => handleSelectChange(field, value)}
+                        />
+                      </Field>
+                    ))}
+                    <div />
+                    <Field label="Last calibrated">
+                      <Input type="date" value={form.lastCalibratedAt} onChange={(event) => updateForm(setForm, "lastCalibratedAt", event.currentTarget.value)} />
+                    </Field>
+                    <Field label="Calibration due">
+                      <Input type="date" value={form.calibrationDueAt} onChange={(event) => updateForm(setForm, "calibrationDueAt", event.currentTarget.value)} />
+                    </Field>
+                    <div className="block lg:col-span-2">
+                      <label
+                        className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+                        htmlFor={calibrationIntervalId}
+                      >
+                        Calibration interval (months)
+                      </label>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Input
+                          id={calibrationIntervalId}
+                          inputMode="numeric"
+                          type="number"
+                          value={form.calibrationIntervalMonths}
+                          onChange={(event) => updateForm(setForm, "calibrationIntervalMonths", event.currentTarget.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const suggestion = suggestCalibrationDueDate(
+                              form.lastCalibratedAt.trim(),
+                              Number(form.calibrationIntervalMonths),
+                            );
+                            if (suggestion) updateForm(setForm, "calibrationDueAt", suggestion);
+                          }}
+                        >
+                          Suggest calibration due date
+                        </Button>
+                      </div>
+                    </div>
+                    <Field label="Certificate reference">
+                      <Input value={form.certificateRef} onChange={(event) => updateForm(setForm, "certificateRef", event.currentTarget.value)} />
+                    </Field>
+                    <Field label="Calibration vendor">
+                      <Input value={form.calibrationVendor} onChange={(event) => updateForm(setForm, "calibrationVendor", event.currentTarget.value)} />
+                    </Field>
+                    <Field label="Verified by">
+                      <Input value={form.verifiedBy} onChange={(event) => updateForm(setForm, "verifiedBy", event.currentTarget.value)} />
+                    </Field>
+                    <div />
+                    <Field className="lg:col-span-2" label="Calibration notes">
+                      <Textarea value={form.calibrationNotes} onChange={(event) => updateForm(setForm, "calibrationNotes", event.currentTarget.value)} />
+                    </Field>
+                  </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
-                {ENTRY_BOOLEAN_FIELDS.map((field) => (
-                  <label className="flex items-center gap-2 text-sm text-foreground" key={field.key}>
-                    <input
-                      checked={form[field.key]}
-                      className="size-4 accent-[var(--primary)]"
-                      type="checkbox"
-                      onChange={(event) => updateForm(setForm, field.key, event.currentTarget.checked)}
-                    />
-                    {field.label}
-                  </label>
-                ))}
-              </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+                    {ENTRY_CALIBRATION_BOOLEAN_FIELDS.map((field) => (
+                      <label className="flex items-center gap-2 text-sm text-foreground" key={field.key}>
+                        <input
+                          checked={form[field.key]}
+                          className="size-4 accent-[var(--primary)]"
+                          type="checkbox"
+                          onChange={(event) => updateForm(setForm, field.key, event.currentTarget.checked)}
+                        />
+                        {field.label}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
             </ScrollRegion>
           </fieldset>
 

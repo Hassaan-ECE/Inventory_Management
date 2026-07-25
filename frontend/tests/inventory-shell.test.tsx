@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { APP_CREDIT, APP_VERSION } from "@/app/branding";
+import { MOCK_INVENTORY } from "@/modules/te-test-equipment/data/mockInventory";
+import { getInventoryCounts } from "@/modules/te-test-equipment/lib";
 import type { InventoryEntry } from "@/modules/te-test-equipment/types";
 import { InventoryShell } from "@/shell/InventoryShell";
 import {
@@ -23,6 +25,7 @@ describe("InventoryShell loading and search", () => {
   });
 
   it("renders the inventory view by default with seeded counts", () => {
+    const counts = getInventoryCounts(MOCK_INVENTORY);
     render(<InventoryShell />);
 
     expect(screen.getAllByText("TE Test Equipment")).toHaveLength(1);
@@ -44,10 +47,10 @@ describe("InventoryShell loading and search", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Showing all 10 entries")).toBeInTheDocument();
     expect(screen.queryByText(/Total:\s*\d+/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Overdue: 1")).toBeInTheDocument();
-    expect(screen.getByText("Due soon: 2")).toBeInTheDocument();
-    expect(screen.getByText("Missing due: 1")).toBeInTheDocument();
-    expect(screen.getByText("Out to cal: 1")).toBeInTheDocument();
+    expect(screen.getByText(`Overdue: ${counts.overdue}`)).toBeInTheDocument();
+    expect(screen.getByText(`Due soon: ${counts.dueSoon}`)).toBeInTheDocument();
+    expect(screen.getByText(`Missing due: ${counts.missingDue}`)).toBeInTheDocument();
+    expect(screen.getByText(`Out to cal: ${counts.outToCal}`)).toBeInTheDocument();
     expect(screen.getByText("Local")).toBeInTheDocument();
     expect(screen.getByText(/Built by Syed Hassaan Shah/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
@@ -57,6 +60,7 @@ describe("InventoryShell loading and search", () => {
   it("shows semantic calibration filters", async () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
+    await user.click(screen.getByRole("button", { name: "Calibration" }));
     await user.click(screen.getByRole("button", { name: "View settings" }));
     await user.click(screen.getByRole("menuitem", { name: /Show filters/i }));
     expect(screen.getByLabelText("Calibration requirement")).toBeInTheDocument();

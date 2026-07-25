@@ -44,17 +44,28 @@ export const ENTRY_CONDITION_FIELD: EntryInputFieldConfig = {
   placeholder: "Condition or operating note",
 };
 
-export const ENTRY_SELECT_FIELDS = [
+export const ENTRY_EQUIPMENT_SELECT_FIELDS = [
   { key: "lifecycleStatus", label: "Lifecycle", options: LIFECYCLE_OPTIONS },
   { key: "workingStatus", label: "Working Status", options: WORKING_STATUS_OPTIONS },
+] as const;
+
+export const ENTRY_CALIBRATION_SELECT_FIELDS = [
   { key: "calibrationRequirement", label: "Calibration requirement", options: CALIBRATION_REQUIREMENT_OPTIONS },
+] as const;
+
+export const ENTRY_SELECT_FIELDS = [
+  ...ENTRY_EQUIPMENT_SELECT_FIELDS,
+  ...ENTRY_CALIBRATION_SELECT_FIELDS,
 ] as const;
 
 export type EntrySelectField = (typeof ENTRY_SELECT_FIELDS)[number];
 
-export const ENTRY_BOOLEAN_FIELDS = [
-  { key: "outToCalibration", label: "Out to calibration" },
+export const ENTRY_EQUIPMENT_BOOLEAN_FIELDS = [
   { key: "archived", label: "Archived entry" },
+] as const;
+
+export const ENTRY_CALIBRATION_BOOLEAN_FIELDS = [
+  { key: "outToCalibration", label: "Out to calibration" },
 ] as const;
 
 export function buildEntryContextRows(entry: InventoryEntry): Array<{ label: string; value: string }> {

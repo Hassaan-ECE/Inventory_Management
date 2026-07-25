@@ -1,6 +1,7 @@
 export type { ThemeMode } from "@/platform/ui/theme";
 
 export type InventoryScope = "inventory" | "archive";
+export type TeTestEquipmentWorkspace = "equipment" | "calibration";
 export type SortDirection = "asc" | "desc";
 export type LifecycleStatus = "active" | "repair" | "scrapped" | "missing" | "rental";
 export type WorkingStatus = "working" | "limited" | "not_working" | "unknown";
@@ -219,6 +220,122 @@ export interface ImportCommitResult {
   message: string;
 }
 
+export type CalibrationRosterClassification =
+  | "matched_update"
+  | "create_candidate"
+  | "conflict_review_required"
+  | "duplicate_source_row"
+  | "ignored_junk";
+
+export type CalibrationRosterSemanticFlag =
+  | "normal_dated"
+  | "reference_only"
+  | "needs_calibration"
+  | "out_to_calibration"
+  | "failed_calibration"
+  | "inactive_or_scrapped"
+  | "unclear";
+
+export interface CalibrationRosterCandidateContext {
+  entryUuid: string;
+  id: string;
+  assetNumber: string;
+  serialNumber: string;
+  manufacturer: string;
+  model: string;
+  description: string;
+}
+
+export interface CalibrationRosterFieldChange {
+  field: string;
+  before: string | null;
+  after: string | null;
+  destructive: boolean;
+}
+
+export interface CalibrationRosterRowOutcome {
+  sourceSheet: string;
+  sourceRow: number;
+  classification: CalibrationRosterClassification;
+  issues: string[];
+  ignoredIdentityPlaceholders: string[];
+  assetNumber: string | null;
+  serialNumber: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  description: string | null;
+  candidateEntryUuid: string | null;
+  candidateEntries: CalibrationRosterCandidateContext[];
+  proposedRequirement: CalibrationRequirement;
+  proposedOutToCalibration: boolean;
+  proposedInput: InventoryEntryInput | null;
+  changes: CalibrationRosterFieldChange[];
+  semanticFlags: CalibrationRosterSemanticFlag[];
+  requiresReview: boolean;
+}
+
+export interface CalibrationRosterAbsentEntry {
+  entry: CalibrationRosterCandidateContext;
+  calibrationDueAt: string | null;
+  calibrationVendor: string | null;
+  calibrationNotes: string | null;
+}
+
+export interface CalibrationRosterCounts {
+  matchedUpdates: number;
+  createCandidates: number;
+  conflicts: number;
+  duplicateSourceRows: number;
+  ignoredJunk: number;
+  currentRequiredAbsent: number;
+}
+
+export interface CalibrationRosterPreviewReport {
+  batchId: string;
+  sourceFingerprint: string;
+  sourceFilename: string;
+  mappingVersion: string;
+  contributingSheets: string[];
+  totalSourceRows: number;
+  counts: CalibrationRosterCounts;
+  rowOutcomes: CalibrationRosterRowOutcome[];
+  currentRequiredAbsent: CalibrationRosterAbsentEntry[];
+  prospectiveRequiredCount: number;
+  reconciliationBasis: string;
+  blocking: boolean;
+}
+
+export type CalibrationRosterResolutionAction = "use_existing" | "create" | "ignore";
+
+export interface CalibrationRosterResolution {
+  sourceSheet: string;
+  sourceRow: number;
+  action: CalibrationRosterResolutionAction;
+  targetEntryUuid?: string;
+  createInput?: InventoryEntryInput;
+  confirmed: boolean;
+}
+
+export interface CalibrationRosterCommitInput {
+  batchId: string;
+  confirmed: boolean;
+  replaceActiveRequiredRoster: boolean;
+  verificationAttribution: string;
+  resolutions: CalibrationRosterResolution[];
+}
+
+export interface CalibrationRosterCommitResult {
+  batchId: string;
+  updated: number;
+  created: number;
+  reset: number;
+  ignored: number;
+  noop: number;
+  finalRequired: number;
+  entriesChanged: boolean;
+  message: string;
+}
+
 export type InventoryMutationMode = "shared" | "local";
 
 export interface InventoryEntryMutationResult {
@@ -269,36 +386,42 @@ export interface InventoryQueryResult {
   totalFiltered: number;
 }
 
+export type ColumnKey =
+  | "verified"
+  | "assetNumber"
+  | "serialNumber"
+  | "qty"
+  | "manufacturer"
+  | "model"
+  | "description"
+  | "projectName"
+  | "location"
+  | "assignedTo"
+  | "links"
+  | "calibrationRequirement"
+  | "outToCalibration"
+  | "lastCalibratedAt"
+  | "calibrationDueAt"
+  | "calibrationIntervalMonths"
+  | "certificateRef"
+  | "calibrationVendor"
+  | "calibrationNotes"
+  | "calibrationHealth";
+
 export interface ColumnConfig {
-  key:
-    | "verified"
-    | "assetNumber"
-    | "serialNumber"
-    | "qty"
-    | "manufacturer"
-    | "model"
-    | "description"
-    | "projectName"
-    | "location"
-    | "links"
-    | "calibrationRequirement"
-    | "outToCalibration"
-    | "calibrationDueAt"
-    | "calibrationHealth";
+  key: ColumnKey;
   label: string;
   defaultVisible: boolean;
   sortable: boolean;
   align?: "left" | "center";
 }
 
-export type ColumnKey = ColumnConfig["key"];
-
 export interface SortState {
   column: ColumnKey;
   direction: SortDirection;
 }
 
-export const INVENTORY_COLUMNS = [
+export const EQUIPMENT_COLUMNS = [
   { key: "verified", label: "Verified", defaultVisible: true, sortable: true, align: "center" },
   { key: "assetNumber", label: "Asset #", defaultVisible: false, sortable: true },
   { key: "serialNumber", label: "Serial #", defaultVisible: true, sortable: true },
@@ -308,9 +431,28 @@ export const INVENTORY_COLUMNS = [
   { key: "description", label: "Description", defaultVisible: true, sortable: true },
   { key: "projectName", label: "Project", defaultVisible: false, sortable: true },
   { key: "location", label: "Location", defaultVisible: true, sortable: true },
-  { key: "calibrationRequirement", label: "Calibration", defaultVisible: true, sortable: true },
-  { key: "outToCalibration", label: "Out to cal", defaultVisible: true, sortable: true, align: "center" },
   { key: "calibrationDueAt", label: "Calibration due", defaultVisible: true, sortable: true },
   { key: "calibrationHealth", label: "Calibration health", defaultVisible: true, sortable: true },
   { key: "links", label: "Links", defaultVisible: true, sortable: true },
 ] as const satisfies readonly ColumnConfig[];
+
+export const CALIBRATION_COLUMNS = [
+  { key: "verified", label: "Verified", defaultVisible: true, sortable: true, align: "center" },
+  { key: "assetNumber", label: "Asset #", defaultVisible: true, sortable: true },
+  { key: "serialNumber", label: "Serial #", defaultVisible: true, sortable: true },
+  { key: "manufacturer", label: "Manufacturer", defaultVisible: true, sortable: true },
+  { key: "model", label: "Model", defaultVisible: true, sortable: true },
+  { key: "description", label: "Description", defaultVisible: true, sortable: true },
+  { key: "calibrationHealth", label: "Calibration health", defaultVisible: true, sortable: true },
+  { key: "lastCalibratedAt", label: "Last calibrated", defaultVisible: true, sortable: true },
+  { key: "calibrationDueAt", label: "Calibration due", defaultVisible: true, sortable: true },
+  { key: "calibrationIntervalMonths", label: "Interval (months)", defaultVisible: false, sortable: true, align: "center" },
+  { key: "outToCalibration", label: "Out to cal", defaultVisible: true, sortable: true, align: "center" },
+  { key: "calibrationVendor", label: "Vendor", defaultVisible: true, sortable: true },
+  { key: "certificateRef", label: "Certificate", defaultVisible: false, sortable: true },
+  { key: "location", label: "Location", defaultVisible: true, sortable: true },
+  { key: "assignedTo", label: "Assigned to", defaultVisible: false, sortable: true },
+  { key: "calibrationNotes", label: "Calibration notes", defaultVisible: false, sortable: true },
+] as const satisfies readonly ColumnConfig[];
+
+export const INVENTORY_COLUMNS = EQUIPMENT_COLUMNS;

@@ -1,7 +1,7 @@
 # Inventory Management — Decision Register
 
-**Status:** Authoritative for this product  
-**Last updated:** 2026-07-20
+**Status:** Authoritative for this product
+**Last updated:** 2026-07-25
 
 ## Accepted decisions
 
@@ -12,14 +12,15 @@
 | IM-003 | Product share root `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App`. | Installer at root when shipping; `release-support\`; per-module **separate** shared trees under `modules\`. |
 | IM-010 | Code workspace lives at `C:\Projects\Active\Inventory_Management` (not under `Inventory_Apps`). | `Inventory_Apps` holds standalone sibling apps only. |
 | IM-004 | Modules stay separate under the hood (own shared roots / data); UI is a switcher, not a merged inventory. | No mixed-row single table across TE/ME domains. |
-| IM-005 | Initial module labels: TE Test Equipment, TE Lab Components, ME Storage, TE Storage Room. | Only TE Test Equipment implemented in v0 scaffold. |
+| IM-005 | Initial module labels: TE Test Equipment, TE Lab Components, ME Storage, TE Storage Room. | TE Test Equipment and TE Lab Components are implemented; ME Storage and TE Storage Room remain placeholders. |
 | IM-006 | TE shared root default is product `...\Inventory_Management_App\modules\TE_Test_Equipment`. Lab default is product `...\modules\TE_Lab_Components`. | Override with `INVENTORY_MANAGEMENT_SHARED_ROOT` / `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT`. InventoryApps paths are legacy pilots only. |
-| IM-007 | Shared sync env prefix `INVENTORY_MANAGEMENT_*` (not TE_TEST_EQUIPMENT_*). | Distinct from standalone TE env vars. |
+| IM-007 | Shared sync env prefix `INVENTORY_MANAGEMENT_*` (not `TE_TEST_EQUIPMENT_*`). | Distinct from standalone TE environment variables. |
 | IM-008 | Product uses **its own** Tauri updater keypair and GitHub Releases endpoint (`Inventory_Management` only). First team ship includes updater so later versions install via in-app Update. | Do not ship TE/ME pubkeys/endpoints. Private key lives outside git (`%USERPROFILE%\.tauri\inventory-management.key`). |
-| IM-009 | Cutover is manual install of the new app; keep old installers available. Auto-install via old-app updater is optional later work, not required for scaffold. | |
-| IM-011 | **Adaptive per-inventory sync lifecycle** (TE-first): selected inventory uses completion-aware polling (~2 s focused+active; ~60 s idle/unfocused/hidden), immediate sync on activate/focus/visibility/mutation/watcher, hard deactivation when deselected, opaque session tokens so stale work cannot rearm an inactive inventory. | **Implemented for TE 2026-07-20.** Behavioral authority: [../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md](../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md). Origin TE D-029. Future modules use independent DBs/roots/watchers and a `systemId → session` map. Shared formats unchanged; `syncIntervalMs` removed. Sync is not a backup. Residual optional: live DevTools call-rate smoke (see SESSION_HANDOFF). |
-| IM-012 | Prefer a **whole redesign monorepo** (shared platform + domain modules) under this product, new GitHub repo, archive standalone repos after cutover—not perpetual triple-app maintenance. | **Logical extract implemented 2026-07-20** (shell/platform/modules; one package + one crate). Plan: [../superpowers/plans/2026-07-20-platform-module-architecture-extract.md](../superpowers/plans/2026-07-20-platform-module-architecture-extract.md). TE only implemented; no multi-crate; next is Phase C ports. |
+| IM-009 | Cutover is manual install of the new app; keep old installers available. Auto-install via old-app updater is optional later work, not required for scaffold. | Standalone apps remain available until owner-controlled retirement. |
+| IM-011 | **Adaptive per-inventory sync lifecycle** (TE-first): selected inventory uses completion-aware polling (~2 s focused+active; ~60 s idle/unfocused/hidden), immediate sync on activate/focus/visibility/mutation/watcher, hard deactivation when deselected, and opaque session tokens so stale work cannot rearm an inactive inventory. | **Implemented for TE 2026-07-20 and reused by Lab.** Behavioral authority: [2026-07-18-adaptive-per-inventory-sync-lifecycle.md](../superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md). |
+| IM-012 | Prefer a **whole redesign monorepo** (shared platform + domain modules) under this product, new GitHub repo, archive standalone repos after cutover—not perpetual triple-app maintenance. | **Logical extract implemented 2026-07-20** (shell/platform/modules; one package + one crate). TE and Lab are real isolated modules; ME Storage and TE Storage Room remain placeholders. Plan: [2026-07-20-platform-module-architecture-extract.md](../superpowers/plans/2026-07-20-platform-module-architecture-extract.md). |
 | IM-013 | **Shared-data strategy:** team defaults use product `modules\TE_*` after copy from InventoryApps (done 2026-07-20 for TE + Lab). | Never dual-write unified + standalone to the same root. Future modules each get `modules\<Name>\`. |
+| IM-015 | Add a dedicated **Calibration** workspace inside TE Test Equipment as a second projection of the existing equipment records, plus a calibration-specific one-time workbook roster preview/review/commit flow. The workbook seeds initial membership; Inventory Management is the source of truth afterward. | No second equipment table, database, shared root, or sync stream. Equipment keeps due/health only; detailed calibration tracking, explicit membership, and roster review live in Calibration. **Implementation and pre-cutover verification completed 2026-07-25; backed-up single-writer live cutover remains pending.** Authority: [2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md](../superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md). |
 
 ## Supersedes (context only)
 

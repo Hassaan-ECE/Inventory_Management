@@ -29,7 +29,7 @@ export function ViewSettingsMenu({
   visibility,
 }: ViewSettingsMenuProps) {
   const { open, menuRef, toggle, close } = useDropdownMenu({ onOpenChange });
-  const visibleDataColumns = getVisibleDataColumnCount(visibility);
+  const visibleDataColumns = getVisibleDataColumnCount(visibility, columns);
 
   return (
     <div className="relative" ref={menuRef}>

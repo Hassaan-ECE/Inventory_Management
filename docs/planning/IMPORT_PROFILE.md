@@ -1,14 +1,52 @@
 # TE Test Equipment Inventory — Import Profile
 
-**Status:** Live aggregate profile available; source corrections and cutover rehearsal remain blocking
+**Status:** General-import profile retained; IM-015 calibration roster copied-data preview verified; live calibration cutover remains blocked pending owner review and backups
 
-**Last checked:** 2026-07-14
+**Last checked:** 2026-07-25
 
-**Authority:** [DECISIONS.md](DECISIONS.md), especially D-004, D-007, D-008, D-025, and D-026
+**Authority:** [DECISIONS.md](DECISIONS.md), including IM-015, and [the IM-015 implementation plan](../superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md)
 
 ## Evidence boundary
 
 The locally supplied `data/import/TE_Lab_Equipment_Export.xlsx` was read only for aggregate profiling and importer dry-run verification. The workbook is gitignored and must never be committed. This document records no row contents, identifier values, or source-file hash.
+
+The IM-015 calibration roster rehearsal follows the same evidence boundary. The source workbook on S: and the live Local AppData database were not modified. Only gitignored copies were used, and this document records aggregate classifications only—no source row values, equipment identifiers, candidate UUIDs, or fingerprints.
+
+## IM-015 calibration roster copied-data preview
+
+The calibration source reviewed on **July 25, 2026** was the workbook last modified **July 22, 2026**. The calibration-specific importer read both visible roster sheets from a gitignored workbook copy and reconciled them against a copied TE database with shared sync disabled.
+
+| Aggregate | Result |
+|-----------|-------:|
+| Contributing sheets | 2 |
+| Parsed nonblank source rows | 97 |
+| Matched updates | 78 |
+| Create candidates | 8 |
+| Conflict/review required | 3 |
+| Duplicate source rows | 4 |
+| Ignored label/junk rows | 4 |
+| Current active-required entries absent from workbook | 110 |
+| Pre-resolution prospective active-required count | 86 |
+| Blocking preview | `true` |
+
+The reconciliation equation holds:
+
+```text
+97 = 78 + 8 + 3 + 4 + 4
+```
+
+Aggregate sheet distribution was:
+
+| Sheet | Matched | Create | Conflict | Duplicate | Junk | Total |
+|-------|--------:|-------:|---------:|----------:|-----:|------:|
+| May roster | 54 | 7 | 3 | 1 | 4 | 69 |
+| October roster | 24 | 1 | 0 | 3 | 0 | 28 |
+
+All eight create candidates carried both source identity cells but had no unique accepted identity match. Review-hint context was absent for three candidates, unique for one, and multiple for four. Manufacturer, model, and description remain review hints only and never auto-match a row. The UI therefore defaults only unhinted create candidates to reviewed creation; hinted candidates require an explicit choice between using existing equipment, creating equipment, or ignoring the source row.
+
+The preview test asserted that both the copied database entry count and copied sync-outbox count were unchanged. The report remains blocking, so no roster commit, shared publish, or live Local AppData mutation occurred. Exact live creates, existing-entry resolutions, ignored rows, reset count, and final required count must be recomputed and explicitly approved from a fresh preview during controlled cutover.
+
+**Operational boundary:** sync is not a backup. Before any live commit, close Inventory Management and every standalone TE writer, take dated backups of the local database and TE shared root, then use exactly one writer through preview, resolution, commit, publish, restart, and persistence verification.
 
 Visible workbook sheets:
 

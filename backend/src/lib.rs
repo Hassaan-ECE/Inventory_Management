@@ -10,7 +10,9 @@ mod sync;
 
 pub(crate) use api::commands;
 pub(crate) use domain::{model, query};
-pub(crate) use integrations::{deprecated_db_cleanup, export, inventory_import, native};
+pub(crate) use integrations::{
+    calibration_roster_import, deprecated_db_cleanup, export, inventory_import, native,
+};
 pub(crate) use runtime::{shared_sync, shared_watcher};
 pub(crate) use storage as store;
 
@@ -49,6 +51,9 @@ pub fn run() {
             commands::pick_import_file,
             commands::preview_import,
             commands::commit_import,
+            commands::pick_calibration_roster_file,
+            commands::preview_calibration_roster,
+            commands::commit_calibration_roster,
             export::export_excel,
             native::load_picture_preview,
             native::open_external,

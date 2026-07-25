@@ -1,4 +1,9 @@
-import type { FilterState, InventoryEntry, InventoryScope } from "@/modules/te-test-equipment/types";
+import type {
+  FilterState,
+  InventoryEntry,
+  InventoryScope,
+  TeTestEquipmentWorkspace,
+} from "@/modules/te-test-equipment/types";
 
 import { deriveCalibrationHealth, getLocalDateString, isValidDateOnly } from "./calibrationHealth";
 
@@ -12,6 +17,15 @@ export const DEFAULT_FILTERS: FilterState = {
   calibrationHealth: "all",
   dueWindow: "all",
 };
+
+export const CALIBRATION_DEFAULT_FILTERS: FilterState = {
+  ...DEFAULT_FILTERS,
+  calibrationRequirement: "required",
+};
+
+export function getDefaultFilters(workspace: TeTestEquipmentWorkspace): FilterState {
+  return workspace === "calibration" ? CALIBRATION_DEFAULT_FILTERS : DEFAULT_FILTERS;
+}
 
 export const INVENTORY_GLOBAL_SEARCH_FIELDS = [
   "assetNumber",
@@ -38,16 +52,20 @@ export const INVENTORY_GLOBAL_SEARCH_FIELDS = [
 
 export type InventoryGlobalSearchField = (typeof INVENTORY_GLOBAL_SEARCH_FIELDS)[number];
 
-export function hasActiveFilters(filters: FilterState): boolean {
+export function hasActiveFilters(
+  filters: FilterState,
+  workspace: TeTestEquipmentWorkspace = "equipment",
+): boolean {
+  const defaults = getDefaultFilters(workspace);
   return (
-    filters.assetNumber.trim().length > 0 ||
-    filters.manufacturer.trim().length > 0 ||
-    filters.model.trim().length > 0 ||
-    filters.description.trim().length > 0 ||
-    filters.location.trim().length > 0 ||
-    filters.calibrationRequirement !== "all" ||
-    filters.calibrationHealth !== "all" ||
-    filters.dueWindow !== "all"
+    filters.assetNumber.trim() !== defaults.assetNumber ||
+    filters.manufacturer.trim() !== defaults.manufacturer ||
+    filters.model.trim() !== defaults.model ||
+    filters.description.trim() !== defaults.description ||
+    filters.location.trim() !== defaults.location ||
+    filters.calibrationRequirement !== defaults.calibrationRequirement ||
+    filters.calibrationHealth !== defaults.calibrationHealth ||
+    filters.dueWindow !== defaults.dueWindow
   );
 }
 
