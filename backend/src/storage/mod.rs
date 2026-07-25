@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tauri::Manager;
 
 mod codec;
 mod entries;
@@ -28,10 +27,11 @@ pub(crate) struct InventoryDb {
 }
 
 impl InventoryDb {
-    pub(crate) fn open(app: &tauri::AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
-        let local_data_dir = app.path().app_local_data_dir()?;
-        let legacy_roaming_dir = app.path().app_data_dir()?;
-        let db_path = prepare_local_inventory_db_path(&local_data_dir, &legacy_roaming_dir)?;
+    pub(crate) fn open(
+        local_data_dir: &Path,
+        legacy_roaming_dir: &Path,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let db_path = prepare_local_inventory_db_path(local_data_dir, legacy_roaming_dir)?;
 
         Self::open_with_size(db_path, INITIAL_DB_SIZE)
     }

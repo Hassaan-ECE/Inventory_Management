@@ -1,7 +1,7 @@
 # Session handoff — Inventory Management
 
 **Last updated:** 2026-07-25
-**State:** Product `0.1.0`; IM-014 generalized Lab catalog and IM-015 TE Calibration workspace/roster tooling are integrated on an isolated combined branch. Automated combined verification and copied-data desktop smoke are the next gates. Neither live cutover has occurred.
+**State:** Product `0.1.0`; IM-014 generalized Lab catalog and IM-015 TE Calibration workspace/roster tooling are integrated on an isolated combined branch. Combined automated gates and an explicit-root copied-data startup smoke pass; owner manual workflow QA is ready. Neither live cutover has occurred.
 
 **New chat:** paste [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md).
 
@@ -80,21 +80,24 @@
 
 - Merge order: IM-014 first, IM-015 second.
 - Source code auto-merged; only handoff/start/decision documents required manual combination.
-- Combined frontend tests, lint, build, Rust tests, rustfmt, Clippy, and desktop smoke: **pending**.
+- Combined frontend: **170 passed, 1 skipped**; lint and production build passed.
+- Combined high-risk bridge/Lab/Calibration/roster/shell gate: **55/55 passed**.
+- Combined Rust filtered full suite: **435 passed, 1 ignored, 2 explicit live-audit helpers filtered**; rustfmt and strict Clippy passed.
+- Explicit-root desktop startup smoke passed with no runtime or Vite errors. While the app held the copied Lab database, both live TE and Lab databases remained readable and byte-unchanged.
+- Safety correction: the first smoke relied on `LOCALAPPDATA` alone, Windows selected the live Lab database, and startup changed its bytes. The app was stopped immediately; the changed copy was preserved under ignored `.tmp`, and the live Lab database was restored exactly to its pre-smoke SHA-256 `3218383FEAC7FB9D1B9206D5519BCAB1C463EF8781DB374354296624DC85DE44` and original timestamp before the explicit-root proof.
 
 ## Live-data boundaries
 
 - Sync is **not** a backup.
 - Do not use the product shared roots during the combined development smoke.
-- Run desktop testing with a temporary `LOCALAPPDATA` and `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED=0`.
+- Run copied-data desktop testing with an absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT`, redirected TE/Lab shared roots, and `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED=0`.
+- Do not rely on changing `LOCALAPPDATA` alone; Windows app-path resolution can still select the real product databases.
 - IM-014 live Lab migration and IM-015 live calibration roster commit are separate owner operations with separate backups and review steps.
 - Do not run standalone writers against the corresponding shared roots while either live cutover is active.
 
 ## Next steps
 
-1. Finish the combined merge commit after conflict resolution.
-2. Run combined automated quality gates.
-3. Prepare copied TE/Lab databases under temporary Local AppData and run a single-instance `bun run desktop` smoke.
-4. Verify module switching, TE Equipment/Calibration behavior, Lab catalog/grid behavior, and restart persistence.
-5. Merge the combined branch into `main` only after owner acceptance.
-6. Schedule IM-014 and IM-015 live cutovers separately under their plans/runbooks.
+1. Run `.tmp\run-combined-desktop.ps1` from the combined worktree and complete the owner manual checklist in `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
+2. Verify module switching, TE Equipment/Calibration behavior, Lab catalog/grid behavior, workbook preview/commit on copies, and restart persistence.
+3. Merge the combined branch into `main` only after owner acceptance.
+4. Schedule IM-014 and IM-015 live cutovers separately under their plans/runbooks.

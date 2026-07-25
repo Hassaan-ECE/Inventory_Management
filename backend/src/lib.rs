@@ -25,11 +25,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            let stores = inventory_stores::InventoryStores::open(app.handle())?;
+            let app_paths = platform::InventoryAppPaths::resolve(app.handle())?;
+            let stores = inventory_stores::InventoryStores::open(&app_paths)?;
             let te_db = stores.te_test_equipment();
             let lab_db = stores.te_lab_components();
-            let _ =
-                deprecated_db_cleanup::quarantine_deprecated_databases_once(app.handle(), te_db);
+            let _ = deprecated_db_cleanup::quarantine_deprecated_databases_once(&app_paths, te_db);
             sync::recover_local_sync_state(te_db)?;
             if lab_db.schema_version()?
                 == Some(modules::te_lab_components::catalog_model::CATALOG_SCHEMA_VERSION)

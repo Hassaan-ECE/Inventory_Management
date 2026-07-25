@@ -49,6 +49,7 @@ Do **not** run old + new clients against the same live shared root at once.
 | TE shared-root env | `INVENTORY_MANAGEMENT_SHARED_ROOT` |
 | Lab shared-root env | `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT` |
 | Env sync enable | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` (`0`/`false`/`no`/`off` off) |
+| Copied-data DB root env | `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` (absolute path; diagnostics/rehearsals only) |
 
 Updater is **configured for this product** (public key + GitHub `latest.json` endpoint). Sign builds with the private key on the release machine — see `docs/engineering/UPDATER_AND_RELEASE.md`. Do not reuse TE/ME updater keys.
 
@@ -71,6 +72,8 @@ bun run build
 cargo test --manifest-path backend/Cargo.toml --no-fail-fast
 bun run desktop
 ```
+
+Normal `bun run desktop` uses the product's real Local AppData databases. Copied-data testing must set the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` override and disable shared sync; changing `LOCALAPPDATA` alone is not sufficient on Windows. See `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
 
 ### Shared data (product modules)
 

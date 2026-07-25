@@ -40,9 +40,12 @@ Copy-Item -LiteralPath "$backupRoot\te-lab-components.feox" -Destination "$rehea
 Copy-Item -LiteralPath "$backupRoot\shared-root" -Destination $rehearsalSharedRoot -Recurse -Force
 
 $env:LOCALAPPDATA = $rehearsalLocalAppData
+$env:INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT = $rehearsalDbDir
 $env:INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT = "$backupRoot\shared-root-rehearsal"
 $env:INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED = '0'
 ```
+
+`INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` is the required database isolation boundary. Do not rely on changing `LOCALAPPDATA` alone because Windows app-path resolution may still select the real product directory.
 
 Start the IM-014 build from the same PowerShell process, run the migration preview, save the report, and commit only when `blocking` is false and the fingerprint still matches. Export the six-sheet catalog workbook and compare source rows, migrated parts, placements, and legacy-field rows before any shared cutover rehearsal.
 

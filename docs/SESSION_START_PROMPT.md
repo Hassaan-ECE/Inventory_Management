@@ -26,7 +26,8 @@ Do **not** use `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory
 4. `README.md`
 5. `docs/superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md` and `docs/runbooks/te-lab-components-catalog-v2-migration.md` for IM-014
 6. `docs/superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md` for IM-015
-7. `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md` for IM-011 sync behavior
+7. `docs/runbooks/im-014-im-015-combined-desktop-smoke.md` for safe combined copied-data testing
+8. `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md` for IM-011 sync behavior
 
 Prefer live code and these current documents over older TE planning copies.
 
@@ -62,6 +63,7 @@ Prefer live code and these current documents over older TE planning copies.
 - IM-014 generalized Lab parts catalog: flexible attributes, multi-location stock, grid bins, migration, Lab sync schema v2, and six-sheet export.
 - IM-015 TE Equipment/Calibration workspace and guarded calibration-roster preview/review/commit tooling.
 - Combined integration branch: `feature/im-014-im-015-integration` in `C:\Projects\Active\Inventory_Management_IM014_IM015`.
+- Combined automated gates and an explicit-root isolated desktop startup smoke pass; manual owner workflow QA remains.
 
 **Not completed**
 
@@ -72,11 +74,10 @@ Prefer live code and these current documents over older TE planning copies.
 
 ## Next priorities
 
-1. Run combined frontend/Rust/lint/build/clippy verification on the integration branch.
-2. Run `bun run desktop` only against isolated copied Local AppData with shared sync disabled for the combined manual smoke.
-3. Verify TE Equipment/Calibration and Lab catalog/grid/migration workflows coexist across module switching and restart.
-4. Merge into `main` only after combined verification succeeds.
-5. Perform IM-014 and IM-015 live cutovers separately under their owner runbooks, backups, and one-writer rules.
+1. Run the prepared combined manual smoke with `.tmp\run-combined-desktop.ps1` in the integration worktree.
+2. Verify TE Equipment/Calibration and Lab catalog/grid/migration workflows coexist across module switching and restart.
+3. Merge into `main` only after owner acceptance.
+4. Perform IM-014 and IM-015 live cutovers separately under their owner runbooks, backups, and one-writer rules.
 
 ## Rules
 
@@ -85,6 +86,7 @@ Prefer live code and these current documents over older TE planning copies.
 - Use one writer per shared root.
 - Do not rename the Tauri id without a migration plan.
 - Do not run either live cutover during a normal development smoke.
+- For copied-data desktop testing, set the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT`; changing `LOCALAPPDATA` alone is insufficient on Windows.
 
 ## First reply in a new chat
 

@@ -1,5 +1,6 @@
 use crate::{
-    modules::te_lab_components::store::InventoryDb as LabComponentsDb, store::InventoryDb,
+    modules::te_lab_components::store::InventoryDb as LabComponentsDb, platform::InventoryAppPaths,
+    store::InventoryDb,
 };
 
 pub(crate) struct InventoryStores {
@@ -8,10 +9,10 @@ pub(crate) struct InventoryStores {
 }
 
 impl InventoryStores {
-    pub(crate) fn open(app: &tauri::AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn open(paths: &InventoryAppPaths) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            te_test_equipment: InventoryDb::open(app)?,
-            te_lab_components: LabComponentsDb::open(app)?,
+            te_test_equipment: InventoryDb::open(paths.local_data_dir(), paths.roaming_data_dir())?,
+            te_lab_components: LabComponentsDb::open(paths.local_data_dir())?,
         })
     }
 

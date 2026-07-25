@@ -1,6 +1,9 @@
 use feoxdb::FeoxStore;
-use std::{fs, path::PathBuf, sync::Arc};
-use tauri::Manager;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 mod catalog;
 mod codec;
@@ -26,8 +29,8 @@ pub(crate) struct InventoryDb {
 }
 
 impl InventoryDb {
-    pub(crate) fn open(app: &tauri::AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
-        let db_path = app.path().app_local_data_dir()?.join(DB_FILE_NAME);
+    pub(crate) fn open(local_data_dir: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        let db_path = local_data_dir.join(DB_FILE_NAME);
         Self::open_with_size(db_path, INITIAL_DB_SIZE)
     }
 

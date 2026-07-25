@@ -4,10 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use tauri::Manager;
-
 use crate::{
     model::{now_timestamp, CommandResult},
+    platform::InventoryAppPaths,
     store::InventoryDb,
 };
 
@@ -23,32 +22,29 @@ pub(crate) struct DeprecatedDbQuarantineReport {
 }
 
 pub(crate) fn quarantine_deprecated_databases_once(
-    app: &tauri::AppHandle,
+    paths: &InventoryAppPaths,
     db: &InventoryDb,
 ) -> CommandResult<DeprecatedDbQuarantineReport> {
     if db.get_sync_value(CLEANUP_MARKER_KEY)?.is_some() {
         return Ok(DeprecatedDbQuarantineReport::default());
     }
 
-    let report = quarantine_deprecated_databases(app)?;
+    let report = quarantine_deprecated_databases(paths)?;
     db.put_sync_value(CLEANUP_MARKER_KEY, now_timestamp().as_bytes())?;
     db.flush();
     Ok(report)
 }
 
 fn quarantine_deprecated_databases(
-    app: &tauri::AppHandle,
+    paths: &InventoryAppPaths,
 ) -> CommandResult<DeprecatedDbQuarantineReport> {
-    let app_data_dir = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|error| error.to_string())?;
-    let backup_dir = app_data_dir
+    let backup_dir = paths
+        .local_data_dir()
         .join(BACKUP_DIR_NAME)
         .join(file_safe_timestamp());
     let mut report = DeprecatedDbQuarantineReport::default();
 
-    for candidate in deprecated_database_candidates(app) {
+    for candidate in deprecated_database_candidates(paths) {
         if !candidate.is_file() {
             continue;
         }
@@ -71,23 +67,12 @@ fn quarantine_deprecated_databases(
     Ok(report)
 }
 
-fn deprecated_database_candidates(app: &tauri::AppHandle) -> Vec<PathBuf> {
-    let mut roots = Vec::new();
-    if let Ok(path) = app.path().app_data_dir() {
-        roots.push(path);
-    }
-    if let Ok(path) = app.path().app_local_data_dir() {
-        roots.push(path);
-    }
-    if let Ok(path) = app.path().app_cache_dir() {
-        roots.push(path);
-    }
-
+fn deprecated_database_candidates(paths: &InventoryAppPaths) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
-    for root in roots {
+    for root in paths.cleanup_roots() {
         for relative_dir in ["", "data", "resources\\data"] {
             let dir = if relative_dir.is_empty() {
-                root.clone()
+                root.to_path_buf()
             } else {
                 root.join(relative_dir)
             };
