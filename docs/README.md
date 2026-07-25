@@ -39,6 +39,7 @@ Bannered or archive material. Do **not** use for current version, sync default, 
 - [superpowers/plans/2026-07-20-platform-module-architecture-extract.md](superpowers/plans/2026-07-20-platform-module-architecture-extract.md) — **IM-012** Phase B extract (implemented).
 - [superpowers/plans/2026-07-20-te-lab-components-port.md](superpowers/plans/2026-07-20-te-lab-components-port.md) — **C1** TE Lab Components port (implemented).
 - [superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md](superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md) — **IM-014** generalized Lab catalog + grid storage (implementation complete; copied-data/live cutover pending).
+- [superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md](superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md) — **IM-015** same-record TE Calibration workspace + guarded roster tooling (implementation complete; live roster cutover pending).
 - [superpowers/plans/2026-07-20-first-team-release.md](superpowers/plans/2026-07-20-first-team-release.md) — **Phase D** first team release (copy, product roots, NSIS, optional updater).
 
 Migration operations: [runbooks/te-lab-components-catalog-v2-migration.md](runbooks/te-lab-components-catalog-v2-migration.md).

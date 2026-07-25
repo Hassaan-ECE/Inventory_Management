@@ -6,7 +6,7 @@
 
 1. Open / focus folder: `C:\Projects\Active\Inventory_Management`
 2. Paste the prompt from `docs/SESSION_START_PROMPT.md` (section below the line) into the new chat.
-3. Optionally attach or mention the next focus (usually architecture extract, TE cutover, module port, or updater — **not** redoing IM-011 unless regressing).
+3. Optionally attach or mention the next focus (usually IM-014/IM-015 owner verification, separate live cutovers, or a regression — **not** reimplementing completed work).
 
 ## Canonical docs in this repo
 
@@ -16,6 +16,8 @@
 | [SESSION_HANDOFF.md](SESSION_HANDOFF.md) | Current state / next slices / IM-011 verification |
 | [planning/DECISIONS.md](planning/DECISIONS.md) | IM-* product decisions |
 | [superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md](superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md) | IM-011 behavioral authority (**implemented** for TE 2026-07-20) |
+| [superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md](superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md) | IM-014 Lab catalog/grid-storage authority (**implemented; live cutover pending**) |
+| [superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md](superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md) | IM-015 TE Calibration workspace/roster-cutover authority (**implemented; live roster cutover pending**) |
 | [../AGENTS.md](../AGENTS.md) | Short agent rules |
 | [../README.md](../README.md) | Human product overview |
 

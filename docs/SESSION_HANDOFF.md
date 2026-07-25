@@ -1,7 +1,7 @@
 # Session handoff — Inventory Management
 
 **Last updated:** 2026-07-25
-**State:** Product `0.1.0`; IM-014 generalized Lab catalog and IM-015 TE Calibration workspace/roster tooling are integrated on an isolated combined branch. Combined automated gates and an explicit-root copied-data startup smoke pass; owner manual workflow QA is ready. Neither live cutover has occurred.
+**State:** Product `0.1.0`; IM-014 generalized Lab catalog and IM-015 TE Calibration workspace/roster tooling are integrated into `main` in the single active checkout. Full automated gates and a main-folder desktop startup smoke pass; owner manual workflow QA is ready. Neither live cutover has occurred.
 
 **New chat:** paste [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md).
 
@@ -9,10 +9,8 @@
 
 | Purpose | Path / branch |
 |---------|---------------|
-| Main checkout | `C:\Projects\Active\Inventory_Management` / `main` — contains unrelated local documentation edits; do not overwrite |
-| IM-014 source | `C:\Projects\Active\Inventory_Management_IM014` / `feature/im-014-lab-components` / commit `226c679` |
-| IM-015 source | `C:\Projects\Active\Inventory_Management_IM015` / `feature/im-015-calibration` / commit `ee7fa70` |
-| Combined test | `C:\Projects\Active\Inventory_Management_IM014_IM015` / `feature/im-014-im-015-integration` |
+| Active app checkout | `C:\Projects\Active\Inventory_Management` / `main` |
+| Feature history | Branches `feature/im-014-lab-components`, `feature/im-015-calibration`, and `feature/im-014-im-015-integration` retain implementation history; their temporary worktrees are no longer required. |
 
 ## Stable identity
 
@@ -76,20 +74,20 @@
 - Copied-data calibration preview remained blocking and no-write: **97 = 78 matched + 8 create + 3 conflict + 4 duplicate + 4 junk**; 110 absent; prospective required 86.
 - No live database, workbook, or shared root was modified.
 
-## Combined integration verification
+## Integrated verification
 
 - Merge order: IM-014 first, IM-015 second.
 - Source code auto-merged; only handoff/start/decision documents required manual combination.
-- Combined frontend: **170 passed, 1 skipped**; lint and production build passed.
+- Main checkout frontend: **170 passed, 1 skipped**; lint and production build passed.
 - Combined high-risk bridge/Lab/Calibration/roster/shell gate: **55/55 passed**.
 - Combined Rust filtered full suite: **435 passed, 1 ignored, 2 explicit live-audit helpers filtered**; rustfmt and strict Clippy passed.
-- Explicit-root desktop startup smoke passed with no runtime or Vite errors. While the app held the copied Lab database, both live TE and Lab databases remained readable and byte-unchanged.
-- Safety correction: the first smoke relied on `LOCALAPPDATA` alone, Windows selected the live Lab database, and startup changed its bytes. The app was stopped immediately; the changed copy was preserved under ignored `.tmp`, and the live Lab database was restored exactly to its pre-smoke SHA-256 `3218383FEAC7FB9D1B9206D5519BCAB1C463EF8781DB374354296624DC85DE44` and original timestamp before the explicit-root proof.
+- Main-folder `bun run desktop` startup passed with no runtime or Vite errors; the executable ran from `C:\Projects\Active\Inventory_Management\backend\target\debug\inventory-management.exe`. During copied-data verification, both live TE and Lab databases remained readable and byte-unchanged.
+- Safety correction: the first smoke relied on `LOCALAPPDATA` alone, Windows selected the live Lab database, and startup changed its bytes. The app was stopped immediately; the changed copy was retained temporarily for comparison, and the live Lab database was restored exactly to its pre-smoke SHA-256 `3218383FEAC7FB9D1B9206D5519BCAB1C463EF8781DB374354296624DC85DE44` and original timestamp before the explicit-root proof. The temporary comparison copy was removed after verification.
 
 ## Live-data boundaries
 
 - Sync is **not** a backup.
-- Do not use the product shared roots during the combined development smoke.
+- Normal `bun run desktop` uses the product shared roots. Copied-data rehearsals must disable or redirect them.
 - Run copied-data desktop testing with an absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT`, redirected TE/Lab shared roots, and `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED=0`.
 - Do not rely on changing `LOCALAPPDATA` alone; Windows app-path resolution can still select the real product databases.
 - IM-014 live Lab migration and IM-015 live calibration roster commit are separate owner operations with separate backups and review steps.
@@ -97,7 +95,6 @@
 
 ## Next steps
 
-1. Run `.tmp\run-combined-desktop.ps1` from the combined worktree and complete the owner manual checklist in `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
-2. Verify module switching, TE Equipment/Calibration behavior, Lab catalog/grid behavior, workbook preview/commit on copies, and restart persistence.
-3. Merge the combined branch into `main` only after owner acceptance.
-4. Schedule IM-014 and IM-015 live cutovers separately under their plans/runbooks.
+1. From `C:\Projects\Active\Inventory_Management`, run `bun run desktop` and complete the owner manual checklist in `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
+2. Verify module switching, TE Equipment/Calibration behavior, Lab catalog/grid behavior, calibration workbook preview, and restart persistence.
+3. Schedule IM-014 and IM-015 live cutovers separately under their plans/runbooks only after owner acceptance and backups.

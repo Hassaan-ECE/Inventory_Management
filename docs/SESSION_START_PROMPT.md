@@ -62,22 +62,20 @@ Prefer live code and these current documents over older TE planning copies.
 - First team release `0.1.0`, signed installer, GitHub Release, and updater metadata.
 - IM-014 generalized Lab parts catalog: flexible attributes, multi-location stock, grid bins, migration, Lab sync schema v2, and six-sheet export.
 - IM-015 TE Equipment/Calibration workspace and guarded calibration-roster preview/review/commit tooling.
-- Combined integration branch: `feature/im-014-im-015-integration` in `C:\Projects\Active\Inventory_Management_IM014_IM015`.
+- Both features are integrated into `main` in `C:\Projects\Active\Inventory_Management`; temporary feature worktrees are no longer the active app.
 - Combined automated gates and an explicit-root isolated desktop startup smoke pass; manual owner workflow QA remains.
 
 **Not completed**
 
-- Merge of the combined integration branch into `main`.
 - Owner copied-data rehearsal and live IM-014 Lab schema-v2 cutover.
 - Owner-backed-up single-writer IM-015 calibration roster cutover.
 - ME Storage and TE Storage Room implementations.
 
 ## Next priorities
 
-1. Run the prepared combined manual smoke with `.tmp\run-combined-desktop.ps1` in the integration worktree.
+1. Run `bun run desktop` from `C:\Projects\Active\Inventory_Management` for the combined owner manual smoke.
 2. Verify TE Equipment/Calibration and Lab catalog/grid/migration workflows coexist across module switching and restart.
-3. Merge into `main` only after owner acceptance.
-4. Perform IM-014 and IM-015 live cutovers separately under their owner runbooks, backups, and one-writer rules.
+3. Perform IM-014 and IM-015 live cutovers separately under their owner runbooks, backups, and one-writer rules.
 
 ## Rules
 
@@ -90,4 +88,4 @@ Prefer live code and these current documents over older TE planning copies.
 
 ## First reply in a new chat
 
-Summarize the stable product identity, that IM-011/IM-012/C1/IM-014/IM-015 implementation is complete, that the combined integration branch is the current test target, and that both live data cutovers remain pending and separate.
+Summarize the stable product identity, that IM-011/IM-012/C1/IM-014/IM-015 implementation is complete on `main` in the single active checkout, and that both live data cutovers remain pending and separate.
