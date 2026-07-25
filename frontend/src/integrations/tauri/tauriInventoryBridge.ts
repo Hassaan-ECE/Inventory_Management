@@ -5,6 +5,8 @@ import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updat
 import { APP_VERSION } from "@/app/branding";
 import {
   parseBoolean,
+  parseCalibrationRosterCommitResult,
+  parseCalibrationRosterPreviewReport,
   parseDeleteMutationResult,
   parseEntryMutationResult,
   parseExcelExportResult,
@@ -33,6 +35,7 @@ import {
   parseLabStorageContainerMutationResult,
 } from "@/integrations/tauri/labBridgeGuards";
 import type {
+  CalibrationRosterCommitInput,
   ImportCommitInput,
   UpdateState,
 } from "@/modules/te-test-equipment/types";
@@ -142,6 +145,14 @@ if (typeof window !== "undefined" && isTauri()) {
       invoke("preview_import", { moduleId, path }).then(parseImportDryRunReport),
     commitImport: (moduleId: "te-test-equipment", input: ImportCommitInput) =>
       invoke("commit_import", { input, moduleId }).then(parseImportCommitResult),
+    pickCalibrationRosterFile: (moduleId: "te-test-equipment") =>
+      invoke("pick_calibration_roster_file", { moduleId }).then((value) =>
+        parseNullableString(value, "picked calibration roster path"),
+      ),
+    previewCalibrationRoster: (moduleId: "te-test-equipment", path: string) =>
+      invoke("preview_calibration_roster", { moduleId, path }).then(parseCalibrationRosterPreviewReport),
+    commitCalibrationRoster: (moduleId: "te-test-equipment", input: CalibrationRosterCommitInput) =>
+      invoke("commit_calibration_roster", { input, moduleId }).then(parseCalibrationRosterCommitResult),
     exportExcel: (moduleId: ImplementedInventoryModuleId) =>
       invoke("export_excel", { moduleId }).then(parseExcelExportResult),
     checkForUpdate,

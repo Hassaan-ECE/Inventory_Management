@@ -2,23 +2,33 @@ import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import type {
+  CalibrationRequirement,
   InventoryEntry,
   InventoryEntryEditContext,
   InventoryEntryInput,
   InventorySharedStatus,
+  TeTestEquipmentWorkspace,
 } from "@/modules/te-test-equipment/types";
 import { TE_TEST_EQUIPMENT_MODULE_ID } from "@/modules/te-test-equipment/moduleId";
 
 import {
   buildLocalCreatedEntry,
   buildLocalUpdatedEntry,
+  inventoryEntryToInput,
   normalizeSharedStatus,
   sharedStatusesMatch,
 } from "./helpers";
 
 export interface DialogState {
+  defaultCalibrationRequirement?: CalibrationRequirement;
+  defaultSection?: TeTestEquipmentWorkspace;
   mode: "add" | "edit";
   entryId?: string;
+}
+
+interface OpenDialogOptions {
+  defaultCalibrationRequirement?: CalibrationRequirement;
+  defaultSection?: TeTestEquipmentWorkspace;
 }
 
 interface UseInventoryEntryMutationsOptions {
@@ -55,18 +65,86 @@ export function useInventoryEntryMutations({
     announceStatus(result.message);
   }
 
-  function handleAddEntry(): void {
+  function handleAddEntry(options: OpenDialogOptions = {}): void {
     if (!canModifyEntries) {
       announceStatus(sharedStatus.message || "Shared workspace unavailable. Saving changes locally.");
       return;
     }
     onDialogOpen();
-    setDialogState({ mode: "add" });
+    setDialogState({ mode: "add", ...options });
   }
 
-  function handleOpenEntry(entryId: string): void {
+  function handleOpenEntry(entryId: string, defaultSection?: TeTestEquipmentWorkspace): void {
     onDialogOpen();
-    setDialogState({ mode: "edit", entryId });
+    setDialogState({ mode: "edit", entryId, defaultSection });
+  }
+
+  async function handleCalibrationMembershipChange(
+    entryIds: string[],
+    calibrationRequirement: CalibrationRequirement,
+  ): Promise<boolean> {
+    if (entryIds.length === 0) {
+      return false;
+    }
+    if (dataSource === "desktop" && !canModifyEntries) {
+      announceStatus(sharedStatus.message || "Shared workspace unavailable. Saving changes locally.");
+      return false;
+    }
+
+    const entries = entryIds
+      .map((entryId) => entriesById.get(entryId))
+      .filter((entry): entry is InventoryEntry => Boolean(entry));
+    if (entries.length !== entryIds.length) {
+      announceStatus("One or more selected equipment records could not be found.");
+      return false;
+    }
+
+    const updatedEntries: InventoryEntry[] = [];
+    try {
+      for (const entry of entries) {
+        const clearsWorkflow = calibrationRequirement !== "required" && entry.outToCalibration;
+        const input: InventoryEntryInput = {
+          ...inventoryEntryToInput(entry),
+          calibrationRequirement,
+          outToCalibration: clearsWorkflow ? false : entry.outToCalibration,
+        };
+        const changedFields = ["calibrationRequirement"];
+        if (clearsWorkflow) {
+          changedFields.push("outToCalibration");
+        }
+
+        if (dataSource === "desktop" && window.inventoryDesktop?.updateEntry) {
+          const result = await window.inventoryDesktop.updateEntry(
+            TE_TEST_EQUIPMENT_MODULE_ID,
+            entry.id,
+            input,
+            { baseVersion: entry.updatedAt, changedFields },
+          );
+          updatedEntries.push(result.entry);
+          if (result.shared) {
+            const shared = normalizeSharedStatus(result.shared);
+            setSharedStatus((current) => (sharedStatusesMatch(current, shared) ? current : shared));
+          }
+        } else {
+          updatedEntries.push(buildLocalUpdatedEntry(entry, input));
+        }
+      }
+    } catch {
+      announceStatus("Could not update calibration membership.");
+      return false;
+    }
+
+    const updatesById = new Map(updatedEntries.map((entry) => [entry.id, entry]));
+    setEntries((current) => current.map((entry) => updatesById.get(entry.id) ?? entry));
+    announceStatus(
+      calibrationRequirement === "required"
+        ? `${updatedEntries.length} equipment record${updatedEntries.length === 1 ? "" : "s"} added to Calibration.`
+        : `${updatedEntries.length} equipment record${updatedEntries.length === 1 ? "" : "s"} removed from the required calibration roster.`,
+    );
+    if (dataSource === "desktop") {
+      scheduleDesktopSync();
+    }
+    return true;
   }
 
   async function handleToggleVerified(entryId: string): Promise<void> {
@@ -229,6 +307,7 @@ export function useInventoryEntryMutations({
     dialogState,
     handleAddEntry,
     handleArchiveChange,
+    handleCalibrationMembershipChange,
     handleConfirmDeleteEntry,
     handleOpenEntry,
     handleRequestDeleteEntry,

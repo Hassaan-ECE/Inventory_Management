@@ -1,6 +1,6 @@
 import { Input } from "@/shared/components/ui/input";
 import { DropdownSelect } from "@/shared/components/ui/DropdownMenu";
-import type { FilterState } from "@/modules/te-test-equipment/types";
+import type { FilterState, TeTestEquipmentWorkspace } from "@/modules/te-test-equipment/types";
 import { cn } from "@/shared/lib/utils";
 
 interface FilterPanelProps {
@@ -8,6 +8,7 @@ interface FilterPanelProps {
   filters: FilterState;
   onChange: (field: keyof FilterState, value: string) => void;
   onClear: () => void;
+  workspace?: TeTestEquipmentWorkspace;
 }
 
 const REQUIREMENT_OPTIONS = [
@@ -38,7 +39,7 @@ const DUE_WINDOW_OPTIONS = [
   { value: "missing", label: "Missing due date" },
 ] as const;
 
-export function FilterPanel({ compact = false, filters, onChange, onClear }: FilterPanelProps) {
+export function FilterPanel({ compact = false, filters, onChange, onClear, workspace = "equipment" }: FilterPanelProps) {
   return (
     <section className={cn(!compact && "rounded-xl border border-border/70 bg-card/80 p-2 sm:p-3")}>
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -48,7 +49,7 @@ export function FilterPanel({ compact = false, filters, onChange, onClear }: Fil
         </button>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+      <div className={cn("grid gap-2 sm:grid-cols-2 lg:grid-cols-4", workspace === "calibration" ? "xl:grid-cols-8" : "xl:grid-cols-5")}>
         <Input
           aria-label="Filter asset number"
           inputClassName="h-8 text-xs"
@@ -84,24 +85,28 @@ export function FilterPanel({ compact = false, filters, onChange, onClear }: Fil
           value={filters.location}
           onChange={(event) => onChange("location", event.currentTarget.value)}
         />
-        <DropdownSelect
-          aria-label="Calibration requirement"
-          options={REQUIREMENT_OPTIONS}
-          value={filters.calibrationRequirement}
-          onChange={(value) => onChange("calibrationRequirement", value)}
-        />
-        <DropdownSelect
-          aria-label="Calibration health"
-          options={HEALTH_OPTIONS}
-          value={filters.calibrationHealth}
-          onChange={(value) => onChange("calibrationHealth", value)}
-        />
-        <DropdownSelect
-          aria-label="Due window"
-          options={DUE_WINDOW_OPTIONS}
-          value={filters.dueWindow}
-          onChange={(value) => onChange("dueWindow", value)}
-        />
+        {workspace === "calibration" ? (
+          <>
+            <DropdownSelect
+              aria-label="Calibration requirement"
+              options={REQUIREMENT_OPTIONS}
+              value={filters.calibrationRequirement}
+              onChange={(value) => onChange("calibrationRequirement", value)}
+            />
+            <DropdownSelect
+              aria-label="Calibration health"
+              options={HEALTH_OPTIONS}
+              value={filters.calibrationHealth}
+              onChange={(value) => onChange("calibrationHealth", value)}
+            />
+            <DropdownSelect
+              aria-label="Due window"
+              options={DUE_WINDOW_OPTIONS}
+              value={filters.dueWindow}
+              onChange={(value) => onChange("dueWindow", value)}
+            />
+          </>
+        ) : null}
       </div>
     </section>
   );

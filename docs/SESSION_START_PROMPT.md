@@ -8,7 +8,7 @@ C:\Projects\Active\Inventory_Management
 
 ---
 
-You are working on **Inventory Management**, a new unified multi-inventory Windows desktop product.
+You are working on **Inventory Management**, a unified multi-inventory Windows desktop product.
 
 ## Open this workspace first
 
@@ -16,31 +16,31 @@ You are working on **Inventory Management**, a new unified multi-inventory Windo
 C:\Projects\Active\Inventory_Management
 ```
 
-Do **not** use `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory` as the active app tree (that is the standalone TE product). Sibling standalones under `Inventory_Apps\` stay legacy until cutover.
+Do **not** use `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory` as the active app tree. Sibling standalones under `Inventory_Apps\` remain legacy until owner-controlled cutover.
 
-## Read first (in order)
+## Read first
 
 1. `AGENTS.md`
-2. `docs/SESSION_HANDOFF.md` (**current state / next slices**)
-3. `docs/planning/DECISIONS.md` (IM-* decisions)
+2. `docs/SESSION_HANDOFF.md`
+3. `docs/planning/DECISIONS.md`
 4. `README.md`
-5. As needed for sync behavior or regressions: `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md` (**IM-011** — implemented for TE and reused by Lab; still the behavioral authority)
-6. For Lab catalog work or rollout: `docs/superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md` (**IM-014**) and `docs/runbooks/te-lab-components-catalog-v2-migration.md`
+5. `docs/superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md` and `docs/runbooks/te-lab-components-catalog-v2-migration.md` for IM-014
+6. `docs/superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md` for IM-015
+7. `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md` for IM-011 sync behavior
 
-Prefer live code + those docs over stale TE planning copies still sitting under `docs/planning/` (many are lineage from TE).
+Prefer live code and these current documents over older TE planning copies.
 
 ## Product intent
 
-- **One install**, hamburger title switcher across separate inventories (not one merged table/schema).
+- One install with a hamburger switcher across separate inventories.
 - Labels: **TE Test Equipment**, **TE Lab Components**, **ME Storage**, **TE Storage Room**.
-- **Whole redesign monorepo**: shared platform + domain modules; TE quality as UX/ops baseline; room to add modules later.
-- **New GitHub repo** for this product (`origin` already connected); archive old standalone repos **after** cutover works.
-- Shared data stays **per module** on S:, not one shared ops stream for everything.
+- Modules keep separate databases, domain types, shared roots, and sync streams.
+- Shared data stays per module on S:; sync is not a backup.
 
-## Identity (do not casually change)
+## Stable identity
 
 | Item | Value |
-|------|--------|
+|------|-------|
 | Display | Inventory Management |
 | Package | `inventory-management` `0.1.0` |
 | Tauri id | `com.inventory.management` |
@@ -51,54 +51,41 @@ Prefer live code + those docs over stale TE planning copies still sitting under 
 | Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
 | Env prefix | `INVENTORY_MANAGEMENT_*` |
 
-Updater is **enabled in config** (product-specific pubkey + GitHub Releases `latest.json`). Sign with private key outside the repo — see `docs/engineering/UPDATER_AND_RELEASE.md`. Do not reuse TE/ME keys.
+## Current state — 2026-07-25
 
-## Current state (2026-07-25)
+**Implemented**
 
-**Exists**
+- IM-011 adaptive per-inventory sync lifecycle.
+- IM-012 shell/platform/module architecture.
+- Real TE Test Equipment and TE Lab Components modules; ME Storage and TE Storage Room remain placeholders.
+- First team release `0.1.0`, signed installer, GitHub Release, and updater metadata.
+- IM-014 generalized Lab parts catalog: flexible attributes, multi-location stock, grid bins, migration, Lab sync schema v2, and six-sheet export.
+- IM-015 TE Equipment/Calibration workspace and guarded calibration-roster preview/review/commit tooling.
+- Combined integration branch: `feature/im-014-im-015-integration` in `C:\Projects\Active\Inventory_Management_IM014_IM015`.
 
-- Scaffold from TE Test Equipment (rebranded) at the path above.
-- Switcher UI with two real desktop modules (TE Test Equipment + TE Lab Components) and placeholders for ME Storage + TE Storage Room.
-- S: product tree created (`modules\*`, `release-support\`, `legacy-pointers\`, README).
-- Decisions IM-001…IM-014.
-- GitHub: `https://github.com/Hassaan-ECE/Inventory_Management.git` (`origin` / `main`).
-- **IM-011 adaptive TE sync lifecycle** — completion-aware 2s/60s scheduling, session tokens, hard deactivate on deselect, `syncIntervalMs` removed. Plan + verification notes in handoff.
-- **IM-012 logical architecture extract** — product shell under `frontend/src/shell`, registry/sync under `frontend/src/platform`, TE under `frontend/src/modules/te-test-equipment`, placeholder hosts beside it, and backend `ModuleId`/root/session-map seams under `backend/src/platform` plus `backend/src/runtime`.
-- **Phase C1 TE Lab Components port** — separate `te-lab-components.feox`, module-scoped commands, isolated TE/Lab sessions, and unified shell styling.
-- **IM-014 generalized Lab catalog implementation** — Parts separate from StockPlacements; flexible specifications; area/desk → container → Excel-style bins; multiple locations and shared bins; moves/counts; detailed search/filter/sort; reviewed lossless migration; Lab-only sync schema v2; six-sheet export.
+**Not completed**
 
-**Not done**
+- Merge of the combined integration branch into `main`.
+- Owner copied-data rehearsal and live IM-014 Lab schema-v2 cutover.
+- Owner-backed-up single-writer IM-015 calibration roster cutover.
+- ME Storage and TE Storage Room implementations.
 
-- Real ports of ME Storage / TE Storage Room.
-- Owner copied-data rehearsal and coordinated live IM-014 Lab migration/cutover.
-- Single-instance copied-data desktop smoke covering restart persistence and Lab stock workflows.
-- Optional residual: live DevTools call-rate smoke for adaptive cadence (automated/fake-timer coverage already green).
-- Real ports of ME Storage / TE Storage Room.
+## Next priorities
 
-## Priorities (next work)
-
-Full “what works on desktop vs remaining work” map:
-`docs/superpowers/plans/2026-07-20-desktop-capability-and-roadmap.md`
-
-1. ~~Phase A TE path~~ **done** — product `modules\TE_Test_Equipment` default.
-2. ~~Phase B architecture extract (IM-012)~~ **done 2026-07-20** — shell/platform/modules; plan under `docs/superpowers/plans/`.
-3. ~~Phase C1 TE Lab Components~~ **done and verified 2026-07-20**:
-   `docs/superpowers/plans/2026-07-20-te-lab-components-port.md`
-4. **IM-014 implementation complete; rollout active** — rehearse on copied owner data, run copied-data desktop smoke, then coordinate live Lab schema-v2 cutover using the migration runbook.
-5. First release artifacts and updater are configured; team adoption and standalone retirement remain owner-coordinated.
-6. ME Storage + TE Storage Room remain placeholders until a later post-release plan; optional A2 live cadence soak remains non-blocking.
-
-Do **not** restart IM-011 implementation unless fixing a regression or extending the lifecycle to another inventory.  
-Do **not** casually change either active pilot default or release target; cutover requires an owner-driven data copy and one-writer transition.
+1. Run combined frontend/Rust/lint/build/clippy verification on the integration branch.
+2. Run `bun run desktop` only against isolated copied Local AppData with shared sync disabled for the combined manual smoke.
+3. Verify TE Equipment/Calibration and Lab catalog/grid/migration workflows coexist across module switching and restart.
+4. Merge into `main` only after combined verification succeeds.
+5. Perform IM-014 and IM-015 live cutovers separately under their owner runbooks, backups, and one-writer rules.
 
 ## Rules
 
-- Verify critical paths before claiming success (lint/test/build/smoke as appropriate).
+- Verify critical paths before claiming success.
 - Sync is **not** a backup.
-- One writer client per inventory shared root at a time (don’t dual-run standalone + unified against the same live root).
-- Do not rename Tauri id after team installs without a migration plan.
-- Preserve switcher UX intent; improve architecture under it.
+- Use one writer per shared root.
+- Do not rename the Tauri id without a migration plan.
+- Do not run either live cutover during a normal development smoke.
 
-## First reply in the new chat
+## First reply in a new chat
 
-Summarize: workspace path, stable product identity, that **IM-011, IM-012, C1, and IM-014 implementation are done**, that TE + Lab are isolated on product module roots, and that **IM-014 copied-data rehearsal/desktop smoke/live Lab cutover** is the next guarded step. ME Storage and TE Storage Room remain placeholders.
+Summarize the stable product identity, that IM-011/IM-012/C1/IM-014/IM-015 implementation is complete, that the combined integration branch is the current test target, and that both live data cutovers remain pending and separate.

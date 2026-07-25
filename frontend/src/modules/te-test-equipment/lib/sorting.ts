@@ -84,12 +84,24 @@ function getSortValue(entry: InventoryEntry, column: ColumnKey, localDate: strin
       return entry.projectName.trim().toLowerCase();
     case "location":
       return entry.location.trim().toLowerCase();
+    case "assignedTo":
+      return entry.assignedTo.trim().toLowerCase();
     case "calibrationRequirement":
       return REQUIREMENT_ORDER[entry.calibrationRequirement];
     case "outToCalibration":
       return entry.outToCalibration ? 1 : 0;
+    case "lastCalibratedAt":
+      return entry.lastCalibratedAt;
     case "calibrationDueAt":
       return entry.calibrationDueAt;
+    case "calibrationIntervalMonths":
+      return entry.calibrationIntervalMonths;
+    case "certificateRef":
+      return entry.certificateRef?.trim().toLowerCase();
+    case "calibrationVendor":
+      return entry.calibrationVendor?.trim().toLowerCase();
+    case "calibrationNotes":
+      return entry.calibrationNotes?.trim().toLowerCase();
     case "calibrationHealth": {
       const health = deriveCalibrationHealth(entry, localDate);
       return health === null ? undefined : HEALTH_ORDER[health];

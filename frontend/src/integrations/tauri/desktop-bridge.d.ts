@@ -1,4 +1,7 @@
 import type {
+  CalibrationRosterCommitInput,
+  CalibrationRosterCommitResult,
+  CalibrationRosterPreviewReport,
   ExcelExportResult,
   ImportCommitInput,
   ImportCommitResult,
@@ -177,6 +180,15 @@ export interface InventoryDesktopBridge {
   pickImportFile: (moduleId: "te-test-equipment") => Promise<string | null>;
   previewImport: (moduleId: "te-test-equipment", path: string) => Promise<ImportDryRunReport>;
   commitImport: (moduleId: "te-test-equipment", input: ImportCommitInput) => Promise<ImportCommitResult>;
+  pickCalibrationRosterFile?: (moduleId: "te-test-equipment") => Promise<string | null>;
+  previewCalibrationRoster?: (
+    moduleId: "te-test-equipment",
+    path: string,
+  ) => Promise<CalibrationRosterPreviewReport>;
+  commitCalibrationRoster?: (
+    moduleId: "te-test-equipment",
+    input: CalibrationRosterCommitInput,
+  ) => Promise<CalibrationRosterCommitResult>;
   exportExcel?: (moduleId: ImplementedInventoryModuleId) => Promise<ExcelExportResult>;
   checkForUpdate?: () => Promise<UpdateState>;
   downloadUpdate?: () => Promise<UpdateState>;

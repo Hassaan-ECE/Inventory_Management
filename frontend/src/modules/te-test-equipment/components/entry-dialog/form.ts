@@ -38,13 +38,17 @@ export interface EntryFormState {
   workingStatus: WorkingStatus;
 }
 
-export function buildFormState(entry: InventoryEntry | null | undefined, defaultArchived: boolean): EntryFormState {
+export function buildFormState(
+  entry: InventoryEntry | null | undefined,
+  defaultArchived: boolean,
+  defaultCalibrationRequirement: CalibrationRequirement = "unknown",
+): EntryFormState {
   return {
     archived: entry?.archived ?? defaultArchived,
     assetNumber: entry?.assetNumber ?? "",
     assignedTo: entry?.assignedTo ?? "",
     condition: entry?.condition ?? "",
-    calibrationRequirement: entry?.calibrationRequirement ?? "unknown",
+    calibrationRequirement: entry?.calibrationRequirement ?? defaultCalibrationRequirement,
     outToCalibration: entry?.outToCalibration ?? false,
     lastCalibratedAt: entry?.lastCalibratedAt ?? "",
     calibrationDueAt: entry?.calibrationDueAt ?? "",

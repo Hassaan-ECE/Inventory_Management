@@ -9,6 +9,10 @@ pub(super) const META_NEXT_ID: &[u8] = b"__meta:next_entry_id";
 pub(super) const IMPORT_PREVIEW_PREFIX: &str = "import:preview:";
 pub(super) const IMPORT_COMPLETED_PREFIX: &str = "import:completed:";
 pub(super) const IMPORT_ROW_PREFIX: &str = "import:row:";
+pub(super) const CALIBRATION_ROSTER_PREVIEW_PREFIX: &str = "calibration_roster:preview:";
+pub(super) const CALIBRATION_ROSTER_COMMIT_PREFIX: &str = "calibration_roster:commit:";
+pub(super) const CALIBRATION_ROSTER_COMPLETED_PREFIX: &str = "calibration_roster:completed:";
+pub(super) const CALIBRATION_ROSTER_OPERATION_PREFIX: &str = "calibration_roster:operation:";
 pub(super) const SYNC_META_PREFIX: &str = "meta:";
 pub(super) const SYNC_STATE_PREFIX: &str = "sync:";
 // Schema metadata is exercised by tests and migration-safe storage helpers.
@@ -56,6 +60,29 @@ pub(super) fn import_row_key(batch_id: &str, source_row: u64) -> CommandResult<S
     Ok(format!("{IMPORT_ROW_PREFIX}{batch_id}:{source_row:012}"))
 }
 
+pub(super) fn calibration_roster_preview_key(batch_id: &str) -> CommandResult<String> {
+    import_key(CALIBRATION_ROSTER_PREVIEW_PREFIX, batch_id)
+}
+
+pub(super) fn calibration_roster_commit_key(batch_id: &str) -> CommandResult<String> {
+    import_key(CALIBRATION_ROSTER_COMMIT_PREFIX, batch_id)
+}
+
+pub(super) fn calibration_roster_completed_key(batch_id: &str) -> CommandResult<String> {
+    import_key(CALIBRATION_ROSTER_COMPLETED_PREFIX, batch_id)
+}
+
+pub(super) fn calibration_roster_operation_key(
+    batch_id: &str,
+    operation_id: &str,
+) -> CommandResult<String> {
+    let batch_id = normalized_import_batch_id(batch_id)?;
+    let operation_id = normalized_calibration_operation_id(operation_id)?;
+    Ok(format!(
+        "{CALIBRATION_ROSTER_OPERATION_PREFIX}{batch_id}:{operation_id}"
+    ))
+}
+
 fn import_key(prefix: &str, batch_id: &str) -> CommandResult<String> {
     Ok(format!("{prefix}{}", normalized_import_batch_id(batch_id)?))
 }
@@ -69,6 +96,19 @@ fn normalized_import_batch_id(batch_id: &str) -> CommandResult<String> {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
     {
         return Err("import batch_id has an invalid format".to_string());
+    }
+    Ok(value.to_string())
+}
+
+fn normalized_calibration_operation_id(operation_id: &str) -> CommandResult<String> {
+    let value = operation_id.trim();
+    if value.len() < 8
+        || value.len() > 96
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        return Err("calibration roster operation_id has an invalid format".to_string());
     }
     Ok(value.to_string())
 }

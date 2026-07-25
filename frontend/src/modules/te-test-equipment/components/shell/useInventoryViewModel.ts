@@ -3,6 +3,7 @@ import { useDeferredValue, useMemo } from "react";
 import {
   buildResultsLabel,
   filterEntries,
+  getColumnsForWorkspace,
   getInventoryCounts,
   getLocalDateString,
   getVisibleColumns,
@@ -14,6 +15,7 @@ import type {
   InventoryEntry,
   InventoryScope,
   SortState,
+  TeTestEquipmentWorkspace,
 } from "@/modules/te-test-equipment/types";
 
 interface UseInventoryViewModelOptions {
@@ -24,6 +26,7 @@ interface UseInventoryViewModelOptions {
   query: string;
   scope: InventoryScope;
   sortState: SortState | null;
+  workspace: TeTestEquipmentWorkspace;
 }
 
 const LOADING_ENTRIES: InventoryEntry[] = [];
@@ -36,6 +39,7 @@ export function useInventoryViewModel({
   query,
   scope,
   sortState,
+  workspace,
 }: UseInventoryViewModelOptions) {
   const sourceEntries = isLoading ? LOADING_ENTRIES : entries;
   const localDate = getLocalDateString();
@@ -47,14 +51,29 @@ export function useInventoryViewModel({
   );
   const sortedEntries = useMemo(() => sortEntries(filteredEntries, sortState, localDate), [filteredEntries, localDate, sortState]);
   const counts = useMemo(() => getInventoryCounts(sourceEntries, localDate), [localDate, sourceEntries]);
-  const visibleColumns = useMemo(() => getVisibleColumns(columnVisibility), [columnVisibility]);
+  const calibrationTrackedEntries = useMemo(
+    () => sourceEntries.filter((entry) => (
+      entry.calibrationRequirement === "required" &&
+      (scope === "archive" ? entry.archived : !entry.archived)
+    )),
+    [scope, sourceEntries],
+  );
+  const statusCounts = useMemo(
+    () => getInventoryCounts(workspace === "calibration" ? calibrationTrackedEntries : sourceEntries, localDate),
+    [calibrationTrackedEntries, localDate, sourceEntries, workspace],
+  );
+  const workspaceColumns = useMemo(() => getColumnsForWorkspace(workspace), [workspace]);
+  const visibleColumns = useMemo(
+    () => getVisibleColumns(columnVisibility, workspaceColumns),
+    [columnVisibility, workspaceColumns],
+  );
   const entriesById = useMemo(() => {
     const map = new Map<string, InventoryEntry>();
-    for (const entry of sortedEntries) {
+    for (const entry of sourceEntries) {
       map.set(entry.id, entry);
     }
     return map;
-  }, [sortedEntries]);
+  }, [sourceEntries]);
 
   return {
     counts,
@@ -65,7 +84,9 @@ export function useInventoryViewModel({
     entriesById,
     resultsLabel: isLoading
       ? "Loading inventory entries..."
-      : buildResultsLabel(sortedEntries.length, scope, deferredQuery, deferredFilters),
+      : buildResultsLabel(sortedEntries.length, scope, deferredQuery, deferredFilters, workspace),
+    statusCounts,
+    trackedCount: calibrationTrackedEntries.length,
     visibleColumns,
     localDate,
   };

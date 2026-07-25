@@ -3,7 +3,13 @@ import { useState } from "react";
 import { Input } from "@/shared/components/ui/input";
 import { FilterPanel } from "@/modules/te-test-equipment/components/FilterPanel";
 import { ViewSettingsMenu } from "@/modules/te-test-equipment/components/ViewSettingsMenu";
-import type { ColumnConfig, ColumnKey, FilterState, InventoryScope } from "@/modules/te-test-equipment/types";
+import type {
+  ColumnConfig,
+  ColumnKey,
+  FilterState,
+  InventoryScope,
+  TeTestEquipmentWorkspace,
+} from "@/modules/te-test-equipment/types";
 import { cn } from "@/shared/lib/utils";
 
 interface SearchCardProps {
@@ -20,6 +26,7 @@ interface SearchCardProps {
   onToggleColumn: (columnKey: ColumnKey) => void;
   query: string;
   scope: InventoryScope;
+  workspace: TeTestEquipmentWorkspace;
 }
 
 export function SearchCard({
@@ -36,6 +43,7 @@ export function SearchCard({
   onToggleColumn,
   query,
   scope,
+  workspace,
 }: SearchCardProps) {
   // Elevate above the table while the settings menu or column filters are open so
   // absolute dropdown panels (and filter selects) are not painted under the grid.
@@ -53,10 +61,14 @@ export function SearchCard({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <Input
-            aria-label="Inventory search"
+            aria-label={workspace === "calibration" ? "Calibration search" : "Inventory search"}
             inputClassName="h-9 px-3 text-sm"
             placeholder={
-              scope === "archive"
+              workspace === "calibration"
+                ? scope === "archive"
+                  ? "Search archived calibration equipment by asset, serial, maker, model, dates, vendor, certificate, notes, or location"
+                  : "Search calibration equipment by asset, serial, maker, model, dates, vendor, certificate, notes, or location"
+                : scope === "archive"
                 ? "Search archived entries by asset, serial, maker, model, description, location, or notes"
                 : "Search entries by asset, serial, maker, model, description, location, status, or notes"
             }
@@ -81,7 +93,13 @@ export function SearchCard({
 
       {filtersOpen ? (
         <div className="mt-2 border-t border-border/60 pt-2">
-          <FilterPanel compact filters={filters} onChange={onFilterChange} onClear={onFiltersClear} />
+          <FilterPanel
+            compact
+            filters={filters}
+            workspace={workspace}
+            onChange={onFilterChange}
+            onClear={onFiltersClear}
+          />
         </div>
       ) : null}
     </section>

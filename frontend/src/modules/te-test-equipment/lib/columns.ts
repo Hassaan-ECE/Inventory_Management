@@ -1,30 +1,66 @@
-import type { ColumnConfig, ColumnKey } from "@/modules/te-test-equipment/types";
-import { INVENTORY_COLUMNS } from "@/modules/te-test-equipment/types";
+import type {
+  ColumnConfig,
+  ColumnKey,
+  TeTestEquipmentWorkspace,
+} from "@/modules/te-test-equipment/types";
+import {
+  CALIBRATION_COLUMNS,
+  EQUIPMENT_COLUMNS,
+} from "@/modules/te-test-equipment/types";
 
-export function buildDefaultColumnVisibility(): Record<ColumnKey, boolean> {
-  return INVENTORY_COLUMNS.reduce<Record<ColumnKey, boolean>>((visibility, column) => {
-    visibility[column.key] = column.defaultVisible;
-    return visibility;
+const ALL_COLUMN_KEYS = Array.from(
+  new Set([...EQUIPMENT_COLUMNS, ...CALIBRATION_COLUMNS].map((column) => column.key)),
+);
+
+export function getColumnsForWorkspace(workspace: TeTestEquipmentWorkspace): readonly ColumnConfig[] {
+  return workspace === "calibration" ? CALIBRATION_COLUMNS : EQUIPMENT_COLUMNS;
+}
+
+export function buildDefaultColumnVisibility(
+  columns: readonly ColumnConfig[] = EQUIPMENT_COLUMNS,
+): Record<ColumnKey, boolean> {
+  const visibility = ALL_COLUMN_KEYS.reduce<Record<ColumnKey, boolean>>((current, columnKey) => {
+    current[columnKey] = false;
+    return current;
   }, {} as Record<ColumnKey, boolean>);
+
+  return columns.reduce<Record<ColumnKey, boolean>>((current, column) => {
+    current[column.key] = column.defaultVisible;
+    return current;
+  }, visibility);
 }
 
 export function mergeColumnVisibility(
   storedValue: Partial<Record<ColumnKey, boolean>> | null | undefined,
+  columns: readonly ColumnConfig[] = EQUIPMENT_COLUMNS,
 ): Record<ColumnKey, boolean> {
-  const visibility = { ...buildDefaultColumnVisibility(), ...storedValue };
-  if (getVisibleDataColumnCount(visibility) === 0) {
-    visibility[firstDefaultDataColumnKey()] = true;
+  const visibility = buildDefaultColumnVisibility(columns);
+  for (const column of columns) {
+    const storedVisibility = storedValue?.[column.key];
+    if (typeof storedVisibility === "boolean") {
+      visibility[column.key] = storedVisibility;
+    }
+  }
+
+  if (getVisibleDataColumnCount(visibility, columns) === 0) {
+    visibility[firstDefaultDataColumnKey(columns)] = true;
   }
   return visibility;
 }
 
-export function getVisibleColumns(columnVisibility: Record<ColumnKey, boolean>): ColumnConfig[] {
-  return INVENTORY_COLUMNS.filter((column) => columnVisibility[column.key]);
+export function getVisibleColumns(
+  columnVisibility: Record<ColumnKey, boolean>,
+  columns: readonly ColumnConfig[] = EQUIPMENT_COLUMNS,
+): ColumnConfig[] {
+  return columns.filter((column) => columnVisibility[column.key]);
 }
 
-export function getVisibleDataColumnCount(columnVisibility: Record<ColumnKey, boolean>): number {
+export function getVisibleDataColumnCount(
+  columnVisibility: Record<ColumnKey, boolean>,
+  columns: readonly ColumnConfig[] = EQUIPMENT_COLUMNS,
+): number {
   let visibleColumns = 0;
-  for (const column of INVENTORY_COLUMNS) {
+  for (const column of columns) {
     if (column.key !== "verified" && columnVisibility[column.key]) {
       visibleColumns += 1;
     }
@@ -32,10 +68,11 @@ export function getVisibleDataColumnCount(columnVisibility: Record<ColumnKey, bo
   return visibleColumns;
 }
 
-function firstDefaultDataColumnKey(): ColumnKey {
+function firstDefaultDataColumnKey(columns: readonly ColumnConfig[]): ColumnKey {
   return (
-    INVENTORY_COLUMNS.find((column) => column.key !== "verified" && column.defaultVisible)?.key ??
-    "qty"
+    columns.find((column) => column.key !== "verified" && column.defaultVisible)?.key ??
+    columns.find((column) => column.key !== "verified")?.key ??
+    "description"
   );
 }
 

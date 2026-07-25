@@ -234,7 +234,7 @@ impl InventoryEntry {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub(crate) struct InventoryEntryInput {
     pub asset_number: String,

@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 import { DeleteConfirmationDialog } from "@/modules/te-test-equipment/components/shell/DeleteConfirmationDialog";
+import { CalibrationMembershipDialog } from "@/modules/te-test-equipment/components/calibration/CalibrationMembershipDialog";
+import { CalibrationRosterDialog } from "@/modules/te-test-equipment/components/calibration/CalibrationRosterDialog";
 import { EmptyResults } from "@/modules/te-test-equipment/components/EmptyResults";
 import { InventoryHeader } from "@/modules/te-test-equipment/components/InventoryHeader";
 import { EntryContextMenu, type EntryContextAction } from "@/modules/te-test-equipment/components/EntryContextMenu";
@@ -17,15 +19,38 @@ import { useInventoryExternalActions } from "@/modules/te-test-equipment/compone
 import { useInventoryPreferences } from "@/modules/te-test-equipment/components/shell/useInventoryPreferences";
 import { useInventoryViewModel } from "@/modules/te-test-equipment/components/shell/useInventoryViewModel";
 import { useStatusAnnouncer } from "@/modules/te-test-equipment/components/shell/useStatusAnnouncer";
-import { cycleSortState, DEFAULT_FILTERS, getVisibleDataColumnCount } from "@/modules/te-test-equipment/lib";
-import { INVENTORY_COLUMNS } from "@/modules/te-test-equipment/types";
-import type { ColumnKey, FilterState, InventoryScope, SortState } from "@/modules/te-test-equipment/types";
+import {
+  cycleSortState,
+  getColumnsForWorkspace,
+  getDefaultFilters,
+  getVisibleDataColumnCount,
+} from "@/modules/te-test-equipment/lib";
+import type {
+  CalibrationRequirement,
+  ColumnKey,
+  FilterState,
+  InventoryScope,
+  SortState,
+  TeTestEquipmentWorkspace,
+} from "@/modules/te-test-equipment/types";
 import type { DesktopModuleViewProps } from "@/platform/modules/types";
 
 interface ContextMenuState {
   entryId: string;
   x: number;
   y: number;
+}
+
+interface WorkspaceViewState {
+  filters: FilterState;
+  filtersOpen: boolean;
+  query: string;
+  sortState: SortState | null;
+}
+
+interface CalibrationMembershipState {
+  entryId?: string;
+  mode: "add" | "remove";
 }
 
 export function TeTestEquipmentView({
@@ -36,10 +61,26 @@ export function TeTestEquipmentView({
   theme,
 }: DesktopModuleViewProps) {
   const { announceStatus, statusOverride } = useStatusAnnouncer();
+  const [workspace, setWorkspace] = useState<TeTestEquipmentWorkspace>("equipment");
+  const [workspaceViews, setWorkspaceViews] = useState<Record<TeTestEquipmentWorkspace, WorkspaceViewState>>(() => ({
+    equipment: {
+      filters: { ...getDefaultFilters("equipment") },
+      filtersOpen: false,
+      query: "",
+      sortState: { column: "manufacturer", direction: "asc" },
+    },
+    calibration: {
+      filters: { ...getDefaultFilters("calibration") },
+      filtersOpen: false,
+      query: "",
+      sortState: { column: "calibrationDueAt", direction: "asc" },
+    },
+  }));
   const {
     dataSource,
     entries,
     isLoading,
+    refreshDesktopEntries,
     scheduleDesktopSync,
     setEntries,
     setSharedStatus,
@@ -49,18 +90,21 @@ export function TeTestEquipmentView({
     teActive: active,
   });
   const { handleUpdateAction, updateState } = useDesktopUpdates({ active, announceStatus });
-  const { colorRows, columnVisibility, setColorRows, setColumnVisibility } = useInventoryPreferences();
+  const { colorRows, columnVisibility, setColorRows, setColumnVisibility } = useInventoryPreferences(workspace);
   const [scope, setScope] = useState<InventoryScope>("inventory");
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sortState, setSortState] = useState<SortState | null>({ column: "manufacturer", direction: "asc" });
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [membershipDialog, setMembershipDialog] = useState<CalibrationMembershipState | null>(null);
+  const [rosterDialogOpen, setRosterDialogOpen] = useState(false);
+  const { filters, filtersOpen, query, sortState } = workspaceViews[workspace];
+  const workspaceColumns = getColumnsForWorkspace(workspace);
   const {
     counts,
+    displayCount,
     displayEntries,
     entriesById,
     resultsLabel,
+    statusCounts,
+    trackedCount,
     visibleColumns,
     localDate,
   } = useInventoryViewModel({
@@ -71,6 +115,7 @@ export function TeTestEquipmentView({
     query,
     scope,
     sortState,
+    workspace,
   });
   const canModifyEntries = dataSource !== "desktop" || sharedStatus.canModify;
   const {
@@ -79,6 +124,7 @@ export function TeTestEquipmentView({
     dialogState,
     handleAddEntry,
     handleArchiveChange,
+    handleCalibrationMembershipChange,
     handleConfirmDeleteEntry,
     handleOpenEntry,
     handleRequestDeleteEntry,
@@ -107,23 +153,46 @@ export function TeTestEquipmentView({
   const dialogEntry = dialogState?.mode === "edit" ? entriesById.get(dialogState.entryId ?? "") ?? null : null;
   const contextEntry = contextMenu ? entriesById.get(contextMenu.entryId) ?? null : null;
   const pendingDeleteEntry = pendingDeleteEntryId ? entriesById.get(pendingDeleteEntryId) ?? null : null;
+  const membershipEntry = membershipDialog?.entryId ? entriesById.get(membershipDialog.entryId) ?? null : null;
+  const calibrationCandidates = entries.filter((entry) => (
+    !entry.archived && entry.calibrationRequirement !== "required"
+  ));
+  const calibrationRosterAvailable = Boolean(
+    dataSource === "desktop"
+      && window.inventoryDesktop?.pickCalibrationRosterFile
+      && window.inventoryDesktop.previewCalibrationRoster
+      && window.inventoryDesktop.commitCalibrationRoster,
+  );
+
+  function updateWorkspaceView(patch: Partial<WorkspaceViewState>): void {
+    setWorkspaceViews((current) => ({
+      ...current,
+      [workspace]: { ...current[workspace], ...patch },
+    }));
+  }
 
   function handleFilterChange(field: keyof FilterState, value: string): void {
-    setFilters((current) => ({ ...current, [field]: value }));
+    updateWorkspaceView({ filters: { ...filters, [field]: value } });
   }
 
   function handleClearFilters(): void {
-    setFilters(DEFAULT_FILTERS);
+    updateWorkspaceView({ filters: { ...getDefaultFilters(workspace) } });
   }
 
   function handleSortChange(column: ColumnKey): void {
-    setSortState((current) => cycleSortState(current, column));
+    updateWorkspaceView({ sortState: cycleSortState(sortState, column) });
+  }
+
+  function handleWorkspaceChange(nextWorkspace: TeTestEquipmentWorkspace): void {
+    setContextMenu(null);
+    setMembershipDialog(null);
+    setWorkspace(nextWorkspace);
   }
 
   function handleOpenContextMenu(entryId: string, clientX: number, clientY: number): void {
     const menuWidth = 240;
     const entry = entriesById.get(entryId);
-    const menuHeight = entry?.links.trim() ? 212 : 172;
+    const menuHeight = entry?.links.trim() ? 252 : 212;
     const maxX = typeof window === "undefined" ? clientX : Math.max(12, window.innerWidth - menuWidth - 12);
     const maxY = typeof window === "undefined" ? clientY : Math.max(12, window.innerHeight - menuHeight - 12);
 
@@ -144,13 +213,19 @@ export function TeTestEquipmentView({
 
     switch (action) {
       case "open":
-        handleOpenEntry(entryId);
+        handleOpenEntry(entryId, workspace);
         return;
       case "open-link":
         await handleOpenEntryLink(entryId);
         return;
       case "search-online":
         await handleSearchOnline(entryId);
+        return;
+      case "calibration-add":
+        await handleCalibrationMembershipChange([entryId], "required");
+        return;
+      case "calibration-remove":
+        setMembershipDialog({ entryId, mode: "remove" });
         return;
       case "archive-toggle": {
         const entry = entriesById.get(entryId);
@@ -169,7 +244,7 @@ export function TeTestEquipmentView({
   function handleToggleColumn(columnKey: ColumnKey): void {
     setColumnVisibility((current) => {
       const nextValue = !current[columnKey];
-      const visibleDataColumns = getVisibleDataColumnCount(current);
+      const visibleDataColumns = getVisibleDataColumnCount(current, workspaceColumns);
 
       if (!nextValue && columnKey !== "verified" && visibleDataColumns === 1) {
         return current;
@@ -188,41 +263,52 @@ export function TeTestEquipmentView({
       <InventoryHeader
         activeModuleId={activeModuleId}
         archiveCount={counts.archive}
+        calibrationRosterAvailable={calibrationRosterAvailable}
         canModifyEntries={canModifyEntries}
         inventoryCount={counts.inventory}
-        onAddEntry={handleAddEntry}
+        onAddEntry={() => {
+          if (workspace === "calibration") {
+            setMembershipDialog({ mode: "add" });
+          } else {
+            handleAddEntry({ defaultSection: "equipment" });
+          }
+        }}
         onExportExcel={() => {
           void handleExportExcel();
         }}
         onExportHtml={handleExportHtml}
         onModuleChange={onModuleChange}
+        onInitializeCalibrationRoster={() => setRosterDialogOpen(true)}
         onScopeChange={setScope}
         onThemeToggle={onThemeToggle}
         onUpdateAction={() => {
           void handleUpdateAction();
         }}
+        onWorkspaceChange={handleWorkspaceChange}
         scope={scope}
         sharedStatus={sharedStatus}
         theme={theme}
         updateState={updateState}
+        workspace={workspace}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden px-2 py-1.5 sm:px-3">
         <div className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden">
           <SearchCard
             colorRows={colorRows}
-            columns={INVENTORY_COLUMNS}
+            columns={workspaceColumns}
             columnVisibility={columnVisibility}
             filters={filters}
             filtersOpen={filtersOpen}
             onColorRowsChange={setColorRows}
             onFilterChange={handleFilterChange}
             onFiltersClear={handleClearFilters}
-            onFiltersToggle={() => setFiltersOpen((current) => !current)}
-            onQueryChange={setQuery}
+            onFiltersToggle={() => updateWorkspaceView({ filtersOpen: !filtersOpen })}
+            onQueryChange={(nextQuery) => updateWorkspaceView({ query: nextQuery })}
             onToggleColumn={handleToggleColumn}
             query={query}
             scope={scope}
+            workspace={workspace}
           />
 
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -237,7 +323,7 @@ export function TeTestEquipmentView({
                 colorRows={colorRows}
                 columns={visibleColumns}
                 onOpenContextMenu={handleOpenContextMenu}
-                onOpenEntry={handleOpenEntry}
+                onOpenEntry={(entryId) => handleOpenEntry(entryId, workspace)}
                 onOpenExternalLink={(url) => {
                   void handleOpenExternalLink(url);
                 }}
@@ -248,15 +334,34 @@ export function TeTestEquipmentView({
                 entries={displayEntries}
                 sortState={sortState}
                 localDate={localDate}
+                workspace={workspace}
               />
             ) : (
-              <EmptyResults query={query} scope={scope} onAddEntry={handleAddEntry} />
+              <EmptyResults
+                query={query}
+                scope={scope}
+                workspace={workspace}
+                onAddEntry={() => {
+                  if (workspace === "calibration") {
+                    setMembershipDialog({ mode: "add" });
+                  } else {
+                    handleAddEntry({ defaultSection: "equipment" });
+                  }
+                }}
+              />
             )}
           </div>
         </div>
       </div>
 
-      <StatusStrip counts={counts} message={statusMessage} resultsLabel={resultsLabel} />
+      <StatusStrip
+        counts={statusCounts}
+        message={statusMessage}
+        resultCount={displayCount}
+        resultsLabel={resultsLabel}
+        trackedCount={trackedCount}
+        workspace={workspace}
+      />
 
       {contextMenu && contextEntry ? (
         <EntryContextMenu
@@ -264,6 +369,7 @@ export function TeTestEquipmentView({
           position={{ x: contextMenu.x, y: contextMenu.y }}
           entry={contextEntry}
           scope={scope}
+          workspace={workspace}
           onAction={(action) => {
             void handleContextAction(action);
           }}
@@ -275,11 +381,59 @@ export function TeTestEquipmentView({
         <EntryDialog
           key={`${dialogState.mode}-${dialogState.entryId ?? scope}`}
           defaultArchived={scope === "archive"}
+          defaultCalibrationRequirement={dialogState.defaultCalibrationRequirement}
+          defaultSection={dialogState.defaultSection ?? workspace}
           mode={dialogState.mode}
           readOnly={dataSource === "desktop" && !canModifyEntries}
           entry={dialogEntry}
           onClose={closeDialog}
           onSave={handleSaveEntry}
+        />
+      ) : null}
+
+      {membershipDialog ? (
+        <CalibrationMembershipDialog
+          candidates={calibrationCandidates}
+          entry={membershipEntry}
+          mode={membershipDialog.mode}
+          readOnly={!canModifyEntries}
+          onAdd={(entryIds) => handleCalibrationMembershipChange(entryIds, "required")}
+          onClose={() => setMembershipDialog(null)}
+          onCreateNew={() => {
+            setMembershipDialog(null);
+            handleAddEntry({
+              defaultCalibrationRequirement: "required",
+              defaultSection: "equipment",
+            });
+          }}
+          onRemove={(requirement: Exclude<CalibrationRequirement, "required">) => (
+            membershipEntry
+              ? handleCalibrationMembershipChange([membershipEntry.id], requirement)
+              : false
+          )}
+        />
+      ) : null}
+
+      {rosterDialogOpen ? (
+        <CalibrationRosterDialog
+          onClose={() => setRosterDialogOpen(false)}
+          onCommitted={async (result) => {
+            setWorkspace("calibration");
+            setScope("inventory");
+            setWorkspaceViews((current) => ({
+              ...current,
+              calibration: {
+                ...current.calibration,
+                filters: { ...getDefaultFilters("calibration") },
+                query: "",
+              },
+            }));
+            if (result.entriesChanged) {
+              await refreshDesktopEntries({ preserveEntriesOnError: true });
+              scheduleDesktopSync();
+            }
+            announceStatus(result.message);
+          }}
         />
       ) : null}
 
