@@ -277,12 +277,21 @@ export function useInventoryEntryMutations({
     if (!entry) {
       return;
     }
+    if (!entry.archived) {
+      announceStatus("Archive the entry before deleting it permanently.");
+      return;
+    }
 
     setPendingDeleteEntryId(entryId);
   }
 
   async function handleConfirmDeleteEntry(entryId: string): Promise<void> {
     setPendingDeleteEntryId(null);
+    const entry = entriesById.get(entryId);
+    if (!entry?.archived) {
+      announceStatus("Archive the entry before deleting it permanently.");
+      return;
+    }
 
     if (dataSource === "desktop" && window.inventoryDesktop?.deleteEntry) {
       try {

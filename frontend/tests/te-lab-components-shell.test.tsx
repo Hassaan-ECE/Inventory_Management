@@ -167,6 +167,47 @@ describe("TE Lab Components catalog shell integration", () => {
     expect(within(dialog).getByLabelText("Attribute 1 key")).toBeInTheDocument();
   });
 
+  it("opens Lab storage management from the catalog header", async () => {
+    localStorage.setItem("inventory.activeSystem", "te-lab-components");
+    const user = userEvent.setup();
+    const catalog = buildLabCatalog([buildLabPart()]);
+    window.inventoryDesktop = createDesktopBridge({
+      loadInventory: vi.fn().mockResolvedValue(catalog),
+      syncInventory: vi.fn().mockResolvedValue({ ...catalog, entriesChanged: false }),
+    });
+
+    render(<InventoryShell />);
+
+    await user.click(await screen.findByRole("button", { name: "Manage Lab Storage Locations" }));
+
+    expect(screen.getByRole("heading", { name: "Lab Storage Locations" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Search storage locations")).toBeInTheDocument();
+  });
+
+  it("opens Lab shared cutover setup when the enabled shared root is not ready", async () => {
+    localStorage.setItem("inventory.activeSystem", "te-lab-components");
+    const user = userEvent.setup();
+    const catalog = buildLabCatalog([buildLabPart()], undefined, {
+      shared: {
+        ...LAB_SHARED_STATUS,
+        available: false,
+        message: "Shared catalog cutover required.",
+        mutationMode: "local",
+      },
+    });
+    window.inventoryDesktop = createDesktopBridge({
+      loadInventory: vi.fn().mockResolvedValue(catalog),
+      syncInventory: vi.fn().mockResolvedValue({ ...catalog, entriesChanged: false }),
+    });
+
+    render(<InventoryShell />);
+
+    await user.click(await screen.findByRole("button", { name: "Set Up Lab Shared Catalog" }));
+
+    expect(screen.getByRole("heading", { name: "Lab Shared Catalog Cutover" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+  });
+
   it("selects shared bins with Excel labels, occupied warnings, and keyboard navigation", async () => {
     localStorage.setItem("inventory.activeSystem", "te-lab-components");
     const user = userEvent.setup();

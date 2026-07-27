@@ -439,7 +439,10 @@ mod live_legacy_repair_tests {
             .join("com.inventory.management")
             .join("inventory.feox");
         assert!(path.is_file(), "missing TE DB at {}", path.display());
-        let file_size = std::fs::metadata(&path).expect("metadata").len().max(64 * 1024 * 1024);
+        let file_size = std::fs::metadata(&path)
+            .expect("metadata")
+            .len()
+            .max(64 * 1024 * 1024);
         let db = InventoryDb::open_at_with_size(path.clone(), file_size).expect("open TE DB");
 
         // 1) Ensure every stored entry serializes with entryUuid (0.1.0 requires the field).
@@ -504,7 +507,11 @@ mod live_legacy_repair_tests {
                 entry.id
             );
             let strict: StrictInventoryEntry = serde_json::from_str(&json).expect("strict entry");
-            assert!(!strict.entry_uuid.is_empty(), "empty entryUuid for {}", entry.id);
+            assert!(
+                !strict.entry_uuid.is_empty(),
+                "empty entryUuid for {}",
+                entry.id
+            );
         }
         eprintln!("strict_entry_check_ok count={}", entries.len());
         let _ = path;
@@ -524,7 +531,12 @@ mod live_legacy_repair_tests {
             .and_then(|payload| payload.get("entry"))
             .filter(|entry| !entry.is_null())
         {
-            if entry.get("entryUuid").and_then(Value::as_str).unwrap_or("").is_empty() {
+            if entry
+                .get("entryUuid")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .is_empty()
+            {
                 return false;
             }
             if serde_json::from_value::<StrictInventoryEntry>(entry.clone()).is_err() {

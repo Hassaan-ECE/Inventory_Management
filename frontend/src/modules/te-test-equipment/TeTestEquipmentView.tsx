@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { DeleteConfirmationDialog } from "@/modules/te-test-equipment/components/shell/DeleteConfirmationDialog";
 import { CalibrationMembershipDialog } from "@/modules/te-test-equipment/components/calibration/CalibrationMembershipDialog";
+import { CalibrationRosterDialog } from "@/modules/te-test-equipment/components/calibration/CalibrationRosterDialog";
 import { EmptyResults } from "@/modules/te-test-equipment/components/EmptyResults";
 import { InventoryHeader } from "@/modules/te-test-equipment/components/InventoryHeader";
 import { EntryContextMenu, type EntryContextAction } from "@/modules/te-test-equipment/components/EntryContextMenu";
@@ -85,6 +86,7 @@ export function TeTestEquipmentView({
     dataSource,
     entries,
     isLoading,
+    refreshDesktopEntries,
     scheduleDesktopSync,
     setEntries,
     setSharedStatus,
@@ -98,6 +100,7 @@ export function TeTestEquipmentView({
   const [scope, setScope] = useState<InventoryScope>("inventory");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [membershipDialog, setMembershipDialog] = useState<CalibrationMembershipState | null>(null);
+  const [rosterDialogOpen, setRosterDialogOpen] = useState(false);
   const { filters, filtersOpen, query, sortState } = workspaceViews[workspace];
   const workspaceColumns = getColumnsForWorkspace(workspace);
 
@@ -170,6 +173,12 @@ export function TeTestEquipmentView({
   const calibrationCandidates = entries.filter((entry) => (
     !entry.archived && entry.calibrationRequirement !== "required"
   ));
+  const calibrationRosterAvailable = Boolean(
+    dataSource === "desktop"
+      && window.inventoryDesktop?.pickCalibrationRosterFile
+      && window.inventoryDesktop.previewCalibrationRoster
+      && window.inventoryDesktop.commitCalibrationRoster,
+  );
 
   function updateWorkspaceView(patch: Partial<WorkspaceViewState>): void {
     setWorkspaceViews((current) => ({
@@ -270,6 +279,7 @@ export function TeTestEquipmentView({
       <InventoryHeader
         activeViewId={activeViewId}
         archiveCount={counts.archive}
+        calibrationRosterAvailable={calibrationRosterAvailable}
         canModifyEntries={canModifyEntries}
         inventoryCount={counts.inventory}
         onAddEntry={() => {
@@ -283,6 +293,7 @@ export function TeTestEquipmentView({
           void handleExportExcel();
         }}
         onExportHtml={handleExportHtml}
+        onInitializeCalibrationRoster={() => setRosterDialogOpen(true)}
         onScopeChange={setScope}
         onThemeToggle={onThemeToggle}
         onUpdateAction={() => {
@@ -422,6 +433,29 @@ export function TeTestEquipmentView({
               ? handleCalibrationMembershipChange([membershipEntry.id], requirement)
               : false
           )}
+        />
+      ) : null}
+
+      {rosterDialogOpen ? (
+        <CalibrationRosterDialog
+          onClose={() => setRosterDialogOpen(false)}
+          onCommitted={async (result) => {
+            setScope("inventory");
+            setWorkspaceViews((current) => ({
+              ...current,
+              calibration: {
+                ...current.calibration,
+                filters: { ...getDefaultFilters("calibration") },
+                query: "",
+              },
+            }));
+            handleViewChange(TE_TEST_EQUIPMENT_CALIBRATION_VIEW_ID);
+            if (result.entriesChanged) {
+              await refreshDesktopEntries({ preserveEntriesOnError: true });
+              scheduleDesktopSync();
+            }
+            announceStatus(result.message);
+          }}
         />
       ) : null}
 

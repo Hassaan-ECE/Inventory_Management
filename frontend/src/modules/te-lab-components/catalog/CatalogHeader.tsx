@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoonIcon, PlusIcon, SunIcon } from "lucide-react";
+import { MapPinnedIcon, MoonIcon, PlusIcon, SunIcon, WifiIcon } from "lucide-react";
 
 import { ExportMenu } from "@/modules/te-lab-components/components/header/ExportMenu";
 import { UpdateActionButton } from "@/modules/te-lab-components/components/header/UpdateActionButton";
@@ -17,6 +17,8 @@ interface CatalogHeaderProps {
   onAddPart: () => void;
   onExportExcel: () => void;
   onExportHtml: () => void;
+  onManageLocations?: () => void;
+  onOpenSharedCutover?: () => void;
   onScopeChange: (scope: CatalogScope) => void;
   onThemeToggle: () => void;
   onUpdateAction: () => void;
@@ -34,6 +36,8 @@ export function CatalogHeader({
   onAddPart,
   onExportExcel,
   onExportHtml,
+  onManageLocations,
+  onOpenSharedCutover,
   onScopeChange,
   onThemeToggle,
   onUpdateAction,
@@ -113,6 +117,30 @@ export function CatalogHeader({
               Archive ({counts.archivedParts})
             </button>
           </div>
+          {onOpenSharedCutover ? (
+            <Button
+              aria-label="Set Up Lab Shared Catalog"
+              className="size-8"
+              size="icon"
+              title="Set Up Lab Shared Catalog"
+              variant="outline"
+              onClick={onOpenSharedCutover}
+            >
+              <WifiIcon className="size-3.5" />
+            </Button>
+          ) : null}
+          {onManageLocations ? (
+            <Button
+              aria-label="Manage Lab Storage Locations"
+              className="size-8"
+              size="icon"
+              title="Manage Lab Storage Locations"
+              variant="outline"
+              onClick={onManageLocations}
+            >
+              <MapPinnedIcon className="size-3.5" />
+            </Button>
+          ) : null}
           <Button
             aria-label={themeLabel}
             className="size-8"

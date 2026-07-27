@@ -23,6 +23,7 @@ import {
   searchablePartText,
 } from "@/modules/te-lab-components/catalog/catalogUtils";
 import { CATEGORY_TEMPLATES } from "@/modules/te-lab-components/catalog/categoryTemplates";
+import { LocationManagerDialog } from "@/modules/te-lab-components/catalog/LocationManagerDialog";
 import { MigrationPanel } from "@/modules/te-lab-components/catalog/MigrationPanel";
 import { PartDialog } from "@/modules/te-lab-components/catalog/PartDialog";
 import {
@@ -31,6 +32,7 @@ import {
   PlacementDialog,
 } from "@/modules/te-lab-components/catalog/PlacementDialogs";
 import { PartsTable } from "@/modules/te-lab-components/catalog/PartsTable";
+import { SharedCutoverDialog } from "@/modules/te-lab-components/catalog/SharedCutoverDialog";
 import { useLabCatalog } from "@/modules/te-lab-components/catalog/useLabCatalog";
 import { useDesktopUpdates } from "@/modules/te-lab-components/components/shell/useDesktopUpdates";
 import { useStatusAnnouncer } from "@/modules/te-lab-components/components/shell/useStatusAnnouncer";
@@ -38,13 +40,17 @@ import { StatusStrip } from "@/modules/te-lab-components/components/StatusStrip"
 import type {
   CatalogMigrationPreview,
   CatalogScope,
+  CatalogSharedCutoverPreview,
   Part,
   PartInput,
   StockCountInput,
   StockMoveInput,
   StockPlacement,
   StockPlacementInput,
+  StorageArea,
+  StorageAreaInput,
   StorageContainer,
+  StorageContainerInput,
 } from "@/modules/te-lab-components/types";
 import type { DesktopModuleViewProps } from "@/platform/modules/types";
 import { Button } from "@/shared/components/ui/button";
@@ -75,6 +81,34 @@ type LabCatalogBridgeMethod =
 
 type LabCatalogBridge = InventoryDesktopBridge & Required<Pick<InventoryDesktopBridge, LabCatalogBridgeMethod>>;
 
+type LabLocationBridgeMethod =
+  | "createLabStorageArea"
+  | "updateLabStorageArea"
+  | "deleteLabStorageArea"
+  | "createLabStorageContainer"
+  | "updateLabStorageContainer"
+  | "deleteLabStorageContainer";
+
+type LabLocationBridge = InventoryDesktopBridge & Required<Pick<InventoryDesktopBridge, LabLocationBridgeMethod>>;
+
+const LAB_LOCATION_BRIDGE_METHODS: LabLocationBridgeMethod[] = [
+  "createLabStorageArea",
+  "updateLabStorageArea",
+  "deleteLabStorageArea",
+  "createLabStorageContainer",
+  "updateLabStorageContainer",
+  "deleteLabStorageContainer",
+];
+
+type LabSharedCutoverBridgeMethod = "previewLabSharedCutover" | "commitLabSharedCutover";
+
+type LabSharedCutoverBridge = InventoryDesktopBridge & Required<Pick<InventoryDesktopBridge, LabSharedCutoverBridgeMethod>>;
+
+const LAB_SHARED_CUTOVER_BRIDGE_METHODS: LabSharedCutoverBridgeMethod[] = [
+  "previewLabSharedCutover",
+  "commitLabSharedCutover",
+];
+
 const LAB_CATALOG_BRIDGE_METHODS: LabCatalogBridgeMethod[] = [
   "createLabPart",
   "updateLabPart",
@@ -97,7 +131,7 @@ export function TeLabComponentsView({
 }: DesktopModuleViewProps) {
   const { announceStatus, statusOverride } = useStatusAnnouncer();
   const { handleUpdateAction, updateState } = useDesktopUpdates({ active, announceStatus });
-  const { catalog, dataSource, isLoading, lastError, refreshAfterMutation } = useLabCatalog({ active, announceStatus });
+  const { catalog, dataSource, isLoading, lastError, refreshAfterMutation, refreshCatalog } = useLabCatalog({ active, announceStatus });
   const [scope, setScope] = useState<CatalogScope>("inventory");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<CatalogFilters>(readFilterPreferences);
@@ -109,6 +143,8 @@ export function TeLabComponentsView({
   const [placementDialog, setPlacementDialog] = useState<PlacementDialogState | null>(null);
   const [movePlacementUuid, setMovePlacementUuid] = useState<string | null>(null);
   const [countPlacementUuid, setCountPlacementUuid] = useState<string | null>(null);
+  const [locationsOpen, setLocationsOpen] = useState(false);
+  const [sharedCutoverOpen, setSharedCutoverOpen] = useState(false);
   const lookups = useMemo(() => createCatalogLookups(catalog), [catalog]);
   const filterOptions = useMemo(
     () => ({
@@ -143,6 +179,19 @@ export function TeLabComponentsView({
   ].filter(Boolean).length;
   const hasCatalogFilters = Boolean(query || activeFilterCount > 0);
   const canModify = !catalog.migration.required && (dataSource !== "desktop" || catalog.shared.canModify);
+  const desktopBridge = window.inventoryDesktop;
+  const locationsAvailable = Boolean(
+    dataSource === "desktop"
+      && desktopBridge?.isDesktop
+      && LAB_LOCATION_BRIDGE_METHODS.every((method) => typeof desktopBridge[method] === "function"),
+  );
+  const sharedCutoverAvailable = Boolean(
+    dataSource === "desktop"
+      && desktopBridge?.isDesktop
+      && catalog.shared.enabled
+      && !catalog.shared.available
+      && LAB_SHARED_CUTOVER_BRIDGE_METHODS.every((method) => typeof desktopBridge[method] === "function"),
+  );
   const activePart = partDialogId && partDialogId !== "new" ? lookups.partsById.get(partDialogId) ?? null : null;
   const placementPart = placementDialog ? lookups.partsById.get(placementDialog.partUuid) ?? null : null;
   const editedPlacement = placementDialog?.placementUuid
@@ -237,6 +286,28 @@ export function TeLabComponentsView({
       throw new Error("This desktop build does not expose the Lab catalog-v2 commands.");
     }
     return bridge as LabCatalogBridge;
+  }
+
+  function requireLocationBridge(): LabLocationBridge {
+    const bridge = window.inventoryDesktop;
+    if (
+      !bridge?.isDesktop
+      || LAB_LOCATION_BRIDGE_METHODS.some((method) => typeof bridge[method] !== "function")
+    ) {
+      throw new Error("This desktop build does not expose the Lab storage-location commands.");
+    }
+    return bridge as LabLocationBridge;
+  }
+
+  function requireSharedCutoverBridge(): LabSharedCutoverBridge {
+    const bridge = window.inventoryDesktop;
+    if (
+      !bridge?.isDesktop
+      || LAB_SHARED_CUTOVER_BRIDGE_METHODS.some((method) => typeof bridge[method] !== "function")
+    ) {
+      throw new Error("This desktop build does not expose the Lab shared-cutover commands.");
+    }
+    return bridge as LabSharedCutoverBridge;
   }
 
   async function savePart(part: Part | null, input: PartInput): Promise<void> {
@@ -343,6 +414,8 @@ export function TeLabComponentsView({
           void exportExcel();
         }}
         onExportHtml={exportHtml}
+        onManageLocations={locationsAvailable ? () => setLocationsOpen(true) : undefined}
+        onOpenSharedCutover={sharedCutoverAvailable ? () => setSharedCutoverOpen(true) : undefined}
         onScopeChange={setScope}
         onThemeToggle={onThemeToggle}
         onUpdateAction={() => {
@@ -460,6 +533,51 @@ export function TeLabComponentsView({
       {placementDialog && placementPart ? <PlacementDialog catalog={catalog} key={placementDialog.placementUuid ?? `new-${placementDialog.partUuid}`} onClose={() => setPlacementDialog(null)} onSave={savePlacement} part={placementPart} placement={editedPlacement} /> : null}
       {movePlacement ? <MoveStockDialog catalog={catalog} key={movePlacement.placementUuid} onClose={() => setMovePlacementUuid(null)} onMove={moveStock} source={movePlacement} /> : null}
       {countPlacement ? <CountStockDialog catalog={catalog} key={countPlacement.placementUuid} onClose={() => setCountPlacementUuid(null)} onCount={(input) => countStock(countPlacement, input)} placement={countPlacement} /> : null}
+      {locationsOpen ? (
+        <LocationManagerDialog
+          catalog={catalog}
+          onClose={() => setLocationsOpen(false)}
+          onCreateArea={async (input: StorageAreaInput) => {
+            const result = await requireLocationBridge().createLabStorageArea(input);
+            await refreshAfterMutation(result.message);
+          }}
+          onCreateContainer={async (input: StorageContainerInput) => {
+            const result = await requireLocationBridge().createLabStorageContainer(input);
+            await refreshAfterMutation(result.message);
+          }}
+          onDeleteArea={async (area: StorageArea) => {
+            const result = await requireLocationBridge().deleteLabStorageArea(area.areaUuid);
+            await refreshAfterMutation(result.message);
+          }}
+          onDeleteContainer={async (container: StorageContainer) => {
+            const result = await requireLocationBridge().deleteLabStorageContainer(container.containerUuid);
+            await refreshAfterMutation(result.message);
+          }}
+          onUpdateArea={async (area: StorageArea, input: StorageAreaInput) => {
+            const result = await requireLocationBridge().updateLabStorageArea(area.areaUuid, input);
+            await refreshAfterMutation(result.message);
+          }}
+          onUpdateContainer={async (container: StorageContainer, input: StorageContainerInput) => {
+            const result = await requireLocationBridge().updateLabStorageContainer(container.containerUuid, input);
+            await refreshAfterMutation(result.message);
+          }}
+          readOnly={!canModify}
+        />
+      ) : null}
+      {sharedCutoverOpen ? (
+        <SharedCutoverDialog
+          onClose={() => setSharedCutoverOpen(false)}
+          onCommit={async (preview: CatalogSharedCutoverPreview) => {
+            const result = await requireSharedCutoverBridge().commitLabSharedCutover({
+              localFingerprint: preview.localFingerprint,
+              confirmed: true,
+            });
+            await refreshCatalog();
+            return result;
+          }}
+          onPreview={() => requireSharedCutoverBridge().previewLabSharedCutover()}
+        />
+      ) : null}
     </>
   );
 }

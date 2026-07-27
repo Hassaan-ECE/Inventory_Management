@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoonIcon, PlusIcon, SunIcon } from "lucide-react";
+import { FileSpreadsheetIcon, MoonIcon, PlusIcon, SunIcon } from "lucide-react";
 
 import { ExportMenu } from "@/modules/te-test-equipment/components/header/ExportMenu";
 import { ScopeToggle } from "@/modules/te-test-equipment/components/header/ScopeToggle";
@@ -19,11 +19,13 @@ import { InventorySystemSwitcher } from "@/shell/InventorySystemSwitcher";
 interface InventoryHeaderProps {
   activeViewId: InventoryViewId;
   archiveCount: number;
+  calibrationRosterAvailable: boolean;
   canModifyEntries: boolean;
   inventoryCount: number;
   onAddEntry: () => void;
   onExportExcel: () => void;
   onExportHtml: () => void;
+  onInitializeCalibrationRoster: () => void;
   onScopeChange: (scope: InventoryScope) => void;
   onThemeToggle: () => void;
   onUpdateAction: () => void;
@@ -38,11 +40,13 @@ interface InventoryHeaderProps {
 export function InventoryHeader({
   activeViewId,
   archiveCount,
+  calibrationRosterAvailable,
   canModifyEntries,
   inventoryCount,
   onAddEntry,
   onExportExcel,
   onExportHtml,
+  onInitializeCalibrationRoster,
   onScopeChange,
   onThemeToggle,
   onUpdateAction,
@@ -109,6 +113,19 @@ export function InventoryHeader({
             {theme === "light" ? <MoonIcon className="size-3.5" /> : <SunIcon className="size-3.5" />}
           </Button>
           <ExportMenu onExportExcel={onExportExcel} onExportHtml={onExportHtml} onOpenChange={setExportOpen} />
+          {workspace === "calibration" && calibrationRosterAvailable ? (
+            <Button
+              aria-label="Initialize from Calibration Workbook"
+              className="size-8"
+              disabled={!canModifyEntries}
+              size="icon"
+              title="Initialize from Calibration Workbook"
+              variant="outline"
+              onClick={onInitializeCalibrationRoster}
+            >
+              <FileSpreadsheetIcon className="size-3.5" />
+            </Button>
+          ) : null}
           <Button
             aria-label={addEntryLabel}
             className="size-8"

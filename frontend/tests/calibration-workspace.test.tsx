@@ -109,7 +109,7 @@ describe("TE Test Equipment calibration table", () => {
     })).toBeInTheDocument();
   });
 
-  it("does not show roster initialization in the calibration workspace", async () => {
+  it("opens roster initialization in the calibration workspace when the desktop bridge supports it", async () => {
     const user = userEvent.setup();
     window.inventoryDesktop = createDesktopBridge({
       pickCalibrationRosterFile: vi.fn().mockResolvedValue(null),
@@ -122,7 +122,10 @@ describe("TE Test Equipment calibration table", () => {
     expect(await screen.findByText("Showing all 0 entries")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Initialize from Calibration Workbook" })).not.toBeInTheDocument();
     await switchTeTable(user, "TE Test Equipment Calibration");
-    expect(screen.queryByRole("button", { name: "Initialize from Calibration Workbook" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Initialize from Calibration Workbook" }));
+
+    expect(screen.getByRole("heading", { name: "Initialize from Calibration Workbook" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose Calibration Workbook" })).toBeInTheDocument();
   });
 
   it("edits the same equipment record from Calibration and reads the change from Equipment", async () => {

@@ -253,6 +253,9 @@ pub(crate) fn delete_entry_in_store(
     let entry = db
         .find_entry(entry_id)?
         .ok_or_else(|| "The selected entry could not be found.".to_string())?;
+    if !entry.archived {
+        return Err("Archive the entry before deleting it permanently.".to_string());
+    }
     let deleted_at_utc = now_timestamp();
     db.delete_entry(&entry)?;
     let sync_state = match queue_delete_sync_operation_before_flush(
@@ -390,10 +393,23 @@ mod tests {
         assert_eq!(updated.entry.description, "Updated");
         assert_local_outbox_status(&updated.mutation_mode, &updated.shared);
 
+        set_archived_entry_in_store(&created.entry.entry_uuid, true, &db).unwrap();
         let deleted = delete_entry_in_store(&created.entry.entry_uuid, &db).unwrap();
         assert_eq!(deleted.entry_id, "1");
         assert_local_outbox_status(&deleted.mutation_mode, &deleted.shared);
         assert!(db.load_entries().unwrap().is_empty());
+    }
+
+    #[test]
+    fn active_entries_must_be_archived_before_permanent_delete() {
+        let db = test_db();
+        let created = create_entry_in_store(test_input("Active"), &db).unwrap();
+
+        let error = delete_entry_in_store(&created.entry.entry_uuid, &db).unwrap_err();
+
+        assert!(error.contains("Archive the entry before deleting it permanently"));
+        assert!(db.find_entry(&created.entry.entry_uuid).unwrap().is_some());
+        assert_eq!(db.next_local_seq().unwrap(), 2);
     }
 
     #[test]
@@ -432,8 +448,9 @@ mod tests {
         let db = test_db();
         let created = create_entry_in_store(test_input("Tombstone"), &db).unwrap();
 
+        set_archived_entry_in_store(&created.entry.entry_uuid, true, &db).unwrap();
         delete_entry_in_store(&created.entry.entry_uuid, &db).unwrap();
-        let delete_op = read_outbox_operation(&db, 2);
+        let delete_op = read_outbox_operation(&db, 3);
         let tombstone = db
             .sync_tombstone::<SyncTombstoneRecord>(&created.entry.entry_uuid)
             .unwrap()

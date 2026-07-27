@@ -20,6 +20,7 @@ use model::CalibrationRequirement;
 use store::InventoryDb;
 
 #[test]
+#[ignore = "owner-only legacy workbook audit; set TE_LEGACY_AUDIT_XLSX"]
 fn inspect_legacy_headers_only() {
     let path = PathBuf::from(
         std::env::var("TE_LEGACY_AUDIT_XLSX").expect("TE_LEGACY_AUDIT_XLSX must be set"),
@@ -47,6 +48,7 @@ fn inspect_legacy_headers_only() {
 }
 
 #[test]
+#[ignore = "owner-only live database audit; set TE_INVENTORY_AUDIT_DB"]
 fn audit_live_database_snapshot_aggregates_only() {
     let path = PathBuf::from(
         std::env::var("TE_INVENTORY_AUDIT_DB").expect("TE_INVENTORY_AUDIT_DB must be set"),

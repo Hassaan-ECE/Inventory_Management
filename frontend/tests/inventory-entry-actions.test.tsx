@@ -99,6 +99,22 @@ describe("InventoryShell entry actions", () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
+  it("requires the archived state to be saved before the editor offers permanent delete", async () => {
+    const user = userEvent.setup();
+
+    render(<InventoryShell />);
+
+    await user.dblClick(screen.getByText("Industrial multimeter"));
+    await user.click(screen.getByRole("button", { name: "Archive Entry" }));
+    expect(screen.queryByRole("button", { name: "Delete Entry" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save Entry" }));
+    await user.click(screen.getAllByRole("button", { name: /Archive/i })[0]);
+    await user.dblClick(await screen.findByText("Industrial multimeter"));
+
+    expect(screen.getByRole("button", { name: "Delete Entry" })).toBeInTheDocument();
+  });
+
   it("opens a styled delete dialog and cancels without deleting", async () => {
     const user = userEvent.setup();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);

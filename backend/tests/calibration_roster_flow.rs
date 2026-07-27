@@ -1208,7 +1208,10 @@ fn apply_owner_calibration_roster_cutover_when_requested() {
         required_pending
     );
     assert!(result.entries_changed, "cutover should mutate entries");
-    assert_eq!(result.created, 0, "owner asked not to invent missing inventory rows");
+    assert_eq!(
+        result.created, 0,
+        "owner asked not to invent missing inventory rows"
+    );
     if required_pending > 0 {
         for entry in &required {
             if entry.verified_at.is_none() {
@@ -1220,12 +1223,25 @@ fn apply_owner_calibration_roster_cutover_when_requested() {
         }
     }
     // Prefer verified for all approved workbook matches; report any leftovers for owner review.
-    assert!(required_verified >= 78, "expected at least the matched workbook set verified");
+    assert!(
+        required_verified >= 78,
+        "expected at least the matched workbook set verified"
+    );
 }
 
 fn resolve_conflict_target(row: &CalibrationRosterRowOutcome) -> Option<String> {
-    let asset = row.asset_number.as_deref().unwrap_or("").trim().to_ascii_lowercase();
-    let serial = row.serial_number.as_deref().unwrap_or("").trim().to_ascii_lowercase();
+    let asset = row
+        .asset_number
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    let serial = row
+        .serial_number
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
     if !asset.is_empty() {
         let asset_matches: Vec<_> = row
             .candidate_entries
@@ -1236,9 +1252,10 @@ fn resolve_conflict_target(row: &CalibrationRosterRowOutcome) -> Option<String> 
             return Some(asset_matches[0].entry_uuid.clone());
         }
         if asset_matches.len() > 1 && !serial.is_empty() {
-            if let Some(hit) = asset_matches.iter().find(|c| {
-                c.serial_number.trim().to_ascii_lowercase() == serial
-            }) {
+            if let Some(hit) = asset_matches
+                .iter()
+                .find(|c| c.serial_number.trim().to_ascii_lowercase() == serial)
+            {
                 return Some(hit.entry_uuid.clone());
             }
             // Prefer the cleaner-looking serial (no leading +) among asset matches.
@@ -1266,7 +1283,11 @@ fn resolve_conflict_target(row: &CalibrationRosterRowOutcome) -> Option<String> 
 
 #[test]
 fn clear_cutover_verification_attribution_when_requested() {
-    if std::env::var("IM015_CLEAR_CUTOVER_VERIFIED_BY").ok().as_deref() != Some("1") {
+    if std::env::var("IM015_CLEAR_CUTOVER_VERIFIED_BY")
+        .ok()
+        .as_deref()
+        != Some("1")
+    {
         return;
     }
     let db_path = PathBuf::from(
@@ -1290,5 +1311,8 @@ fn clear_cutover_verification_attribution_when_requested() {
     }
     db.flush();
     println!("cleared verified_by on {cleared} entries");
-    assert!(cleared > 0, "expected to clear at least one cutover attribution");
+    assert!(
+        cleared > 0,
+        "expected to clear at least one cutover attribution"
+    );
 }

@@ -163,7 +163,8 @@ fn repair_live_appdata_catalog_outbox() {
     .expect("scan outbox");
 
     for local_seq in &remove {
-        db.delete_sync_outbox_record(*local_seq).expect("delete outbox");
+        db.delete_sync_outbox_record(*local_seq)
+            .expect("delete outbox");
     }
     let mut max_seq = 0u64;
     db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, _| {
@@ -174,7 +175,8 @@ fn repair_live_appdata_catalog_outbox() {
     if max_seq > 0 {
         let next = db.next_local_seq().expect("next_local_seq");
         if next <= max_seq {
-            db.set_next_local_seq(max_seq + 1).expect("set next_local_seq");
+            db.set_next_local_seq(max_seq + 1)
+                .expect("set next_local_seq");
         }
     }
     db.flush();
@@ -212,7 +214,8 @@ fn inventory_style_recovery_skips_catalog_entity_outbox_ops() {
     db.put_sync_outbox_record(1u64, &catalog_op).unwrap();
     db.set_next_local_seq(1).unwrap();
 
-    let report = recover_local_sync_state(&db).expect("recovery must not fail on catalog outbox ops");
+    let report =
+        recover_local_sync_state(&db).expect("recovery must not fail on catalog outbox ops");
     assert_eq!(report.repaired_outbox_operations, 0);
     // Sequence counter must still advance past the foreign outbox row.
     assert!(db.next_local_seq().unwrap() > 1);

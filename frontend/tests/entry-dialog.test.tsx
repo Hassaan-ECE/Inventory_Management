@@ -435,6 +435,27 @@ describe("EntryDialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("heading", { name: "Unsaved changes" })).not.toBeInTheDocument();
   });
+
+  it("does not expose permanent delete for an unsaved archive toggle", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+
+    render(
+      <EntryDialog
+        mode="edit"
+        entry={BASE_ENTRY}
+        onClose={vi.fn()}
+        onDelete={onDelete}
+        onSave={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Archive Entry" }));
+
+    expect(screen.getByRole("button", { name: "Restore to Inventory" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete Entry" })).not.toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
 });
 
 function mockMatchMedia(matches: boolean) {

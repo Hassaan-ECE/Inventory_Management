@@ -106,9 +106,7 @@ pub(crate) fn delete_part_in_store(
         .find_part(part_id)?
         .ok_or_else(|| "The selected part could not be found.".to_string())?;
     if !part.archived {
-        return Err(
-            "Archive the part before deleting it permanently.".to_string(),
-        );
+        return Err("Archive the part before deleting it permanently.".to_string());
     }
 
     // Permanent delete removes remaining stock placements with the part so the

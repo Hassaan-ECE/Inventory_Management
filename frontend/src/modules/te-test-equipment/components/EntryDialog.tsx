@@ -483,7 +483,7 @@ export function EntryDialog({
               }
               onClose={requestClose}
               onDelete={
-                mode === "edit" && entry && form.archived && onDelete ? onDelete : undefined
+                mode === "edit" && entry?.archived && onDelete ? onDelete : undefined
               }
             />
           </div>

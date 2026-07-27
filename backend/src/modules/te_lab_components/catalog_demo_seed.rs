@@ -42,7 +42,6 @@ pub(crate) fn reseed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
 }
 
 fn seed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
-
     let area = create_storage_area(normalize_storage_area_input(StorageAreaInput {
         name: "Main Lab".to_string(),
         area_type: "lab".to_string(),
@@ -57,8 +56,8 @@ fn seed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
         description: "Desk-side organizer".to_string(),
         ..StorageAreaInput::default()
     }));
-    let cabinet = create_storage_container(normalize_storage_container_input(
-        StorageContainerInput {
+    let cabinet =
+        create_storage_container(normalize_storage_container_input(StorageContainerInput {
             area_uuid: area.area_uuid.clone(),
             name: "Component Cabinet 1".to_string(),
             container_type: "cabinet".to_string(),
@@ -67,10 +66,9 @@ fn seed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
             column_count: Some(28),
             description: "Excel-style drawer grid".to_string(),
             ..StorageContainerInput::default()
-        },
-    ));
-    let organizer = create_storage_container(normalize_storage_container_input(
-        StorageContainerInput {
+        }));
+    let organizer =
+        create_storage_container(normalize_storage_container_input(StorageContainerInput {
             area_uuid: desk.area_uuid.clone(),
             name: "Organizer 1".to_string(),
             container_type: "organizer".to_string(),
@@ -78,8 +76,7 @@ fn seed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
             row_count: Some(6),
             column_count: Some(6),
             ..StorageContainerInput::default()
-        },
-    ));
+        }));
 
     db.put_storage_area(&area)?;
     db.put_storage_area(&desk)?;
@@ -128,10 +125,7 @@ fn seed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
             mounting_type: "through_hole".to_string(),
             package_type: "radial".to_string(),
             description: "MLCC ceramic, general purpose".to_string(),
-            attributes: attrs(&[
-                ("capacitance", "100", "nF"),
-                ("ratedVoltage", "50", "V"),
-            ]),
+            attributes: attrs(&[("capacitance", "100", "nF"), ("ratedVoltage", "50", "V")]),
             supplier: "DigiKey".to_string(),
             supplier_sku: "399-4151-ND".to_string(),
             supplier_packaging: "cut_tape".to_string(),
@@ -155,10 +149,7 @@ fn seed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
             mounting_type: "through_hole".to_string(),
             package_type: "TO-92".to_string(),
             description: "NPN general-purpose switching transistor".to_string(),
-            attributes: attrs(&[
-                ("deviceType", "NPN", ""),
-                ("voltageRating", "40", "V"),
-            ]),
+            attributes: attrs(&[("deviceType", "NPN", ""), ("voltageRating", "40", "V")]),
             supplier: "DigiKey".to_string(),
             supplier_sku: "2N3904BU-ND".to_string(),
             supplier_packaging: "bag".to_string(),
@@ -180,10 +171,7 @@ fn seed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
             mounting_type: "through_hole".to_string(),
             package_type: "T-1 3/4".to_string(),
             description: "High-efficiency red indicator LED".to_string(),
-            attributes: attrs(&[
-                ("color", "Red", ""),
-                ("forwardVoltage", "2.0", "V"),
-            ]),
+            attributes: attrs(&[("color", "Red", ""), ("forwardVoltage", "2.0", "V")]),
             supplier: "DigiKey".to_string(),
             supplier_sku: "754-1264-ND".to_string(),
             supplier_packaging: "bag".to_string(),

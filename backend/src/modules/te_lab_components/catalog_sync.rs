@@ -2478,8 +2478,7 @@ mod tests {
         assert!(
             !preview.blocking,
             "shared cutover blocked: root available={} legacy={}",
-            preview.shared_root_available,
-            preview.legacy_stream_state
+            preview.shared_root_available, preview.legacy_stream_state
         );
 
         let commit = commit_shared_cutover_with_root(
@@ -2538,13 +2537,18 @@ mod tests {
         let lab_path = PathBuf::from(local)
             .join("com.inventory.management")
             .join("te-lab-components.feox");
-        assert!(lab_path.is_file(), "missing Lab DB at {}", lab_path.display());
+        assert!(
+            lab_path.is_file(),
+            "missing Lab DB at {}",
+            lab_path.display()
+        );
 
         let file_size = std::fs::metadata(&lab_path)
             .expect("metadata")
             .len()
             .max(64 * 1024 * 1024);
-        let db = InventoryDb::open_at_with_size(lab_path.clone(), file_size).expect("open local Lab DB");
+        let db =
+            InventoryDb::open_at_with_size(lab_path.clone(), file_size).expect("open local Lab DB");
         let schema = db.schema_version().expect("schema");
         eprintln!("Lab DB {} schema_version={schema:?}", lab_path.display());
 
@@ -2612,9 +2616,7 @@ mod tests {
         })
         .expect("scan tombstones");
         for key in &tombstone_keys {
-            let entity = key
-                .strip_prefix("sync:tombstone:")
-                .unwrap_or(key.as_str());
+            let entity = key.strip_prefix("sync:tombstone:").unwrap_or(key.as_str());
             db.delete_sync_tombstone(entity)
                 .unwrap_or_else(|error| panic!("delete tombstone {entity}: {error}"));
             deleted_tombstones += 1;
@@ -2695,13 +2697,15 @@ mod tests {
             queue_upsert_operation(db, area.into(), Vec::new(), None).expect("queue area");
         }
         for container in db.load_storage_containers().expect("containers") {
-            queue_upsert_operation(db, container.into(), Vec::new(), None).expect("queue container");
+            queue_upsert_operation(db, container.into(), Vec::new(), None)
+                .expect("queue container");
         }
         for part in db.load_parts().expect("parts") {
             queue_upsert_operation(db, part.into(), Vec::new(), None).expect("queue part");
         }
         for placement in db.load_stock_placements().expect("placements") {
-            queue_upsert_operation(db, placement.into(), Vec::new(), None).expect("queue placement");
+            queue_upsert_operation(db, placement.into(), Vec::new(), None)
+                .expect("queue placement");
         }
     }
 }
