@@ -151,11 +151,10 @@ export function EntryDialog({
   }, [isSaving, requestClose, showAddToCalibrationPrompt, showUnsavedPrompt]);
 
   // Keep section in sync if requirement changes away from required (e.g. form edits).
-  useEffect(() => {
-    if (!onCalibrationRoster && section === "calibration") {
-      setSection("equipment");
-    }
-  }, [onCalibrationRoster, section]);
+  // Adjust during render when roster membership flips — avoids setState-in-effect lint.
+  if (!onCalibrationRoster && section === "calibration") {
+    setSection("equipment");
+  }
 
   function handleSectionSelect(nextSection: TeTestEquipmentWorkspace): void {
     if (nextSection === "equipment") {

@@ -1,7 +1,7 @@
 # Session handoff — Inventory Management
 
-**Last updated:** 2026-07-25
-**State:** Product `0.1.0`; IM-014 generalized Lab catalog and IM-015 TE Calibration workspace/roster tooling are integrated into `main` in the single active checkout. Full automated gates and a main-folder desktop startup smoke pass; owner manual workflow QA is ready. Neither live cutover has occurred.
+**Last updated:** 2026-07-27
+**State:** Product `0.1.1` (source version triple); IM-014 Lab catalog and IM-015 TE Calibration workspace/roster tooling are on `main`. UX polish (unsaved-close prompt, archive-first delete, color rows, recovery soft-fail) is integrated. Team installer for `0.1.1` not yet staged on S:. Neither live catalog nor calibration roster cutover has occurred.
 
 **New chat:** paste [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md).
 
@@ -17,7 +17,7 @@
 | Item | Value |
 |------|-------|
 | Display | Inventory Management |
-| Package | `inventory-management` `0.1.0` |
+| Package | `inventory-management` `0.1.1` |
 | Tauri id | `com.inventory.management` |
 | TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
@@ -32,7 +32,7 @@
 - TE uses the existing `inventory.feox` and sync schema v2.
 - Lab uses the separate `te-lab-components.feox` and IM-014 Lab-only catalog sync schema v2.
 - Shared roots, watcher sessions, sync gates, tokens, statuses, and events remain keyed by module.
-- First team release `0.1.0`, installer, updater metadata, and product roots already exist.
+- First team release `0.1.0` installer remains on S:; source is `0.1.1` pending signed restage. Product roots and updater metadata already exist.
 
 ## IM-014 — generalized Lab catalog
 

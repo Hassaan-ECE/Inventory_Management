@@ -6,11 +6,11 @@ import {
   CATALOG_COLUMNS,
   type CatalogColumnKey,
 } from "@/modules/te-lab-components/catalog/catalogColumns";
+import { CatalogSearchCard } from "@/modules/te-lab-components/catalog/CatalogSearchCard";
 import {
-  CatalogSearchCard,
   EMPTY_CATALOG_FILTERS,
   type CatalogFilters,
-} from "@/modules/te-lab-components/catalog/CatalogSearchCard";
+} from "@/modules/te-lab-components/catalog/catalogFilters";
 import {
   cycleCatalogSortState,
   sortCatalogParts,
@@ -156,11 +156,14 @@ export function TeLabComponentsView({
     : null;
 
   // Collapse filters when leaving Lab Components (switcher / other modules).
-  useEffect(() => {
-    if (!active) {
+  // Adjust during render when `active` flips — avoids setState-in-effect lint.
+  const [filtersOpenActive, setFiltersOpenActive] = useState(active);
+  if (filtersOpenActive !== active) {
+    setFiltersOpenActive(active);
+    if (!active && filtersOpen) {
       setFiltersOpen(false);
     }
-  }, [active]);
+  }
 
   useEffect(() => {
     localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(columnVisibility));
@@ -484,7 +487,8 @@ function readFilterPreferences(): CatalogFilters {
     const saved = JSON.parse(localStorage.getItem(FILTER_PREFERENCES_KEY) ?? "{}") as Partial<CatalogFilters> & {
       sortBy?: string;
     };
-    const { sortBy: _legacySortBy, ...filterFields } = saved;
+    const filterFields = { ...saved };
+    delete filterFields.sortBy;
     return {
       ...EMPTY_CATALOG_FILTERS,
       ...filterFields,

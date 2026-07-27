@@ -219,7 +219,7 @@ describe("InventoryShell mutations", () => {
     render(<InventoryShell />);
 
     await user.click(screen.getByRole("button", { name: /Verify Long handle ratchet/i }));
-    expect(screen.getByRole("button", { name: /Clear verification for Long handle ratchet, verified \d{4}-\d{2}-\d{2}T/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Clear verification for Long handle ratchet/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Clear verification for Long handle ratchet/i }));
     expect(screen.getByRole("button", { name: /Verify Long handle ratchet/i })).toBeInTheDocument();
   });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { DeleteConfirmationDialog } from "@/modules/te-test-equipment/components/shell/DeleteConfirmationDialog";
 import { CalibrationMembershipDialog } from "@/modules/te-test-equipment/components/calibration/CalibrationMembershipDialog";
@@ -102,12 +102,16 @@ export function TeTestEquipmentView({
   const workspaceColumns = getColumnsForWorkspace(workspace);
 
   // Collapse filters when leaving a table (Equipment ↔ Calibration) or the TE module.
-  useEffect(() => {
+  // Adjust during render when workspace/active flips — avoids setState-in-effect lint.
+  const [filterCollapseKey, setFilterCollapseKey] = useState(`${workspace}:${active}`);
+  const nextFilterCollapseKey = `${workspace}:${active}`;
+  if (filterCollapseKey !== nextFilterCollapseKey) {
+    setFilterCollapseKey(nextFilterCollapseKey);
     setWorkspaceViews((current) => ({
       equipment: { ...current.equipment, filtersOpen: false },
       calibration: { ...current.calibration, filtersOpen: false },
     }));
-  }, [workspace, active]);
+  }
   const {
     counts,
     displayEntries,

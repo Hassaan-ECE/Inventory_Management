@@ -91,6 +91,9 @@ describe("TE Test Equipment calibration table", () => {
     await user.click(screen.getByRole("button", { name: "Sort by Asset #" }));
 
     await switchTeTable(user, "TE Test Equipment");
+    // Filters collapse when switching tables; reopen to assert preserved values.
+    // Label becomes "Show filters (active)" when column filters are still applied.
+    await user.click(screen.getByRole("button", { name: /Show filters/i }));
     expect(screen.getByLabelText("Filter manufacturer")).toHaveValue("Fluke");
     expect(screen.queryByRole("columnheader", { name: /Links/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", {
@@ -98,6 +101,7 @@ describe("TE Test Equipment calibration table", () => {
     })).toBeInTheDocument();
 
     await switchTeTable(user, "TE Test Equipment Calibration");
+    await user.click(screen.getByRole("button", { name: /Show filters/i }));
     expect(screen.getByRole("button", { name: "Calibration requirement" })).toHaveTextContent("Reference only");
     expect(screen.getByRole("columnheader", { name: /Vendor/i })).toBeInTheDocument();
     expect(screen.getByRole("button", {

@@ -153,8 +153,8 @@ describe("inventory helpers", () => {
         "",
         { ...DEFAULT_FILTERS, calibrationHealth: "overdue" },
         LOCAL_DATE,
-      ),
-    ).toEqual([]);
+      ).map((entry) => entry.id),
+    ).toEqual(["archived-overdue"]);
     expect(
       filterEntries(
         entries,

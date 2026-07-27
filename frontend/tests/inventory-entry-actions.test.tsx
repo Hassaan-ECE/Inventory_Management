@@ -46,14 +46,14 @@ describe("InventoryShell entry actions", () => {
     expect(screen.getByText("Entry updated locally.")).toBeInTheDocument();
   });
 
-  it("keeps the edit actions in the sidebar on large viewports", async () => {
+  it("keeps the edit actions in the footer on large viewports", async () => {
     const user = userEvent.setup();
     mockMatchMedia(true);
     render(<InventoryShell />);
 
     await user.dblClick(screen.getByText("Stainless socket-head cap screws, 1/4-20"));
 
-    expect(screen.getByText("Database Metadata")).toBeInTheDocument();
+    expect(screen.getByText("Entry Context")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Save Entry" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Cancel" })).toHaveLength(1);
 
@@ -105,7 +105,11 @@ describe("InventoryShell entry actions", () => {
 
     render(<InventoryShell />);
 
+    // Archive-first: delete is only offered for archived entries.
     fireEvent.contextMenu(screen.getByText("Industrial multimeter"));
+    await user.click(await screen.findByRole("menuitem", { name: "Archive Entry" }));
+    await user.click(screen.getAllByRole("button", { name: /Archive/i })[0]);
+    fireEvent.contextMenu(await screen.findByText("Industrial multimeter"));
     await user.click(await screen.findByRole("menuitem", { name: "Delete Entry" }));
 
     expect(screen.getByText("Delete this entry?")).toBeInTheDocument();
@@ -125,6 +129,9 @@ describe("InventoryShell entry actions", () => {
     render(<InventoryShell />);
 
     fireEvent.contextMenu(screen.getByText("Industrial multimeter"));
+    await user.click(await screen.findByRole("menuitem", { name: "Archive Entry" }));
+    await user.click(screen.getAllByRole("button", { name: /Archive/i })[0]);
+    fireEvent.contextMenu(await screen.findByText("Industrial multimeter"));
     await user.click(await screen.findByRole("menuitem", { name: "Delete Entry" }));
     await user.click(screen.getByRole("button", { name: "Delete Entry" }));
 

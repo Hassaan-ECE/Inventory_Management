@@ -22,6 +22,8 @@ pub(crate) fn seed_demo_catalog_if_empty(db: &InventoryDb) -> CommandResult<()> 
 }
 
 /// Replace catalog content with the six-part demo set (local repair / shared re-bootstrap).
+/// Maintenance-only (ignored live tests); not used by the running app.
+#[cfg(test)]
 pub(crate) fn reseed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
     for placement in db.load_stock_placements()? {
         db.delete_stock_placement(&placement)?;
@@ -243,63 +245,75 @@ fn seed_demo_catalog(db: &InventoryDb) -> CommandResult<()> {
 
     put_placement(
         db,
-        &resistor.entry_uuid,
-        &cabinet.container_uuid,
-        Some(2),
-        Some(6),
-        180.0,
-        "bag",
-        "counted",
+        DemoPlacementSpec {
+            part_uuid: &resistor.entry_uuid,
+            container_uuid: &cabinet.container_uuid,
+            column_index: Some(2),
+            row_index: Some(6),
+            quantity: 180.0,
+            packaging: "bag",
+            count_state: "counted",
+        },
     )?;
     put_placement(
         db,
-        &resistor.entry_uuid,
-        &organizer.container_uuid,
-        Some(1),
-        Some(3),
-        25.0,
-        "bag",
-        "uncounted",
+        DemoPlacementSpec {
+            part_uuid: &resistor.entry_uuid,
+            container_uuid: &organizer.container_uuid,
+            column_index: Some(1),
+            row_index: Some(3),
+            quantity: 25.0,
+            packaging: "bag",
+            count_state: "uncounted",
+        },
     )?;
     put_placement(
         db,
-        &capacitor.entry_uuid,
-        &cabinet.container_uuid,
-        Some(4),
-        Some(2),
-        40.0,
-        "bag",
-        "uncounted",
+        DemoPlacementSpec {
+            part_uuid: &capacitor.entry_uuid,
+            container_uuid: &cabinet.container_uuid,
+            column_index: Some(4),
+            row_index: Some(2),
+            quantity: 40.0,
+            packaging: "bag",
+            count_state: "uncounted",
+        },
     )?;
     put_placement(
         db,
-        &led.entry_uuid,
-        &cabinet.container_uuid,
-        Some(8),
-        Some(1),
-        12.0,
-        "bag",
-        "counted",
+        DemoPlacementSpec {
+            part_uuid: &led.entry_uuid,
+            container_uuid: &cabinet.container_uuid,
+            column_index: Some(8),
+            row_index: Some(1),
+            quantity: 12.0,
+            packaging: "bag",
+            count_state: "counted",
+        },
     )?;
     put_placement(
         db,
-        &mcu.entry_uuid,
-        &cabinet.container_uuid,
-        Some(12),
-        Some(3),
-        6.0,
-        "tray",
-        "counted",
+        DemoPlacementSpec {
+            part_uuid: &mcu.entry_uuid,
+            container_uuid: &cabinet.container_uuid,
+            column_index: Some(12),
+            row_index: Some(3),
+            quantity: 6.0,
+            packaging: "tray",
+            count_state: "counted",
+        },
     )?;
     put_placement(
         db,
-        &connector.entry_uuid,
-        &cabinet.container_uuid,
-        Some(15),
-        Some(5),
-        3.0,
-        "reel_cut",
-        "uncounted",
+        DemoPlacementSpec {
+            part_uuid: &connector.entry_uuid,
+            container_uuid: &cabinet.container_uuid,
+            column_index: Some(15),
+            row_index: Some(5),
+            quantity: 3.0,
+            packaging: "reel_cut",
+            count_state: "uncounted",
+        },
     )?;
 
     db.set_next_entry_id(next_id)?;
@@ -318,28 +332,29 @@ fn put_part(
     Ok(part)
 }
 
-fn put_placement(
-    db: &InventoryDb,
-    part_uuid: &str,
-    container_uuid: &str,
+struct DemoPlacementSpec<'a> {
+    part_uuid: &'a str,
+    container_uuid: &'a str,
     column_index: Option<u32>,
     row_index: Option<u32>,
     quantity: f64,
-    packaging: &str,
-    count_state: &str,
-) -> CommandResult<()> {
-    let counted = count_state == "counted";
+    packaging: &'a str,
+    count_state: &'a str,
+}
+
+fn put_placement(db: &InventoryDb, spec: DemoPlacementSpec<'_>) -> CommandResult<()> {
+    let counted = spec.count_state == "counted";
     let placement = create_stock_placement(normalize_stock_placement_input(
         StockPlacementInput {
-            part_uuid: part_uuid.to_string(),
-            container_uuid: container_uuid.to_string(),
-            column_index,
-            row_index,
-            quantity,
+            part_uuid: spec.part_uuid.to_string(),
+            container_uuid: spec.container_uuid.to_string(),
+            column_index: spec.column_index,
+            row_index: spec.row_index,
+            quantity: spec.quantity,
             unit_of_measure: "pcs".to_string(),
-            packaging: packaging.to_string(),
+            packaging: spec.packaging.to_string(),
             condition: "new".to_string(),
-            count_state: count_state.to_string(),
+            count_state: spec.count_state.to_string(),
             last_counted_at: counted.then(now_timestamp),
             last_counted_by: if counted {
                 "demo-seed".to_string()

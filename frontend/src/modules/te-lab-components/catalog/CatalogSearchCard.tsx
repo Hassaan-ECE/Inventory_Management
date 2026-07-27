@@ -1,42 +1,13 @@
 import { ListFilterIcon, XIcon } from "lucide-react";
 
 import type { CatalogColumnKey } from "@/modules/te-lab-components/catalog/catalogColumns";
+import type { CatalogFilters } from "@/modules/te-lab-components/catalog/catalogFilters";
 import type { StockStatus, StorageArea } from "@/modules/te-lab-components/types";
 import { DropdownSelect } from "@/shared/components/ui/DropdownMenu";
 import { Button } from "@/shared/components/ui/button";
 import { ColorRowsButton } from "@/shared/components/ui/ColorRowsButton";
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
-
-export interface CatalogFilters {
-  areaUuid: string;
-  category: string;
-  containerUuid: string;
-  coordinate: string;
-  displayValue: string;
-  manufacturer: string;
-  manufacturerPartNumber: string;
-  mountingType: string;
-  packageType: string;
-  partStatus: string;
-  stockStatus: "" | StockStatus;
-  subcategory: string;
-}
-
-export const EMPTY_CATALOG_FILTERS: CatalogFilters = {
-  areaUuid: "",
-  category: "",
-  containerUuid: "",
-  coordinate: "",
-  displayValue: "",
-  manufacturer: "",
-  manufacturerPartNumber: "",
-  mountingType: "",
-  packageType: "",
-  partStatus: "",
-  stockStatus: "",
-  subcategory: "",
-};
 
 const STOCK_STATUS_OPTIONS: Array<{ value: "" | StockStatus; label: string }> = [
   { value: "", label: "All stock states" },
