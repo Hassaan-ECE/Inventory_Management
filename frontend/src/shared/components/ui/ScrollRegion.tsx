@@ -52,14 +52,8 @@ function assignRef<T>(ref: Ref<T | null> | undefined, value: T | null): void {
  *
  * - Hides the native scrollbar (`.scroll-region-viewport` in index.css)
  * - Shows top/bottom fade + chevron heads when more content exists
+ * - Locks overflow when content fits (no phantom 1px scroll)
  * - Theme-aware (light/dark via `from-card` / `text-foreground`)
- *
- * Usage:
- * - Full-height pane: `className="min-h-0 flex-1"` (default includes flex-1)
- * - Capped menus: `className="max-h-[min(20rem,calc(100vh-8rem))]"`
- * - Virtualized table: pass `scrollRef` + `onScroll`; optional `topCueStyle` under sticky headers
- *
- * Confirmed on the main inventory table — reuse elsewhere without changing table wiring.
  */
 export function ScrollRegion({
   children,
@@ -74,6 +68,7 @@ export function ScrollRegion({
 }: ScrollRegionProps) {
   const internalScrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollCue, setScrollCue] = useState<ScrollCue>({ top: false, bottom: false });
+  const [canScroll, setCanScroll] = useState(false);
 
   const setScrollNode = useCallback(
     (node: HTMLDivElement | null) => {
@@ -87,17 +82,24 @@ export function ScrollRegion({
     const element = internalScrollRef.current;
     if (!element) {
       setScrollCue({ top: false, bottom: false });
+      setCanScroll(false);
       return;
     }
 
-    const overflow = element.scrollHeight > element.clientHeight + 1;
+    // Tolerate sub-pixel / border noise so short menus don't get a phantom scroll shell.
+    const overflow = element.scrollHeight > element.clientHeight + 4;
+    if (!overflow && element.scrollTop !== 0) {
+      element.scrollTop = 0;
+    }
+
     const atTop = element.scrollTop <= 1;
-    const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 1;
+    const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 2;
     const nextCue = {
       top: overflow && !atTop,
       bottom: overflow && !atBottom,
     };
 
+    setCanScroll((current) => (current === overflow ? current : overflow));
     setScrollCue((current) =>
       current.top === nextCue.top && current.bottom === nextCue.bottom ? current : nextCue,
     );
@@ -106,16 +108,38 @@ export function ScrollRegion({
   useEffect(() => {
     updateScrollCue();
     const element = internalScrollRef.current;
-    if (!element || typeof ResizeObserver === "undefined") {
+    if (!element) {
       return;
     }
+
+    const handleWindowResize = (): void => {
+      updateScrollCue();
+    };
+    window.addEventListener("resize", handleWindowResize);
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => window.removeEventListener("resize", handleWindowResize);
+    }
+
     const observer = new ResizeObserver(() => updateScrollCue());
     observer.observe(element);
     if (element.firstElementChild) {
       observer.observe(element.firstElementChild);
     }
-    return () => observer.disconnect();
+    // Parent max-height changes (floating menus) often resize an ancestor, not this node.
+    if (element.parentElement) {
+      observer.observe(element.parentElement);
+    }
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", handleWindowResize);
+    };
   }, [updateScrollCue, children]);
+
+  // Re-measure after overflow mode flips (hidden ↔ auto changes clientHeight).
+  useEffect(() => {
+    updateScrollCue();
+  }, [canScroll, updateScrollCue]);
 
   const handleScroll: UIEventHandler<HTMLDivElement> = (event) => {
     updateScrollCue();
@@ -141,7 +165,10 @@ export function ScrollRegion({
         aria-label={ariaLabel}
         className={cn(
           // Prefer flex-1/min-h-0 over h-full: h-full fails when parent only has max-height.
-          "scroll-region-viewport min-h-0 flex-1 overflow-y-auto overflow-x-hidden",
+          // Only enable overflow when content actually exceeds the viewport — keeps short
+          // menus non-scrollable while still using the hidden native scrollbar style.
+          "scroll-region-viewport min-h-0 flex-1 overflow-x-hidden",
+          canScroll ? "overflow-y-auto" : "overflow-y-hidden",
           scrollClassName,
         )}
         onScroll={handleScroll}

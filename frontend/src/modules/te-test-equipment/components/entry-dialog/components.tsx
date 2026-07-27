@@ -1,4 +1,4 @@
-import { ExternalLinkIcon, FolderOpenIcon, ImageIcon, ImageOffIcon } from "lucide-react";
+import { ArchiveRestoreIcon, ExternalLinkIcon, FolderOpenIcon, ImageIcon, ImageOffIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -133,41 +133,88 @@ export function ContextRow({ label, value }: ContextRowProps) {
   );
 }
 
+/** Soft amber archive control — less intense than full warning solid. */
+export const ARCHIVE_BUTTON_CLASS =
+  "border-warning/30 bg-warning/12 text-warning-foreground hover:bg-warning/18";
+
 interface DialogActionsProps {
+  archived?: boolean;
   error: string | null;
   formId: string;
   isSaving: boolean;
-  layout: "footer" | "sidebar";
+  /** Edit mode: archive / restore the entry (sets archived flag; user still saves if needed). */
+  onArchiveToggle?: () => void;
+  /** Edit mode + archived only: hard delete. */
+  onDelete?: () => void;
   readOnly: boolean;
   onClose: () => void;
 }
 
-export function DialogActions({ error, formId, isSaving, layout, readOnly, onClose }: DialogActionsProps) {
-  if (layout === "sidebar") {
-    return (
-      <>
-        {error ? <p className="mb-3 text-sm text-destructive-foreground">{error}</p> : null}
-        <div className="flex flex-col gap-2">
-          <Button className="w-full" disabled={isSaving} variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button className="w-full" disabled={readOnly || isSaving} form={formId} type="submit">
-            {isSaving ? "Saving..." : "Save Entry"}
-          </Button>
-        </div>
-      </>
-    );
-  }
-
+export function DialogActions({
+  archived = false,
+  error,
+  formId,
+  isSaving,
+  onArchiveToggle,
+  onDelete,
+  readOnly,
+  onClose,
+}: DialogActionsProps) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      {error ? <p className="mr-auto text-sm text-destructive-foreground">{error}</p> : null}
-      <Button disabled={isSaving} variant="ghost" onClick={onClose}>
-        Cancel
-      </Button>
-      <Button disabled={readOnly || isSaving} form={formId} type="submit">
-        {isSaving ? "Saving..." : "Save Entry"}
-      </Button>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap gap-2">
+        {onArchiveToggle ? (
+          archived ? (
+            <>
+              <Button
+                className="border-success/30 bg-success/12 text-success-foreground hover:bg-success/18"
+                disabled={readOnly || isSaving}
+                type="button"
+                variant="outline"
+                onClick={onArchiveToggle}
+              >
+                <ArchiveRestoreIcon className="size-3.5" />
+                Restore to Inventory
+              </Button>
+              {onDelete ? (
+                <Button
+                  disabled={readOnly || isSaving}
+                  type="button"
+                  variant="destructive"
+                  onClick={onDelete}
+                >
+                  <Trash2Icon className="size-3.5" />
+                  Delete Entry
+                </Button>
+              ) : null}
+            </>
+          ) : (
+            <Button
+              className={ARCHIVE_BUTTON_CLASS}
+              disabled={readOnly || isSaving}
+              type="button"
+              variant="outline"
+              onClick={onArchiveToggle}
+            >
+              <ArchiveRestoreIcon className="size-3.5" />
+              Archive Entry
+            </Button>
+          )
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            {error ? null : "Changes apply when you save."}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {error ? <p className="mr-auto text-sm text-destructive-foreground sm:mr-2">{error}</p> : null}
+        <Button disabled={isSaving} type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button disabled={readOnly || isSaving} form={formId} type="submit">
+          {isSaving ? "Saving..." : "Save Entry"}
+        </Button>
+      </div>
     </div>
   );
 }

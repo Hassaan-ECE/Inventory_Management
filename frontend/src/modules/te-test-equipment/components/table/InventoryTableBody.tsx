@@ -1,4 +1,4 @@
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, CircleIcon } from "lucide-react";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { toSafeExternalUrl } from "@/shared/lib/externalUrl";
@@ -114,11 +114,19 @@ function InventoryTableRow({
         <td
           key={`${entry.id}-${column.key}`}
           className={cn(
-            "border-b border-border/60 px-2.5 py-2.5 text-sm text-foreground/92 sm:px-4 sm:py-3",
-            column.align === "center" ? "text-center" : "text-left",
+            "border-b border-border/60 px-2.5 py-2.5 text-sm text-foreground/92 sm:px-3 sm:py-3",
+            column.align === "center" || column.key === "verified"
+              ? "text-center align-middle"
+              : "text-left align-middle",
           )}
         >
-          {renderCell(entry, column, onToggleVerified, canModifyEntries, onOpenExternalLink, localDate)}
+          {column.key === "verified" || column.align === "center" ? (
+            <div className="flex w-full items-center justify-center">
+              {renderCell(entry, column, onToggleVerified, canModifyEntries, onOpenExternalLink, localDate)}
+            </div>
+          ) : (
+            renderCell(entry, column, onToggleVerified, canModifyEntries, onOpenExternalLink, localDate)
+          )}
         </td>
       ))}
     </tr>
@@ -142,23 +150,35 @@ function renderCell(
   localDate: string,
 ) {
   switch (column.key) {
-    case "verified":
+    case "verified": {
+      const verified = Boolean(entry.verifiedAt);
+      const title = verified ? "Verified" : "Pending verification";
       return (
         <button
-          aria-label={entry.verifiedAt
-            ? `Clear verification for ${entry.description}, verified ${entry.verifiedAt}${entry.verifiedBy ? ` by ${entry.verifiedBy}` : ""}`
-            : `Verify ${entry.description}`}
-          className="inline-flex items-center justify-center"
+          aria-label={
+            verified
+              ? `Clear verification for ${entry.description}`
+              : `Verify ${entry.description}`
+          }
+          className={cn(
+            "inline-flex size-5 shrink-0 aspect-square items-center justify-center rounded border transition-colors",
+            verified
+              ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-700 hover:bg-emerald-500/18 dark:text-emerald-300"
+              : "border-border bg-muted/40 text-muted-foreground hover:bg-muted/70",
+          )}
           disabled={!canModifyEntries}
+          title={title}
           type="button"
           onClick={() => onToggleVerified(entry.id)}
         >
-          <Badge size="sm" variant={entry.verifiedAt ? "success" : "outline"}>
-            {entry.verifiedAt ? <CheckIcon className="size-3" /> : null}
-            {entry.verifiedAt ? "Verified" : "Pending"}
-          </Badge>
+          {verified ? (
+            <CheckIcon aria-hidden className="size-3" />
+          ) : (
+            <CircleIcon aria-hidden className="size-2.5 opacity-70" />
+          )}
         </button>
       );
+    }
     case "assetNumber":
       return renderText(entry.assetNumber);
     case "serialNumber":
@@ -182,9 +202,9 @@ function renderCell(
     case "outToCalibration":
       return entry.outToCalibration ? <Badge size="sm" variant="warning">Out to cal</Badge> : renderText("No");
     case "lastCalibratedAt":
-      return renderText(entry.lastCalibratedAt ?? "");
+      return renderCompactDate(entry.lastCalibratedAt);
     case "calibrationDueAt":
-      return renderText(entry.calibrationDueAt ?? "");
+      return renderCompactDate(entry.calibrationDueAt);
     case "calibrationIntervalMonths":
       return renderText(entry.calibrationIntervalMonths == null ? "" : String(entry.calibrationIntervalMonths));
     case "certificateRef":
@@ -194,7 +214,8 @@ function renderCell(
     case "calibrationNotes":
       return renderText(entry.calibrationNotes ?? "");
     case "calibrationHealth": {
-      const health = deriveCalibrationHealth(entry, localDate);
+      // Include archived so Archive → Calibration still shows health badges.
+      const health = deriveCalibrationHealth(entry, localDate, 30, true);
       if (!health) return renderText("");
       const variant = health === "overdue" || health === "missing_due" ? "error" : health === "due_soon" || health === "out_to_cal" ? "warning" : health === "current" ? "success" : "outline";
       return <Badge size="sm" variant={variant}>{calibrationHealthLabel(health)}</Badge>;
@@ -238,6 +259,21 @@ function renderText(value: string | null | undefined) {
   );
 }
 
+/** Compact table display for date-only values: 2026-05-31 → 05/26. Full value stays on title. */
+function renderCompactDate(value: string | null | undefined) {
+  const full = value?.trim() ?? "";
+  if (!full) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+  const match = full.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?/);
+  const compact = match ? `${match[2]}/${match[1].slice(2)}` : full;
+  return (
+    <span className="block whitespace-nowrap tabular-nums" title={full}>
+      {compact}
+    </span>
+  );
+}
+
 function rowToneClass(
   entry: InventoryEntry,
   colorRows: boolean,
@@ -249,7 +285,8 @@ function rowToneClass(
   }
 
   if (workspace === "calibration") {
-    switch (deriveCalibrationHealth(entry, localDate)) {
+    // includeArchived: archive tab should still color by last known cal health.
+    switch (deriveCalibrationHealth(entry, localDate, 30, true)) {
       case "overdue":
       case "missing_due":
         return "bg-destructive/10";

@@ -20,6 +20,8 @@ const buttonVariants = cva(
         secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/90",
         "destructive-outline":
           "border-destructive/25 bg-background text-destructive-foreground hover:bg-destructive/8 dark:bg-input/30",
+        destructive:
+          "border-destructive bg-destructive text-white hover:bg-destructive/90",
       },
     },
     defaultVariants: {

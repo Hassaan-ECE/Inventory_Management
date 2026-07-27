@@ -97,7 +97,8 @@ export function filterEntries(
     ) {
       return false;
     }
-    const health = deriveCalibrationHealth(entry, localDate);
+    // includeArchived so archive-scope health / due-window filters still match.
+    const health = deriveCalibrationHealth(entry, localDate, 30, true);
     if (filters.calibrationHealth !== "all" && health !== filters.calibrationHealth) {
       return false;
     }

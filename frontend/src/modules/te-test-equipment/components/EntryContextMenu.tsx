@@ -95,9 +95,11 @@ export function EntryContextMenu({
           <DropdownItem disabled={!canModifyEntries} onClick={() => onAction("archive-toggle")}>
             {archiveLabel}
           </DropdownItem>
-          <DropdownItem destructive disabled={!canModifyEntries} onClick={() => onAction("delete")}>
-            Delete Entry
-          </DropdownItem>
+          {entry.archived ? (
+            <DropdownItem destructive disabled={!canModifyEntries} onClick={() => onAction("delete")}>
+              Delete Entry
+            </DropdownItem>
+          ) : null}
         </div>
       </div>
     </div>

@@ -1,22 +1,22 @@
 import { CheckIcon, MenuIcon } from "lucide-react";
 import { useId } from "react";
 
-import { getModuleHost, listModuleDefinitions } from "@/platform/modules/registry";
-import type { ModuleId } from "@/platform/modules/types";
+import { getInventoryViewDefinition, listInventoryViewDefinitions } from "@/platform/modules/registry";
+import type { InventoryViewId } from "@/platform/modules/types";
 import { DropdownItem, DropdownPanel } from "@/shared/components/ui/DropdownMenu";
 import { useDropdownMenu } from "@/shared/hooks/useDropdownMenu";
 import { cn } from "@/shared/lib/utils";
 
 interface InventorySystemSwitcherProps {
-  onChange: (id: ModuleId) => void;
+  onChange: (id: InventoryViewId) => void;
   onOpenChange?: (open: boolean) => void;
-  value: ModuleId;
+  value: InventoryViewId;
 }
 
 export function InventorySystemSwitcher({ onChange, onOpenChange, value }: InventorySystemSwitcherProps) {
   const listboxId = useId();
   const { open, menuRef, toggle, close } = useDropdownMenu({ onOpenChange });
-  const active = getModuleHost(value).definition;
+  const active = getInventoryViewDefinition(value);
 
   return (
     <div className="relative shrink-0" ref={menuRef}>
@@ -49,12 +49,12 @@ export function InventorySystemSwitcher({ onChange, onOpenChange, value }: Inven
       {open ? (
         <DropdownPanel
           align="left"
-          className="w-[min(16rem,calc(100vw-2rem))]"
-          maxHeightClassName="max-h-[min(20rem,calc(100vh-6rem))]"
+          className="w-[min(20rem,calc(100vw-2rem))]"
+          maxHeightClassName="max-h-[min(40rem,calc(100dvh-5rem))]"
           role="listbox"
         >
           <div id={listboxId}>
-            {listModuleDefinitions().map((system) => {
+            {listInventoryViewDefinitions().map((system) => {
               const isActive = system.id === value;
               return (
                 <DropdownItem

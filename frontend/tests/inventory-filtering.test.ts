@@ -212,9 +212,20 @@ describe("inventory helpers", () => {
       "blank-a",
       "blank-b",
     ]);
-    expect(sortEntries(entries, { column: "verified", direction: "desc" }, LOCAL_DATE).slice(-2).map(({ id }) => id)).toEqual([
+    // Verified is boolean-like: asc = verified first, desc = unverified first.
+    expect(sortEntries(entries, { column: "verified", direction: "asc" }, LOCAL_DATE).map(({ id }) => id)).toEqual([
+      "later",
+      "earlier-a",
+      "earlier-b",
       "blank-a",
       "blank-b",
+    ]);
+    expect(sortEntries(entries, { column: "verified", direction: "desc" }, LOCAL_DATE).map(({ id }) => id)).toEqual([
+      "blank-a",
+      "blank-b",
+      "later",
+      "earlier-a",
+      "earlier-b",
     ]);
     expect(sortEntries(entries, { column: "calibrationHealth", direction: "asc" }, LOCAL_DATE)[0]?.id).toBe("later");
   });

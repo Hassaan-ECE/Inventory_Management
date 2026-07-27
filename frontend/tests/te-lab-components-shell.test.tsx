@@ -142,6 +142,7 @@ describe("TE Lab Components catalog shell integration", () => {
 
     expect(screen.getByRole("columnheader", { name: "Stock Status" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Category" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Subcategory" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Manufacturer Part #" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Total Quantity" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Locations" })).toBeInTheDocument();
@@ -172,7 +173,7 @@ describe("TE Lab Components catalog shell integration", () => {
 
     render(<InventoryShell />);
 
-    await user.click(screen.getByRole("button", { name: /Edit CF14JT1K00/i }));
+    await user.dblClick(screen.getByText("CF14JT1K00"));
     const partDialog = screen.getByRole("dialog");
     await user.click(within(partDialog).getByRole("button", { name: "Add Placement" }));
 
@@ -193,24 +194,29 @@ describe("TE Lab Components catalog shell integration", () => {
 
     render(<InventoryShell />);
 
-    await user.click(screen.getByText("More Filters"));
-    await user.selectOptions(screen.getByLabelText("Filter subcategory"), "BJT");
+    await user.click(screen.getByRole("button", { name: "Show filters" }));
+    await user.click(screen.getByLabelText("Filter subcategory"));
+    await user.click(screen.getByRole("option", { name: "BJT" }));
 
     expect(screen.getByText("2N3904BU")).toBeInTheDocument();
     expect(screen.queryByText("CF14JT1K00")).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Filter subcategory"), "");
+    await user.click(screen.getByLabelText("Filter subcategory"));
+    await user.click(screen.getByRole("option", { name: "All subcategories" }));
     await user.type(screen.getByLabelText("Filter bin coordinate"), "C7");
 
     expect(screen.getByText("CF14JT1K00")).toBeInTheDocument();
     expect(screen.getByText("C315C104M5U5TA")).toBeInTheDocument();
     expect(screen.queryByText("2N3904BU")).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Sort catalog"), "manufacturer");
+    await user.click(screen.getByRole("button", { name: "Sort by Manufacturer" }));
     await waitFor(() => {
       expect(JSON.parse(localStorage.getItem("teLabComponents.catalog.v2.filters") ?? "{}")).toMatchObject({
         coordinate: "C7",
-        sortBy: "manufacturer",
+      });
+      expect(JSON.parse(localStorage.getItem("teLabComponents.catalog.v2.sort") ?? "null")).toMatchObject({
+        column: "manufacturer",
+        direction: "asc",
       });
     });
   });
@@ -275,7 +281,7 @@ describe("TE Lab Components catalog shell integration", () => {
 
     render(<InventoryShell />);
 
-    await user.click(await screen.findByRole("button", { name: /Edit MERGE-1/i }));
+    await user.dblClick(await screen.findByText("MERGE-1"));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add Placement" }));
     const dialogs = screen.getAllByRole("dialog");
     const placementDialog = dialogs[dialogs.length - 1];

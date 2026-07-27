@@ -28,7 +28,7 @@ export function ColumnMenu({ columns, onToggleColumn, visibility }: ColumnMenuPr
         <DropdownPanel
           align="right"
           className="w-64"
-          maxHeightClassName="max-h-[min(24rem,calc(100vh-8rem))]"
+          maxHeightClassName="max-h-[min(40rem,calc(100dvh-5rem))]"
           title="Visible columns"
         >
           {columns.map((column) => {

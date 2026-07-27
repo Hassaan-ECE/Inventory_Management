@@ -162,8 +162,10 @@ async function measureTableScroll(dataset: string, entries: readonly InventoryEn
 function BenchmarkTable({ entries }: { entries: readonly InventoryEntry[] }) {
   return (
     <InventoryTable
+      allColumns={INVENTORY_COLUMNS}
       canModifyEntries
       colorRows
+      columnVisibility={Object.fromEntries(INVENTORY_COLUMNS.map((column) => [column.key, true])) as never}
       columns={INVENTORY_COLUMNS}
       entries={[...entries]}
       sortState={{ column: "manufacturer", direction: "asc" }}
@@ -171,6 +173,7 @@ function BenchmarkTable({ entries }: { entries: readonly InventoryEntry[] }) {
       onOpenEntry={() => undefined}
       onOpenExternalLink={() => undefined}
       onSortChange={() => undefined}
+      onToggleColumn={() => undefined}
       onToggleVerified={() => undefined}
     />
   );

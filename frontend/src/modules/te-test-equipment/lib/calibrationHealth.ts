@@ -3,12 +3,24 @@ import type { CalibrationHealth, CalibrationRequirement, InventoryEntry } from "
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MILLISECONDS_PER_DAY = 86_400_000;
 
+/**
+ * Calibration health for current-state UI.
+ *
+ * Default due-soon window is 30 local calendar days. Owner backlog **IM-F01**
+ * (docs/planning/DECISIONS.md): expose `dueSoonDays` in a product Settings menu
+ * in a future release; keep FE/BE/export on the same value.
+ */
 export function deriveCalibrationHealth(
   entry: InventoryEntry,
   localDate: string,
   dueSoonDays = 30,
+  /**
+   * Status-strip / inventory counts skip archived rows (`false`).
+   * Archive table coloring, badges, filter, and sort pass `true`.
+   */
+  includeArchived = false,
 ): CalibrationHealth | null {
-  if (entry.archived) {
+  if (entry.archived && !includeArchived) {
     return null;
   }
   if (entry.calibrationRequirement === "reference_only" || entry.calibrationRequirement === "not_required") {

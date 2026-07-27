@@ -33,14 +33,13 @@ describe("InventoryShell views and exports", () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
 
-    await user.click(screen.getByRole("button", { name: "View settings" }));
-    await user.click(screen.getByRole("menuitem", { name: /Show filters/i }));
+    await user.click(screen.getByRole("button", { name: "Show filters" }));
     const manufacturerFilter = screen.getByLabelText("Filter manufacturer");
     await user.type(manufacturerFilter, "Mitutoyo");
 
     expect(screen.getByText("Showing 1 filtered entries")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Clear Column Filters" }));
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(screen.getByText("Showing all 10 entries")).toBeInTheDocument();
   });
 

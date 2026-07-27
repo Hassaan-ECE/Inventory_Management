@@ -1,4 +1,4 @@
-import { ExternalLinkIcon, FileTextIcon, PencilIcon } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 
 import {
   createCatalogLookups,
@@ -11,45 +11,200 @@ import {
   CATALOG_COLUMNS,
   type CatalogColumnKey,
 } from "@/modules/te-lab-components/catalog/catalogColumns";
+import type { CatalogSortState } from "@/modules/te-lab-components/catalog/catalogSorting";
 import type { CatalogSyncResult, Part, StockStatus } from "@/modules/te-lab-components/types";
 import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
+import { DropdownPanel } from "@/shared/components/ui/DropdownMenu";
+import { toSafeExternalUrl } from "@/shared/lib/externalUrl";
+import { placeFloatingMenu, type FloatingMenuPlacement } from "@/shared/lib/floatingMenu";
 import { cn } from "@/shared/lib/utils";
+
+/** Horizontal edge fade so the sort cue softens into the cell sides (matches TE tables). */
+const SORT_EDGE_MASK =
+  "[mask-image:linear-gradient(to_right,transparent_0%,black_32%,black_68%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_32%,black_68%,transparent_100%)]";
 
 interface PartsTableProps {
   catalog: CatalogSyncResult;
+  colorRows: boolean;
+  columnVisibility: Record<CatalogColumnKey, boolean>;
   onOpenExternal: (url: string) => void;
   onOpenPart: (part: Part) => void;
+  onSortChange: (columnKey: CatalogColumnKey) => void;
+  onToggleColumn: (columnKey: CatalogColumnKey) => void;
   parts: Part[];
+  sortState: CatalogSortState | null;
   visibleColumns: Record<CatalogColumnKey, boolean>;
 }
 
-export function PartsTable({ catalog, onOpenExternal, onOpenPart, parts, visibleColumns }: PartsTableProps) {
+interface ColumnMenuState extends FloatingMenuPlacement {
+  anchorX: number;
+  anchorY: number;
+}
+
+export function PartsTable({
+  catalog,
+  colorRows,
+  columnVisibility,
+  onOpenExternal,
+  onOpenPart,
+  onSortChange,
+  onToggleColumn,
+  parts,
+  sortState,
+  visibleColumns,
+}: PartsTableProps) {
   const lookups = createCatalogLookups(catalog);
   const columns = CATALOG_COLUMNS.filter((column) => visibleColumns[column.key]);
+  const [columnMenu, setColumnMenu] = useState<ColumnMenuState | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!columnMenu) {
+      return undefined;
+    }
+    function handlePointerDown(event: MouseEvent): void {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setColumnMenu(null);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setColumnMenu(null);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [columnMenu]);
+
+  useLayoutEffect(() => {
+    if (!columnMenu || !menuRef.current) {
+      return undefined;
+    }
+
+    function refinePlacement(): void {
+      const node = menuRef.current;
+      if (!node || !columnMenu) {
+        return;
+      }
+      const rect = node.getBoundingClientRect();
+      const next = placeFloatingMenu(columnMenu.anchorX, columnMenu.anchorY, {
+        width: rect.width,
+        height: rect.height,
+      });
+      if (
+        next.x !== columnMenu.x
+        || next.y !== columnMenu.y
+        || next.maxHeight !== columnMenu.maxHeight
+      ) {
+        setColumnMenu({
+          anchorX: columnMenu.anchorX,
+          anchorY: columnMenu.anchorY,
+          ...next,
+        });
+      }
+    }
+
+    refinePlacement();
+    window.addEventListener("resize", refinePlacement);
+    return () => window.removeEventListener("resize", refinePlacement);
+  }, [columnMenu]);
+
+  const visibleCount = CATALOG_COLUMNS.filter((column) => columnVisibility[column.key]).length;
+
+  function openColumnMenu(event: ReactMouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const placement = placeFloatingMenu(event.clientX, event.clientY);
+    setColumnMenu({
+      anchorX: event.clientX,
+      anchorY: event.clientY,
+      ...placement,
+    });
+  }
 
   return (
-    <div className="h-full overflow-auto rounded-xl border border-border bg-card/80 shadow-sm">
+    <div className="relative h-full overflow-auto rounded-xl border border-border bg-card/80 shadow-sm">
       <table className="min-w-full border-separate border-spacing-0 text-left text-xs">
-        <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
+        <thead className="sticky top-0 z-20 bg-card">
           <tr>
-            {columns.map((column) => (
-              <th className="whitespace-nowrap border-b border-border px-3 py-2.5 font-semibold" key={column.key} scope="col">
-                {column.label}
-              </th>
-            ))}
-            <th className="w-16 border-b border-border px-3 py-2.5" scope="col">
-              Actions
-            </th>
+            {columns.map((column) => {
+              const isActiveSort = sortState?.column === column.key;
+              const sortDirection = isActiveSort ? sortState.direction : null;
+              const sortLabel = !column.sortable
+                ? undefined
+                : isActiveSort
+                  ? sortState.direction === "asc"
+                    ? `Sort by ${column.label}, currently ascending. Activate for descending`
+                    : `Sort by ${column.label}, currently descending. Activate to clear sort`
+                  : `Sort by ${column.label}`;
+
+              return (
+                <th
+                  className={cn(
+                    // Match TE Equipment/Calibration header chrome (bg-card, full-cell sort hit target).
+                    "relative overflow-hidden whitespace-nowrap border-b border-border bg-card p-0 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
+                    isActiveSort && "text-foreground",
+                  )}
+                  key={column.key}
+                  scope="col"
+                  title="Right-click to show or hide columns"
+                  onContextMenu={openColumnMenu}
+                >
+                  {sortDirection === "asc" ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "pointer-events-none absolute inset-x-0 top-0 z-[1] h-2.5 bg-gradient-to-b from-foreground/22 via-foreground/10 to-transparent dark:from-foreground/28 dark:via-foreground/12",
+                        SORT_EDGE_MASK,
+                      )}
+                    />
+                  ) : null}
+                  {sortDirection === "desc" ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-2.5 bg-gradient-to-t from-foreground/22 via-foreground/10 to-transparent dark:from-foreground/28 dark:via-foreground/12",
+                        SORT_EDGE_MASK,
+                      )}
+                    />
+                  ) : null}
+
+                  {column.sortable ? (
+                    <button
+                      aria-label={sortLabel}
+                      aria-pressed={isActiveSort ? true : false}
+                      className="relative z-[1] flex min-h-[2.75rem] w-full min-w-0 cursor-pointer items-center justify-center px-1.5 py-2.5 transition-colors hover:bg-accent/35 hover:text-foreground sm:min-h-[3rem] sm:px-2 sm:py-3"
+                      type="button"
+                      onClick={() => onSortChange(column.key)}
+                      onContextMenu={openColumnMenu}
+                    >
+                      <span className="max-w-full truncate leading-none">{column.label}</span>
+                    </button>
+                  ) : (
+                    <span className="relative z-[1] flex min-h-[2.75rem] w-full items-center justify-center px-1.5 py-2.5 leading-none sm:min-h-[3rem] sm:px-2 sm:py-3">
+                      <span className="max-w-full truncate">{column.label}</span>
+                    </span>
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
           {parts.map((part) => {
             const summary = lookups.summariesByPartId.get(part.entryUuid);
             const placements = partPlacements(catalog, part.entryUuid);
+            const status = summary?.stockStatus ?? (part.archived ? "archived" : "no_stock");
             return (
               <tr
-                className="cursor-pointer bg-background/55 hover:bg-accent/45 focus-within:bg-accent/45"
+                className={cn(
+                  "cursor-pointer transition-colors hover:bg-accent/45 focus-within:bg-accent/45",
+                  stockRowToneClass(status, colorRows),
+                )}
                 key={part.entryUuid}
                 onDoubleClick={() => onOpenPart(part)}
               >
@@ -61,22 +216,55 @@ export function PartsTable({ catalog, onOpenExternal, onOpenPart, parts, visible
                       onOpenExternal={onOpenExternal}
                       part={part}
                       placements={placements}
-                      status={summary?.stockStatus ?? (part.archived ? "archived" : "no_stock")}
+                      status={status}
                       totals={summary ? formatTotals(summary) : "0"}
                     />
                   </td>
                 ))}
-                <td className="border-b border-border/65 px-3 py-2 align-top">
-                  <Button aria-label={`Edit ${part.manufacturerPartNumber || part.displayValue || part.id}`} onClick={() => onOpenPart(part)} size="xs" variant="ghost">
-                    <PencilIcon className="size-3.5" />
-                    Edit
-                  </Button>
-                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+
+      {columnMenu ? (
+        <div
+          className="fixed z-[60]"
+          ref={menuRef}
+          style={{ left: columnMenu.x, top: columnMenu.y }}
+        >
+          <DropdownPanel
+            align="left"
+            className="relative right-auto mt-0 w-72"
+            maxHeightPx={columnMenu.maxHeight}
+            title="Columns"
+          >
+            {CATALOG_COLUMNS.map((column) => {
+              const isLastVisible = columnVisibility[column.key] && visibleCount === 1;
+              return (
+                <label
+                  key={column.key}
+                  className={
+                    isLastVisible
+                      ? "flex cursor-not-allowed items-center justify-between rounded-xl px-3 py-2 text-sm text-muted-foreground opacity-60"
+                      : "flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-sm text-foreground hover:bg-accent/60"
+                  }
+                >
+                  <span>{column.label}</span>
+                  <input
+                    aria-label={column.label}
+                    checked={columnVisibility[column.key]}
+                    className="size-4 accent-[var(--primary)]"
+                    disabled={isLastVisible}
+                    type="checkbox"
+                    onChange={() => onToggleColumn(column.key)}
+                  />
+                </label>
+              );
+            })}
+          </DropdownPanel>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -97,12 +285,7 @@ function CatalogCell({ catalog, column, onOpenExternal, part, placements, status
     case "stockStatus":
       return <StockStatusBadge status={status} />;
     case "category":
-      return (
-        <div>
-          <div className="font-medium">{part.category || "Uncategorized"}</div>
-          {part.subcategory ? <div className="text-muted-foreground">{part.subcategory}</div> : null}
-        </div>
-      );
+      return part.category || "Uncategorized";
     case "manufacturerPartNumber":
       return <span className="font-medium">{part.manufacturerPartNumber || "—"}</span>;
     case "displayValue":
@@ -132,40 +315,48 @@ function CatalogCell({ catalog, column, onOpenExternal, part, placements, status
     }
     case "manufacturer":
       return part.manufacturer || "—";
-    case "documents":
+    case "links": {
+      const links = [
+        part.productUrl ? { url: part.productUrl, kind: "Product" as const } : null,
+        part.datasheetUrl ? { url: part.datasheetUrl, kind: "Datasheet" as const } : null,
+      ].filter((link): link is { url: string; kind: "Product" | "Datasheet" } => Boolean(link));
+
+      if (links.length === 0) {
+        return <span className="text-muted-foreground">—</span>;
+      }
+
       return (
-        <div className="flex gap-1">
-          {part.datasheetUrl ? (
-            <Button
-              aria-label={`Open datasheet for ${part.manufacturerPartNumber || part.id}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenExternal(part.datasheetUrl);
-              }}
-              size="xs"
-              variant="ghost"
-            >
-              <FileTextIcon className="size-3.5" />
-              Datasheet
-            </Button>
-          ) : null}
-          {part.productUrl ? (
-            <Button
-              aria-label={`Open product page for ${part.manufacturerPartNumber || part.id}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenExternal(part.productUrl);
-              }}
-              size="xs"
-              variant="ghost"
-            >
-              <ExternalLinkIcon className="size-3.5" />
-              Product
-            </Button>
-          ) : null}
-          {!part.productUrl && !part.datasheetUrl ? <span className="text-muted-foreground">—</span> : null}
+        <div className="flex min-w-0 flex-col gap-0.5">
+          {links.map((link) => {
+            const safeUrl = toSafeExternalUrl(link.url);
+            const label = formatCatalogLinkLabel(link.url) || link.kind;
+            if (!safeUrl) {
+              return (
+                <span className="block min-w-0 truncate font-mono text-xs text-muted-foreground" key={`${link.kind}-${link.url}`} title={link.url}>
+                  {label}
+                </span>
+              );
+            }
+            return (
+              <a
+                className="inline-block max-w-full truncate font-mono text-xs text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary"
+                href={safeUrl}
+                key={`${link.kind}-${safeUrl}`}
+                rel="noreferrer"
+                title={`${link.kind}: ${safeUrl}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onOpenExternal(safeUrl);
+                }}
+              >
+                {label}
+              </a>
+            );
+          })}
         </div>
       );
+    }
     case "internalPartNumber":
       return part.internalPartNumber || "—";
     case "subcategory":
@@ -174,16 +365,28 @@ function CatalogCell({ catalog, column, onOpenExternal, part, placements, status
       return part.supplier || "—";
     case "supplierSku":
       return part.supplierSku || "—";
-    case "reorderPoint":
-      return part.reorderPoint === null ? "—" : `${formatQuantity(part.reorderPoint)} ${part.defaultUnitOfMeasure}`;
-    case "targetQuantity":
-      return part.targetQuantity === null ? "—" : `${formatQuantity(part.targetQuantity)} ${part.defaultUnitOfMeasure}`;
     case "partStatus":
       return part.partStatus.replaceAll("_", " ");
-    case "updatedAt":
-      return part.updatedAt ? new Date(part.updatedAt).toLocaleDateString() : "—";
-    case "archived":
-      return part.archived ? "Yes" : "No";
+  }
+}
+
+function formatCatalogLinkLabel(link: string): string {
+  const text = link.trim();
+  if (!text) {
+    return "";
+  }
+  try {
+    const parsed = new URL(text);
+    const compact = `${parsed.host}${parsed.pathname.replace(/\/$/, "")}`;
+    if (compact.length <= 40) {
+      return compact;
+    }
+    return `${compact.slice(0, 37)}...`;
+  } catch {
+    if (text.length <= 40) {
+      return text;
+    }
+    return `${text.slice(0, 37)}...`;
   }
 }
 
@@ -210,4 +413,24 @@ export function StockStatusBadge({ status }: { status: StockStatus }) {
       {labels[status]}
     </Badge>
   );
+}
+
+function stockRowToneClass(status: StockStatus, colorRows: boolean): string {
+  if (!colorRows) {
+    return "bg-background/55";
+  }
+  switch (status) {
+    case "in_stock":
+      return "bg-success/10";
+    case "low_stock":
+      return "bg-warning/10";
+    case "no_stock":
+    case "archived":
+      return "bg-destructive/10";
+    case "unit_review":
+    case "mixed_units":
+      return "bg-sky-500/10";
+    default:
+      return "bg-background/55";
+  }
 }

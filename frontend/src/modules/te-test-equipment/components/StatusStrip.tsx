@@ -5,18 +5,14 @@ import { cn } from "@/shared/lib/utils";
 interface StatusStripProps {
   counts?: InventoryCounts;
   message?: string;
-  resultCount?: number;
   resultsLabel?: string;
-  trackedCount?: number;
   workspace?: TeTestEquipmentWorkspace;
 }
 
 export function StatusStrip({
   message,
   counts,
-  resultCount,
   resultsLabel,
-  trackedCount,
   workspace = "equipment",
 }: StatusStripProps) {
   return (
@@ -26,14 +22,17 @@ export function StatusStrip({
           {resultsLabel ? <span className="shrink-0 text-muted-foreground">{resultsLabel}</span> : null}
           {message ? <span className="min-w-0 truncate text-muted-foreground">{message}</span> : null}
           {counts ? (
-            <div aria-label={workspace === "calibration" ? "Calibration status counts" : "Inventory status counts"} className="flex flex-wrap">
-              {workspace === "calibration" ? <CountPill label="Tracked" value={trackedCount ?? 0} tone="info" /> : null}
-              {workspace === "calibration" ? <CountPill label="Results" value={resultCount ?? 0} tone="muted" /> : null}
+            <div
+              aria-label={workspace === "calibration" ? "Calibration status counts" : "Inventory status counts"}
+              className="flex flex-wrap"
+            >
               <CountPill label="Verified" value={`${counts.verified}/${counts.total}`} tone="success" />
-              <CountPill label="Overdue" value={counts.overdue} tone="danger" />
-              <CountPill label="Due soon" value={counts.dueSoon} tone="warning" />
-              <CountPill label="Missing due" value={counts.missingDue} tone="muted" />
-              <CountPill label="Out to cal" value={counts.outToCal} tone="info" />
+              {workspace === "calibration" ? (
+                <>
+                  <CountPill label="Overdue" value={counts.overdue} tone="danger" />
+                  <CountPill label="Due soon" value={counts.dueSoon} tone="warning" />
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>

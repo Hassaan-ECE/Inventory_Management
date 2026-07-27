@@ -8,6 +8,10 @@ export type ModuleId =
   | "me-storage"
   | "te-storage";
 
+export const TE_TEST_EQUIPMENT_CALIBRATION_VIEW_ID = "te-test-equipment-calibration" as const;
+
+export type InventoryViewId = ModuleId | typeof TE_TEST_EQUIPMENT_CALIBRATION_VIEW_ID;
+
 export interface InventoryModuleDefinition {
   id: ModuleId;
   label: string;
@@ -15,12 +19,18 @@ export interface InventoryModuleDefinition {
   sharedFolderName: string;
 }
 
+export interface InventoryViewDefinition {
+  id: InventoryViewId;
+  label: string;
+  moduleId: ModuleId;
+}
+
 /** Shell chrome passed into implemented modules so they can render one unified top bar. */
 export interface DesktopModuleViewProps {
   active: boolean;
-  activeModuleId: ModuleId;
-  onModuleChange: (id: ModuleId) => void;
+  activeViewId: InventoryViewId;
   onThemeToggle: () => void;
+  onViewChange: (id: InventoryViewId) => void;
   theme: ThemeMode;
 }
 

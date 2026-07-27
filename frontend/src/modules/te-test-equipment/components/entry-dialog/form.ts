@@ -219,6 +219,32 @@ export function formatOptionLabel(option: string): string {
   return option.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+/** Soft colors for entry-dialog status selects (working / lifecycle / cal requirement). */
+export function statusOptionTone(
+  option: string,
+): "success" | "warning" | "danger" | "muted" | "info" | undefined {
+  switch (option) {
+    case "working":
+    case "active":
+    case "required":
+      return "success";
+    case "limited":
+    case "repair":
+    case "rental":
+    case "reference_only":
+      return "warning";
+    case "not_working":
+    case "missing":
+    case "scrapped":
+      return "danger";
+    case "unknown":
+    case "not_required":
+      return "muted";
+    default:
+      return undefined;
+  }
+}
+
 export function suggestCalibrationDueDate(lastCalibratedAt: string, intervalMonths: number): string | null {
   if (!isValidDateOnly(lastCalibratedAt) || !Number.isInteger(intervalMonths) || intervalMonths < 1 || intervalMonths > 1200) return null;
   const [year, month, day] = lastCalibratedAt.split("-").map(Number) as [number, number, number];

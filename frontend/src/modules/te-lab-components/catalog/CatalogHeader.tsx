@@ -1,114 +1,142 @@
-import { BoxesIcon, DownloadIcon, MapPinnedIcon, MoonIcon, PlusIcon, SunIcon, WifiIcon } from "lucide-react";
+import { useState } from "react";
+import { MoonIcon, PlusIcon, SunIcon } from "lucide-react";
 
-import type { CatalogCounts, CatalogScope, InventorySharedStatus } from "@/modules/te-lab-components/types";
-import type { ModuleId } from "@/platform/modules/types";
+import { ExportMenu } from "@/modules/te-lab-components/components/header/ExportMenu";
+import { UpdateActionButton } from "@/modules/te-lab-components/components/header/UpdateActionButton";
+import type { CatalogCounts, CatalogScope, InventorySharedStatus, UpdateState } from "@/modules/te-lab-components/types";
+import type { InventoryViewId } from "@/platform/modules/types";
 import type { ThemeMode } from "@/platform/ui/theme";
 import { Button } from "@/shared/components/ui/button";
+import { cn } from "@/shared/lib/utils";
 import { InventorySystemSwitcher } from "@/shell/InventorySystemSwitcher";
 
 interface CatalogHeaderProps {
-  activeModuleId: ModuleId;
+  activeViewId: InventoryViewId;
   canModify: boolean;
   counts: CatalogCounts;
   onAddPart: () => void;
-  onExport: () => void;
-  onLocations: () => void;
-  onModuleChange: (id: ModuleId) => void;
+  onExportExcel: () => void;
+  onExportHtml: () => void;
   onScopeChange: (scope: CatalogScope) => void;
-  onSharedSetup: () => void;
   onThemeToggle: () => void;
+  onUpdateAction: () => void;
+  onViewChange: (id: InventoryViewId) => void;
   scope: CatalogScope;
   shared: InventorySharedStatus;
   theme: ThemeMode;
+  updateState: UpdateState;
 }
 
 export function CatalogHeader({
-  activeModuleId,
+  activeViewId,
   canModify,
   counts,
   onAddPart,
-  onExport,
-  onLocations,
-  onModuleChange,
+  onExportExcel,
+  onExportHtml,
   onScopeChange,
-  onSharedSetup,
   onThemeToggle,
+  onUpdateAction,
+  onViewChange,
   scope,
   shared,
   theme,
+  updateState,
 }: CatalogHeaderProps) {
+  const [exportOpen, setExportOpen] = useState(false);
+  const [systemMenuOpen, setSystemMenuOpen] = useState(false);
   const sharedReady = shared.enabled && shared.available;
-  const modeTitle = shared.message || (sharedReady ? "Shared catalog synchronization is ready." : "Changes stay local.");
+  const isLocalOnly = !shared.enabled;
+  const themeLabel = theme === "light" ? "Dark Theme" : "Light Theme";
+  const modeTitle =
+    shared.message?.trim() ||
+    (sharedReady
+      ? "Shared catalog synchronization is ready."
+      : isLocalOnly
+        ? "Shared sync is off for this session. Changes stay on this computer; sync is not a backup."
+        : "Changes stay local.");
 
   return (
-    <header className="relative z-30 shrink-0 border-b border-border px-3 py-3 sm:px-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-          <InventorySystemSwitcher value={activeModuleId} onChange={onModuleChange} />
+    <header
+      className={cn(
+        "relative shrink-0 border-b border-border px-3 py-3 sm:px-5",
+        // Keep switcher / export menus above search, filters, and table chrome.
+        exportOpen || systemMenuOpen ? "z-[80]" : "z-40",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <InventorySystemSwitcher
+            value={activeViewId}
+            onChange={onViewChange}
+            onOpenChange={setSystemMenuOpen}
+          />
           <span
             className={
               sharedReady
-                ? "rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-emerald-700 dark:text-emerald-300"
-                : "rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-muted-foreground"
+                ? "shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-emerald-700 dark:text-emerald-300"
+                : "shrink-0 rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-muted-foreground"
             }
             title={modeTitle}
           >
             {sharedReady ? "Shared" : "Local"}
           </span>
-          <span className="hidden items-center gap-1 text-xs text-muted-foreground lg:flex">
-            <BoxesIcon className="size-3.5" />
-            {counts.totalParts.toLocaleString()} catalog parts
-          </span>
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <div className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5" aria-label="Catalog scope">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <UpdateActionButton state={updateState} onClick={onUpdateAction} />
+          <div className="inline-flex rounded-2xl border border-border/70 bg-card/80 p-1" aria-label="Catalog scope">
             <button
               aria-pressed={scope === "inventory"}
-              className={
+              className={cn(
+                "rounded-xl px-3 py-1.5 text-sm font-medium transition-colors",
                 scope === "inventory"
-                  ? "rounded-md bg-background px-2.5 py-1.5 text-xs font-medium shadow-sm"
-                  : "rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-              }
-              onClick={() => onScopeChange("inventory")}
+                  ? "bg-success/15 text-success-foreground"
+                  : "text-success-foreground/80 hover:bg-success/10 hover:text-success-foreground",
+              )}
               type="button"
+              onClick={() => onScopeChange("inventory")}
             >
-              Inventory {counts.activeParts}
+              Inventory ({counts.activeParts})
             </button>
             <button
               aria-pressed={scope === "archive"}
-              className={
+              className={cn(
+                "rounded-xl px-3 py-1.5 text-sm font-medium transition-colors",
                 scope === "archive"
-                  ? "rounded-md bg-background px-2.5 py-1.5 text-xs font-medium shadow-sm"
-                  : "rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-              }
-              onClick={() => onScopeChange("archive")}
+                  ? "bg-warning/15 text-warning-foreground"
+                  : "text-warning-foreground/80 hover:bg-warning/10 hover:text-warning-foreground",
+              )}
               type="button"
+              onClick={() => onScopeChange("archive")}
             >
-              Archive {counts.archivedParts}
+              Archive ({counts.archivedParts})
             </button>
           </div>
-          {!sharedReady && shared.enabled ? (
-            <Button onClick={onSharedSetup} size="sm" variant="outline">
-              <WifiIcon className="size-3.5" />
-              Shared Setup
-            </Button>
-          ) : null}
-          <Button onClick={onLocations} size="sm" variant="outline">
-            <MapPinnedIcon className="size-3.5" />
-            Locations
-          </Button>
-          <Button onClick={onExport} size="sm" variant="outline">
-            <DownloadIcon className="size-3.5" />
-            Export
-          </Button>
-          <Button aria-label="Toggle theme" onClick={onThemeToggle} size="sm" variant="outline">
+          <Button
+            aria-label={themeLabel}
+            className="size-8"
+            size="icon"
+            title={themeLabel}
+            variant="outline"
+            onClick={onThemeToggle}
+          >
             {theme === "light" ? <MoonIcon className="size-3.5" /> : <SunIcon className="size-3.5" />}
-            <span className="hidden sm:inline">{theme === "light" ? "Dark" : "Light"}</span>
           </Button>
-          <Button disabled={!canModify} onClick={onAddPart} size="sm">
+          <ExportMenu
+            onExportExcel={onExportExcel}
+            onExportHtml={onExportHtml}
+            onOpenChange={setExportOpen}
+          />
+          <Button
+            aria-label="Add Part"
+            className="size-8"
+            disabled={!canModify}
+            size="icon"
+            title="Add Part"
+            onClick={onAddPart}
+          >
             <PlusIcon className="size-3.5" />
-            Add Part
           </Button>
         </div>
       </div>

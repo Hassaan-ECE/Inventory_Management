@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { ScrollRegion } from "@/shared/components/ui/ScrollRegion";
 import { cn } from "@/shared/lib/utils";
 
 interface CatalogDialogProps {
@@ -37,30 +38,21 @@ export function CatalogDialog({
           wide ? "max-w-6xl" : "max-w-3xl",
         )}
         role="dialog"
+        onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="shrink-0 border-b border-border px-5 py-4">
-          <div className="flex items-start gap-4">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold" id="catalog-dialog-title">
-                {title}
-              </h2>
-              {description ? (
-                <p className="mt-1 text-sm text-muted-foreground" id="catalog-dialog-description">
-                  {description}
-                </p>
-              ) : null}
-            </div>
-            <button
-              aria-label="Close dialog"
-              className="rounded-lg border border-border px-2.5 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-              onClick={onClose}
-              type="button"
-            >
-              Close
-            </button>
-          </div>
+          <h2 className="text-lg font-semibold" id="catalog-dialog-title">
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-1 text-sm text-muted-foreground" id="catalog-dialog-description">
+              {description}
+            </p>
+          ) : null}
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
+        <ScrollRegion className="min-h-0 flex-1" contentClassName="px-5 py-4">
+          {children}
+        </ScrollRegion>
         {footer ? <div className="shrink-0 border-t border-border px-5 py-3">{footer}</div> : null}
       </section>
     </div>

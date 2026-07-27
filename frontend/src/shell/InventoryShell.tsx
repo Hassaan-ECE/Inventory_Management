@@ -10,7 +10,7 @@ import { ShellStatusStrip } from "./ShellStatusStrip";
 import { useShellActiveModule } from "./useShellActiveModule";
 
 export function InventoryShell() {
-  const { activeHost, activeModuleId, selectModule } = useShellActiveModule();
+  const { activeHost, activeModuleId, activeView, activeViewId, selectView } = useShellActiveModule();
   const [theme, setTheme] = useState(() => readTheme());
 
   useEffect(() => {
@@ -19,8 +19,8 @@ export function InventoryShell() {
   }, [theme]);
 
   useEffect(() => {
-    document.title = `Inventory Management — ${activeHost.definition.label} v${APP_VERSION}`;
-  }, [activeHost.definition.label]);
+    document.title = `Inventory Management — ${activeView.label} v${APP_VERSION}`;
+  }, [activeView.label]);
 
   const onThemeToggle = (): void => {
     setTheme((current) => (current === "light" ? "dark" : "light"));
@@ -34,9 +34,9 @@ export function InventoryShell() {
         {/* Placeholder modules: shell-only chrome (switcher + theme). TE owns a unified top bar. */}
         {activeHost.kind === "placeholder" ? (
           <ShellHeader
-            activeModuleId={activeModuleId}
-            onModuleChange={selectModule}
+            activeViewId={activeViewId}
             onThemeToggle={onThemeToggle}
+            onViewChange={selectView}
             theme={theme}
           />
         ) : null}
@@ -49,10 +49,10 @@ export function InventoryShell() {
           return (
             <MainView
               active={activeModuleId === host.definition.id}
-              activeModuleId={activeModuleId}
+              activeViewId={activeViewId}
               key={host.definition.id}
-              onModuleChange={selectModule}
               onThemeToggle={onThemeToggle}
+              onViewChange={selectView}
               theme={theme}
             />
           );

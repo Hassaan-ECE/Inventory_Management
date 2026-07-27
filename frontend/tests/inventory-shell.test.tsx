@@ -3,8 +3,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { APP_CREDIT, APP_VERSION } from "@/app/branding";
-import { MOCK_INVENTORY } from "@/modules/te-test-equipment/data/mockInventory";
-import { getInventoryCounts } from "@/modules/te-test-equipment/lib";
 import type { InventoryEntry } from "@/modules/te-test-equipment/types";
 import { InventoryShell } from "@/shell/InventoryShell";
 import {
@@ -25,7 +23,6 @@ describe("InventoryShell loading and search", () => {
   });
 
   it("renders the inventory view by default with seeded counts", () => {
-    const counts = getInventoryCounts(MOCK_INVENTORY);
     render(<InventoryShell />);
 
     expect(screen.getAllByText("TE Test Equipment")).toHaveLength(1);
@@ -47,22 +44,37 @@ describe("InventoryShell loading and search", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Showing all 10 entries")).toBeInTheDocument();
     expect(screen.queryByText(/Total:\s*\d+/i)).not.toBeInTheDocument();
-    expect(screen.getByText(`Overdue: ${counts.overdue}`)).toBeInTheDocument();
-    expect(screen.getByText(`Due soon: ${counts.dueSoon}`)).toBeInTheDocument();
-    expect(screen.getByText(`Missing due: ${counts.missingDue}`)).toBeInTheDocument();
-    expect(screen.getByText(`Out to cal: ${counts.outToCal}`)).toBeInTheDocument();
+    // Equipment footer keeps results + credit; cal health pills live on Calibration only.
+    expect(screen.queryByText(/Overdue:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Missing due:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Out to cal:/)).not.toBeInTheDocument();
     expect(screen.getByText("Local")).toBeInTheDocument();
     expect(screen.getByText(/Built by Syed Hassaan Shah/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /Manufacturer/i })).toBeInTheDocument();
   });
 
+  it("keeps compact toolbar actions accessible by name", () => {
+    render(<InventoryShell />);
+
+    const themeButton = screen.getByRole("button", { name: "Dark Theme" });
+    const exportButton = screen.getByRole("button", { name: "Export" });
+    const addEntryButton = screen.getByRole("button", { name: "Add Entry" });
+
+    expect(themeButton).toHaveAttribute("title", "Dark Theme");
+    expect(themeButton).not.toHaveTextContent("Dark Theme");
+    expect(exportButton).toHaveAttribute("title", "Export");
+    expect(exportButton).not.toHaveTextContent("Export");
+    expect(addEntryButton).toHaveAttribute("title", "Add Entry");
+    expect(addEntryButton).not.toHaveTextContent("Add Entry");
+  });
+
   it("shows semantic calibration filters", async () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
-    await user.click(screen.getByRole("button", { name: "Calibration" }));
-    await user.click(screen.getByRole("button", { name: "View settings" }));
-    await user.click(screen.getByRole("menuitem", { name: /Show filters/i }));
+    await user.click(screen.getByRole("button", { name: "Switch inventory system" }));
+    await user.click(screen.getByRole("option", { name: "TE Test Equipment Calibration" }));
+    await user.click(screen.getByRole("button", { name: "Show filters" }));
     expect(screen.getByLabelText("Calibration requirement")).toBeInTheDocument();
     expect(screen.getByLabelText("Calibration health")).toBeInTheDocument();
     expect(screen.getByLabelText("Due window")).toBeInTheDocument();

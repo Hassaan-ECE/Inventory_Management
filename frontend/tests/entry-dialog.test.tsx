@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { EntryDialog } from "@/modules/te-test-equipment/components/EntryDialog";
@@ -228,9 +228,16 @@ describe("EntryDialog", () => {
   it("shows and preserves every calibration and verification field while editing", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
-    render(<EntryDialog defaultSection="calibration" mode="edit" entry={{ ...BASE_ENTRY, calibrationRequirement: "reference_only", outToCalibration: true }} onClose={vi.fn()} onSave={onSave} />);
+    const rosterEntry = {
+      ...BASE_ENTRY,
+      calibrationRequirement: "required" as const,
+      outToCalibration: true,
+    };
+    render(
+      <EntryDialog defaultSection="calibration" mode="edit" entry={rosterEntry} onClose={vi.fn()} onSave={onSave} />,
+    );
 
-    expect(screen.getByRole("button", { name: "Calibration requirement" })).toHaveTextContent(/Reference only/i);
+    expect(screen.getByRole("button", { name: "Calibration requirement" })).toHaveTextContent(/Required/i);
     expect(screen.getByLabelText("Out to calibration")).toBeChecked();
     expect(screen.getByLabelText("Last calibrated")).toHaveValue("2026-01-31");
     expect(screen.getByLabelText("Calibration due")).toHaveValue("2027-01-31");
@@ -239,11 +246,11 @@ describe("EntryDialog", () => {
     expect(screen.getByLabelText("Calibration vendor")).toHaveValue("Acme Calibration");
     expect(screen.getByLabelText("Calibration notes")).toHaveValue("Return through metrology intake");
     expect(screen.getByLabelText("Verified by")).toHaveValue("Avery");
-    expect(screen.getByText(/Verified 2026-04-23T09:00:00Z/)).toBeInTheDocument();
+    expect(screen.getAllByText("Verified").length).toBeGreaterThanOrEqual(1);
 
     await user.click(screen.getByRole("button", { name: "Save Entry" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-      calibrationRequirement: "reference_only",
+      calibrationRequirement: "required",
       outToCalibration: true,
       lastCalibratedAt: "2026-01-31",
       calibrationDueAt: "2027-01-31",
@@ -259,7 +266,8 @@ describe("EntryDialog", () => {
   it("blocks invalid calibration dates and intervals with field-specific messages", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
-    render(<EntryDialog mode="edit" entry={BASE_ENTRY} onClose={vi.fn()} onSave={onSave} />);
+    const rosterEntry = { ...BASE_ENTRY, calibrationRequirement: "required" as const };
+    render(<EntryDialog mode="edit" entry={rosterEntry} onClose={vi.fn()} onSave={onSave} />);
 
     await user.click(screen.getByRole("button", { name: "Calibration" }));
     await user.clear(screen.getByLabelText("Calibration due"));
@@ -276,13 +284,33 @@ describe("EntryDialog", () => {
     expect(screen.getByText(/Calibration interval must be between 1 and 1200 months/i)).toBeInTheDocument();
   });
 
+  it("prompts to add non-roster equipment when opening the Calibration section", async () => {
+    const user = userEvent.setup();
+    render(<EntryDialog mode="edit" entry={BASE_ENTRY} onClose={vi.fn()} onSave={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Calibration" }));
+    expect(screen.getByRole("heading", { name: "Add to Calibration?" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Calibration due")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add to Calibration" }));
+    expect(screen.getByLabelText("Calibration due")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Calibration requirement" })).toHaveTextContent(/Required/i);
+  });
+
   it("suggests a due date only after an explicit button click", async () => {
     const user = userEvent.setup();
-    render(<EntryDialog mode="add" onClose={vi.fn()} onSave={vi.fn()} />);
+    render(
+      <EntryDialog
+        defaultCalibrationRequirement="required"
+        defaultSection="calibration"
+        mode="add"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Equipment" }));
     await user.type(screen.getByLabelText("Asset Number"), "TE-900");
     await user.click(screen.getByRole("button", { name: "Calibration" }));
-    await user.click(screen.getByRole("button", { name: "Calibration requirement" }));
-    await user.click(screen.getByRole("option", { name: "Required" }));
     await user.type(screen.getByLabelText("Last calibrated"), "2026-01-31");
     await user.type(screen.getByLabelText("Calibration interval (months)"), "1");
 
@@ -292,7 +320,15 @@ describe("EntryDialog", () => {
   });
 
   it("labels only the calibration interval input instead of wrapping its action button", () => {
-    render(<EntryDialog defaultSection="calibration" mode="add" onClose={vi.fn()} onSave={vi.fn()} />);
+    render(
+      <EntryDialog
+        defaultCalibrationRequirement="required"
+        defaultSection="calibration"
+        mode="add"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
 
     const input = screen.getByLabelText("Calibration interval (months)");
     const label = screen.getByText("Calibration interval (months)");
@@ -318,6 +354,86 @@ describe("EntryDialog", () => {
     expect(screen.getByText("Pending")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Equipment" }));
     expect(screen.getByLabelText("Asset Number")).toBeInTheDocument();
+  });
+
+  it("prompts to save, discard, or cancel when closing with unsaved edits", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSave = vi.fn().mockResolvedValue(undefined) as unknown as (_: InventoryEntryInput) => Promise<void>;
+
+    render(
+      <EntryDialog
+        mode="edit"
+        entry={BASE_ENTRY}
+        onClose={onClose}
+        onSave={onSave}
+      />,
+    );
+
+    await user.clear(screen.getByLabelText("Location"));
+    await user.type(screen.getByLabelText("Location"), "Shelf Z9");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(onClose).not.toHaveBeenCalled();
+    const prompt = screen.getByRole("alertdialog");
+    expect(within(prompt).getByRole("heading", { name: "Unsaved changes" })).toBeInTheDocument();
+
+    await user.click(within(prompt).getByRole("button", { name: "Cancel" }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Unsaved changes" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Location")).toHaveValue("Shelf Z9");
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Discard" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("saves and closes from the unsaved-changes prompt", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSave = vi.fn().mockResolvedValue(undefined) as unknown as (_: InventoryEntryInput) => Promise<void>;
+
+    render(
+      <EntryDialog
+        mode="edit"
+        entry={BASE_ENTRY}
+        onClose={onClose}
+        onSave={onSave}
+      />,
+    );
+
+    await user.clear(screen.getByLabelText("Location"));
+    await user.type(screen.getByLabelText("Location"), "Shelf Z9");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ location: "Shelf Z9" }),
+      expect.objectContaining({
+        baseVersion: BASE_ENTRY.updatedAt,
+        changedFields: expect.arrayContaining(["location"]),
+      }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes immediately when there are no unsaved edits", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <EntryDialog
+        mode="edit"
+        entry={BASE_ENTRY}
+        onClose={onClose}
+        onSave={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "Unsaved changes" })).not.toBeInTheDocument();
   });
 });
 

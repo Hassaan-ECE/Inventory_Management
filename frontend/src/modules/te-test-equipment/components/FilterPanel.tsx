@@ -5,6 +5,8 @@ import { cn } from "@/shared/lib/utils";
 
 interface FilterPanelProps {
   compact?: boolean;
+  /** Hide the "Column filters" heading and clear link (parent provides clear). */
+  hideHeader?: boolean;
   filters: FilterState;
   onChange: (field: keyof FilterState, value: string) => void;
   onClear: () => void;
@@ -39,15 +41,24 @@ const DUE_WINDOW_OPTIONS = [
   { value: "missing", label: "Missing due date" },
 ] as const;
 
-export function FilterPanel({ compact = false, filters, onChange, onClear, workspace = "equipment" }: FilterPanelProps) {
+export function FilterPanel({
+  compact = false,
+  hideHeader = false,
+  filters,
+  onChange,
+  onClear,
+  workspace = "equipment",
+}: FilterPanelProps) {
   return (
     <section className={cn(!compact && "rounded-xl border border-border/70 bg-card/80 p-2 sm:p-3")}>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/50">Column filters</h2>
-        <button className="text-xs text-muted-foreground transition-colors hover:text-foreground" type="button" onClick={onClear}>
-          Clear Column Filters
-        </button>
-      </div>
+      {!hideHeader ? (
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/50">Column filters</h2>
+          <button className="text-xs text-muted-foreground transition-colors hover:text-foreground" type="button" onClick={onClear}>
+            Clear Column Filters
+          </button>
+        </div>
+      ) : null}
 
       <div className={cn("grid gap-2 sm:grid-cols-2 lg:grid-cols-4", workspace === "calibration" ? "xl:grid-cols-8" : "xl:grid-cols-5")}>
         <Input

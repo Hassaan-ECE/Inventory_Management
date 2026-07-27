@@ -22,8 +22,10 @@ export function UpdateActionButton({ onClick, state }: UpdateActionButtonProps) 
 
   return (
     <button
-      className="relative ml-1 inline-flex h-7 min-w-[9.75rem] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sky-500 bg-sky-100 px-2.5 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-200 disabled:cursor-default disabled:opacity-90 dark:border-sky-400/70 dark:bg-sky-950/50 dark:text-sky-200 dark:hover:bg-sky-900/70"
+      aria-label={label}
+      className="relative inline-flex h-8 min-w-[9.75rem] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sky-500 bg-sky-100 px-2.5 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-200 disabled:cursor-default disabled:opacity-90 dark:border-sky-400/70 dark:bg-sky-950/50 dark:text-sky-200 dark:hover:bg-sky-900/70"
       disabled={isBusy}
+      title={label}
       type="button"
       onClick={onClick}
     >
@@ -34,7 +36,7 @@ export function UpdateActionButton({ onClick, state }: UpdateActionButtonProps) 
           style={{ width: `${progress}%` }}
         />
       ) : null}
-      <span className="relative z-10 inline-flex min-w-0 items-center gap-1.5">
+      <span className="relative z-10 inline-flex min-w-0 items-center justify-center gap-1.5">
         {renderUpdateActionIcon(state)}
         <span className="truncate">{label}</span>
       </span>

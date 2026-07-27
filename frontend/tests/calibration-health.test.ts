@@ -38,13 +38,24 @@ describe("deriveCalibrationHealth", () => {
     expect(deriveCalibrationHealth(buildEntry({ calibrationDueAt }), LOCAL_DATE)).toBe(expected);
   });
 
-  it("excludes archived entries before evaluating calibration state", () => {
+  it("excludes archived entries from inventory health by default", () => {
     expect(
       deriveCalibrationHealth(
         buildEntry({ archived: true, calibrationDueAt: "2026-07-12", outToCalibration: true }),
         LOCAL_DATE,
       ),
     ).toBeNull();
+  });
+
+  it("can include archived entries for archive table coloring and filters", () => {
+    expect(
+      deriveCalibrationHealth(
+        buildEntry({ archived: true, calibrationDueAt: "2026-07-12", outToCalibration: false }),
+        LOCAL_DATE,
+        30,
+        true,
+      ),
+    ).toBe("overdue");
   });
 
   it("does not use an interval as a due date", () => {

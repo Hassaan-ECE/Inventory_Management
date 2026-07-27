@@ -1,44 +1,44 @@
-import { listModuleDefinitions } from "./registry";
-import type { ModuleId } from "./types";
+import { listInventoryViewDefinitions } from "./registry";
+import type { InventoryViewId } from "./types";
 
-export const DEFAULT_MODULE_ID: ModuleId = "te-test-equipment";
+export const DEFAULT_INVENTORY_VIEW_ID: InventoryViewId = "te-test-equipment";
 
 const STORAGE_KEY = "inventory.activeSystem";
-const LEGACY_MODULE_IDS: Record<string, ModuleId> = {
+const LEGACY_VIEW_IDS: Record<string, InventoryViewId> = {
   "te-parts": "te-lab-components",
   "me-inventory": "me-storage",
 };
 
-export function isModuleId(value: string): value is ModuleId {
-  return listModuleDefinitions().some((definition) => definition.id === value);
+export function isInventoryViewId(value: string): value is InventoryViewId {
+  return listInventoryViewDefinitions().some((definition) => definition.id === value);
 }
 
-export function readStoredModuleId(): ModuleId {
+export function readStoredInventoryViewId(): InventoryViewId {
   if (typeof window === "undefined") {
-    return DEFAULT_MODULE_ID;
+    return DEFAULT_INVENTORY_VIEW_ID;
   }
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return DEFAULT_MODULE_ID;
+      return DEFAULT_INVENTORY_VIEW_ID;
     }
-    if (isModuleId(raw)) {
+    if (isInventoryViewId(raw)) {
       return raw;
     }
-    const migrated = LEGACY_MODULE_IDS[raw];
+    const migrated = LEGACY_VIEW_IDS[raw];
     if (migrated) {
       window.localStorage.setItem(STORAGE_KEY, migrated);
       return migrated;
     }
   } catch {
-    return DEFAULT_MODULE_ID;
+    return DEFAULT_INVENTORY_VIEW_ID;
   }
 
-  return DEFAULT_MODULE_ID;
+  return DEFAULT_INVENTORY_VIEW_ID;
 }
 
-export function writeStoredModuleId(id: ModuleId): void {
+export function writeStoredInventoryViewId(id: InventoryViewId): void {
   if (typeof window === "undefined") {
     return;
   }

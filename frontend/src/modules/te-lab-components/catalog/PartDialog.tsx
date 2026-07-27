@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ArchiveRestoreIcon, BoxesIcon, CalculatorIcon, MapPinIcon, MoveRightIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import {
@@ -25,6 +25,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Textarea } from "@/shared/components/ui/textarea";
+import { UnsavedChangesDialog } from "@/shared/components/ui/UnsavedChangesDialog";
 
 const SELECT_CLASS =
   "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/18 dark:bg-input/30";
@@ -42,7 +43,7 @@ interface PartDialogProps {
   onClose: () => void;
   onCountPlacement: (placement: StockPlacement) => void;
   onDeletePlacement: (placement: StockPlacement) => void;
-  onDeletePart: (part: Part) => void;
+  onDeletePart: (part: Part) => Promise<void> | void;
   onEditPlacement: (placement: StockPlacement) => void;
   onMovePlacement: (placement: StockPlacement) => void;
   onSave: (input: PartInput) => Promise<void>;
@@ -63,11 +64,16 @@ export function PartDialog({
   part,
   readOnly,
 }: PartDialogProps) {
-  const [form, setForm] = useState<PartInput>(() => inputFromPart(part));
-  const [attributes, setAttributes] = useState<AttributeRow[]>(() => attributeRows(part?.attributes ?? {}));
+  const [initialForm] = useState<PartInput>(() => inputFromPart(part));
+  const [initialAttributes] = useState<AttributeRow[]>(() => attributeRows(part?.attributes ?? {}));
+  const [form, setForm] = useState<PartInput>(initialForm);
+  const [attributes, setAttributes] = useState<AttributeRow[]>(initialAttributes);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const template = categoryTemplate(form.category);
+  const isArchived = form.archived;
   const subcategories = template?.subcategories ?? [];
   const lookups = useMemo(() => createCatalogLookups(catalog), [catalog]);
   const placements = useMemo(
@@ -75,6 +81,26 @@ export function PartDialog({
     [catalog.stockPlacements, part?.entryUuid],
   );
   const summary = part ? lookups.summariesByPartId.get(part.entryUuid) : undefined;
+
+  const isDirty = useMemo(
+    () => !partFormEquals(form, initialForm) || !attributeRowsEqual(attributes, initialAttributes),
+    [attributes, form, initialAttributes, initialForm],
+  );
+
+  const requestClose = useCallback((): void => {
+    if (busy) {
+      return;
+    }
+    if (confirmDelete) {
+      setConfirmDelete(false);
+      return;
+    }
+    if (isDirty && !readOnly) {
+      setShowUnsavedPrompt(true);
+      return;
+    }
+    onClose();
+  }, [busy, confirmDelete, isDirty, onClose, readOnly]);
 
   function update<K extends keyof PartInput>(key: K, value: PartInput[K]): void {
     setForm((current) => ({ ...current, [key]: value }));
@@ -90,25 +116,7 @@ export function PartDialog({
     ]);
   }
 
-  async function submit(): Promise<void> {
-    setError(null);
-    if (
-      !form.internalPartNumber.trim() &&
-      !form.manufacturerPartNumber.trim() &&
-      !form.displayValue.trim() &&
-      !form.description.trim()
-    ) {
-      setError("Provide an internal part number, manufacturer part number, value/label, or description.");
-      return;
-    }
-    if (
-      form.reorderPoint !== null &&
-      form.targetQuantity !== null &&
-      form.targetQuantity < form.reorderPoint
-    ) {
-      setError("Target quantity must be greater than or equal to the reorder point.");
-      return;
-    }
+  function buildNormalizedAttributes(): ComponentAttributes | null {
     const normalizedAttributes: ComponentAttributes = {};
     for (const attribute of attributes) {
       const key = normalizeAttributeKey(attribute.key);
@@ -117,18 +125,84 @@ export function PartDialog({
       }
       if (normalizedAttributes[key]) {
         setError(`Attribute key “${key}” is duplicated.`);
-        return;
+        return null;
       }
       normalizedAttributes[key] = {
         value: attribute.value.trim(),
         unit: attribute.unit.trim(),
       };
     }
+    return normalizedAttributes;
+  }
+
+  async function submit(nextForm: PartInput = form): Promise<boolean> {
+    setError(null);
+    if (
+      !nextForm.internalPartNumber.trim() &&
+      !nextForm.manufacturerPartNumber.trim() &&
+      !nextForm.displayValue.trim() &&
+      !nextForm.description.trim()
+    ) {
+      setError("Provide an internal part number, manufacturer part number, value/label, or description.");
+      return false;
+    }
+    if (
+      nextForm.reorderPoint !== null &&
+      nextForm.targetQuantity !== null &&
+      nextForm.targetQuantity < nextForm.reorderPoint
+    ) {
+      setError("Target quantity must be greater than or equal to the reorder point.");
+      return false;
+    }
+    const normalizedAttributes = buildNormalizedAttributes();
+    if (!normalizedAttributes) {
+      return false;
+    }
     setBusy(true);
     try {
-      await onSave({ ...form, attributes: normalizedAttributes });
+      await onSave({ ...nextForm, attributes: normalizedAttributes });
+      return true;
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save the part.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAndClose(): Promise<void> {
+    const saved = await submit();
+    if (saved) {
+      setShowUnsavedPrompt(false);
+      onClose();
+    }
+  }
+
+  async function toggleArchive(): Promise<void> {
+    const next = { ...form, archived: !form.archived };
+    setForm(next);
+    void submit(next);
+  }
+
+  function requestDelete(): void {
+    if (!part || !isArchived) {
+      return;
+    }
+    setConfirmDelete(true);
+  }
+
+  async function confirmDeletePart(): Promise<void> {
+    if (!part) {
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      await onDeletePart(part);
+      setConfirmDelete(false);
+    } catch (deleteError) {
+      setConfirmDelete(false);
+      setError(deleteError instanceof Error ? deleteError.message : "Could not delete the part.");
     } finally {
       setBusy(false);
     }
@@ -139,11 +213,34 @@ export function PartDialog({
       description="Catalog identity is separate from stock placement and quantity."
       footer={
         <div className="flex items-center justify-between gap-3">
-          <div>
+          <div className="flex flex-wrap gap-2">
             {part ? (
-              <Button disabled={readOnly} onClick={() => onDeletePart(part)} variant="destructive-outline">
-                <Trash2Icon className="size-3.5" /> Delete Part
-              </Button>
+              isArchived ? (
+                <>
+                  <Button
+                    className="border-success/30 bg-success/12 text-success-foreground hover:bg-success/18"
+                    disabled={busy || readOnly}
+                    type="button"
+                    variant="outline"
+                    onClick={() => void toggleArchive()}
+                  >
+                    <ArchiveRestoreIcon className="size-3.5" /> Restore to Inventory
+                  </Button>
+                  <Button disabled={busy || readOnly} type="button" variant="destructive" onClick={requestDelete}>
+                    <Trash2Icon className="size-3.5" /> Delete Part
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  className="border-warning/30 bg-warning/12 text-warning-foreground hover:bg-warning/18"
+                  disabled={busy || readOnly}
+                  type="button"
+                  variant="outline"
+                  onClick={() => void toggleArchive()}
+                >
+                  <ArchiveRestoreIcon className="size-3.5" /> Archive Part
+                </Button>
+              )
             ) : (
               <span className="text-xs text-muted-foreground">
                 {readOnly ? "Editing is unavailable for the current catalog state." : "Totals are derived from active placements."}
@@ -151,7 +248,7 @@ export function PartDialog({
             )}
           </div>
           <div className="flex gap-2">
-            <Button onClick={onClose} variant="outline">
+            <Button disabled={busy} onClick={requestClose} variant="outline">
               Cancel
             </Button>
             <Button disabled={busy || readOnly} onClick={() => void submit()}>
@@ -160,10 +257,64 @@ export function PartDialog({
           </div>
         </div>
       }
-      onClose={onClose}
+      onClose={requestClose}
       title={part ? "Edit Catalog Part" : "Add Catalog Part"}
       wide
     >
+      <UnsavedChangesDialog
+        isSaving={busy}
+        open={showUnsavedPrompt}
+        readOnly={readOnly}
+        onCancel={() => setShowUnsavedPrompt(false)}
+        onDiscard={() => {
+          setShowUnsavedPrompt(false);
+          onClose();
+        }}
+        onSave={() => {
+          void saveAndClose();
+        }}
+      />
+
+      {confirmDelete && part ? (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4"
+          role="alertdialog"
+          aria-labelledby="delete-part-title"
+          aria-describedby="delete-part-desc"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setConfirmDelete(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h3 id="delete-part-title" className="text-lg font-semibold text-foreground">
+              Delete part permanently?
+            </h3>
+            <p id="delete-part-desc" className="mt-2 text-sm text-muted-foreground">
+              Delete{" "}
+              <strong className="text-foreground">
+                {part.manufacturerPartNumber || part.displayValue || part.internalPartNumber || part.id}
+              </strong>
+              ? This cannot be undone. Any remaining stock placements for this part are removed with it.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={busy}
+                type="button"
+                variant="destructive"
+                onClick={() => void confirmDeletePart()}
+              >
+                <Trash2Icon className="size-3.5" /> {busy ? "Deleting…" : "Delete Part"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-6">
         {error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive-foreground" role="alert">
@@ -227,10 +378,12 @@ export function PartDialog({
                 {['active', 'nrnd', 'obsolete', 'discontinued', 'unknown'].map((value) => <option key={value} value={value}>{value.toUpperCase()}</option>)}
               </select>
             </Field>
-            <label className="flex min-h-9 items-center gap-2 self-end rounded-lg border border-border px-3 text-sm">
-              <input checked={form.archived} disabled={readOnly} onChange={(event) => update("archived", event.target.checked)} type="checkbox" />
-              Archived part
-            </label>
+            <div className="flex min-h-9 items-center self-end text-sm text-muted-foreground">
+              Status:{" "}
+              <span className={isArchived ? "ml-1 font-medium text-warning-foreground" : "ml-1 font-medium text-foreground"}>
+                {isArchived ? "Archived" : "Inventory"}
+              </span>
+            </div>
             <Field className="md:col-span-2 xl:col-span-4" label="Description">
               <Textarea disabled={readOnly} value={form.description} onChange={(event) => update("description", event.target.value)} />
             </Field>
@@ -453,6 +606,30 @@ function numberOrNull(value: string): number | null {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function partFormEquals(a: PartInput, b: PartInput): boolean {
+  const keys = Object.keys(a) as Array<keyof PartInput>;
+  return keys.every((key) => {
+    if (key === "attributes") {
+      return true; // compared separately via attribute rows
+    }
+    return a[key] === b[key];
+  });
+}
+
+function attributeRowsEqual(a: AttributeRow[], b: AttributeRow[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((row, index) => {
+    const other = b[index];
+    return (
+      row.key === other.key &&
+      row.value === other.value &&
+      row.unit === other.unit
+    );
+  });
 }
 
 function FormSection({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {

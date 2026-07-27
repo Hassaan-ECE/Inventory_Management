@@ -1,37 +1,33 @@
 import { useState } from "react";
-import { FileSpreadsheetIcon, MoonIcon, PlusIcon, SunIcon } from "lucide-react";
+import { MoonIcon, PlusIcon, SunIcon } from "lucide-react";
 
 import { ExportMenu } from "@/modules/te-test-equipment/components/header/ExportMenu";
 import { ScopeToggle } from "@/modules/te-test-equipment/components/header/ScopeToggle";
 import { UpdateActionButton } from "@/modules/te-test-equipment/components/header/UpdateActionButton";
-import { WorkspaceToggle } from "@/modules/te-test-equipment/components/header/WorkspaceToggle";
 import type {
   InventoryScope,
   InventorySharedStatus,
   TeTestEquipmentWorkspace,
   UpdateState,
 } from "@/modules/te-test-equipment/types";
-import type { ModuleId } from "@/platform/modules/types";
+import type { InventoryViewId } from "@/platform/modules/types";
 import type { ThemeMode } from "@/platform/ui/theme";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { InventorySystemSwitcher } from "@/shell/InventorySystemSwitcher";
 
 interface InventoryHeaderProps {
-  activeModuleId: ModuleId;
+  activeViewId: InventoryViewId;
   archiveCount: number;
   canModifyEntries: boolean;
   inventoryCount: number;
-  calibrationRosterAvailable: boolean;
   onAddEntry: () => void;
   onExportExcel: () => void;
   onExportHtml: () => void;
-  onModuleChange: (id: ModuleId) => void;
-  onInitializeCalibrationRoster: () => void;
   onScopeChange: (scope: InventoryScope) => void;
   onThemeToggle: () => void;
   onUpdateAction: () => void;
-  onWorkspaceChange: (workspace: TeTestEquipmentWorkspace) => void;
+  onViewChange: (id: InventoryViewId) => void;
   scope: InventoryScope;
   sharedStatus?: InventorySharedStatus;
   theme: ThemeMode;
@@ -40,20 +36,17 @@ interface InventoryHeaderProps {
 }
 
 export function InventoryHeader({
-  activeModuleId,
+  activeViewId,
   archiveCount,
-  calibrationRosterAvailable,
   canModifyEntries,
   inventoryCount,
   onAddEntry,
   onExportExcel,
   onExportHtml,
-  onModuleChange,
-  onInitializeCalibrationRoster,
   onScopeChange,
   onThemeToggle,
   onUpdateAction,
-  onWorkspaceChange,
+  onViewChange,
   scope,
   sharedStatus,
   theme,
@@ -63,6 +56,8 @@ export function InventoryHeader({
   const [exportOpen, setExportOpen] = useState(false);
   const [systemMenuOpen, setSystemMenuOpen] = useState(false);
   const isLocalOnly = !sharedStatus?.enabled;
+  const addEntryLabel = workspace === "calibration" ? "Add Equipment" : "Add Entry";
+  const themeLabel = theme === "light" ? "Dark Theme" : "Light Theme";
   const modeTitle = isLocalOnly
     ? sharedStatus?.message?.trim() ||
       "Shared sync is off for this session. Changes stay on this computer; sync is not a backup."
@@ -72,15 +67,15 @@ export function InventoryHeader({
     <header
       className={cn(
         "relative shrink-0 border-b border-border px-3 py-3 sm:px-5",
-        // Keep header above the search card so Export / system switcher are never covered.
-        exportOpen || systemMenuOpen ? "z-50" : "z-30",
+        // Keep switcher / export menus above search, filters, and table chrome.
+        exportOpen || systemMenuOpen ? "z-[80]" : "z-40",
       )}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
           <InventorySystemSwitcher
-            value={activeModuleId}
-            onChange={onModuleChange}
+            value={activeViewId}
+            onChange={onViewChange}
             onOpenChange={setSystemMenuOpen}
           />
           <span
@@ -93,31 +88,36 @@ export function InventoryHeader({
           >
             {isLocalOnly ? "Local" : "Shared"}
           </span>
-          <UpdateActionButton state={updateState} onClick={onUpdateAction} />
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <WorkspaceToggle workspace={workspace} onWorkspaceChange={onWorkspaceChange} />
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <UpdateActionButton state={updateState} onClick={onUpdateAction} />
           <ScopeToggle
             archiveCount={archiveCount}
             inventoryCount={inventoryCount}
             scope={scope}
             onScopeChange={onScopeChange}
           />
-          <Button size="sm" variant="outline" onClick={onThemeToggle}>
+          <Button
+            aria-label={themeLabel}
+            className="size-8"
+            size="icon"
+            title={themeLabel}
+            variant="outline"
+            onClick={onThemeToggle}
+          >
             {theme === "light" ? <MoonIcon className="size-3.5" /> : <SunIcon className="size-3.5" />}
-            {theme === "light" ? "Dark Theme" : "Light Theme"}
           </Button>
           <ExportMenu onExportExcel={onExportExcel} onExportHtml={onExportHtml} onOpenChange={setExportOpen} />
-          {workspace === "calibration" && calibrationRosterAvailable ? (
-            <Button disabled={!canModifyEntries} size="sm" variant="outline" onClick={onInitializeCalibrationRoster}>
-              <FileSpreadsheetIcon className="size-3.5" />
-              Initialize from Calibration Workbook
-            </Button>
-          ) : null}
-          <Button disabled={!canModifyEntries} size="sm" onClick={onAddEntry}>
+          <Button
+            aria-label={addEntryLabel}
+            className="size-8"
+            disabled={!canModifyEntries}
+            size="icon"
+            title={addEntryLabel}
+            onClick={onAddEntry}
+          >
             <PlusIcon className="size-3.5" />
-            {workspace === "calibration" ? "Add Equipment" : "Add Entry"}
           </Button>
         </div>
       </div>

@@ -422,7 +422,7 @@ export interface SortState {
 }
 
 export const EQUIPMENT_COLUMNS = [
-  { key: "verified", label: "Verified", defaultVisible: true, sortable: true, align: "center" },
+  { key: "verified", label: "✓", defaultVisible: true, sortable: true, align: "center" },
   { key: "assetNumber", label: "Asset #", defaultVisible: false, sortable: true },
   { key: "serialNumber", label: "Serial #", defaultVisible: true, sortable: true },
   { key: "qty", label: "Qty", defaultVisible: true, sortable: true, align: "center" },
@@ -436,19 +436,21 @@ export const EQUIPMENT_COLUMNS = [
   { key: "links", label: "Links", defaultVisible: true, sortable: true },
 ] as const satisfies readonly ColumnConfig[];
 
+// Defaults are sized for a single vertical scroll on a 1080p desktop window.
+// Optional columns (serial, vendor, certificate, notes, …) stay available in View settings.
 export const CALIBRATION_COLUMNS = [
-  { key: "verified", label: "Verified", defaultVisible: true, sortable: true, align: "center" },
+  { key: "verified", label: "✓", defaultVisible: true, sortable: true, align: "center" },
   { key: "assetNumber", label: "Asset #", defaultVisible: true, sortable: true },
-  { key: "serialNumber", label: "Serial #", defaultVisible: true, sortable: true },
+  { key: "serialNumber", label: "Serial #", defaultVisible: false, sortable: true },
   { key: "manufacturer", label: "Manufacturer", defaultVisible: true, sortable: true },
   { key: "model", label: "Model", defaultVisible: true, sortable: true },
   { key: "description", label: "Description", defaultVisible: true, sortable: true },
-  { key: "calibrationHealth", label: "Calibration health", defaultVisible: true, sortable: true },
-  { key: "lastCalibratedAt", label: "Last calibrated", defaultVisible: true, sortable: true },
-  { key: "calibrationDueAt", label: "Calibration due", defaultVisible: true, sortable: true },
+  { key: "calibrationHealth", label: "Health", defaultVisible: false, sortable: true },
+  { key: "lastCalibratedAt", label: "Last", defaultVisible: true, sortable: true },
+  { key: "calibrationDueAt", label: "Due", defaultVisible: true, sortable: true },
   { key: "calibrationIntervalMonths", label: "Interval (months)", defaultVisible: false, sortable: true, align: "center" },
-  { key: "outToCalibration", label: "Out to cal", defaultVisible: true, sortable: true, align: "center" },
-  { key: "calibrationVendor", label: "Vendor", defaultVisible: true, sortable: true },
+  { key: "outToCalibration", label: "Out to cal", defaultVisible: false, sortable: true, align: "center" },
+  { key: "calibrationVendor", label: "Vendor", defaultVisible: false, sortable: true },
   { key: "certificateRef", label: "Certificate", defaultVisible: false, sortable: true },
   { key: "location", label: "Location", defaultVisible: true, sortable: true },
   { key: "assignedTo", label: "Assigned to", defaultVisible: false, sortable: true },

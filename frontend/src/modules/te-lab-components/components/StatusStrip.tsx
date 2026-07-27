@@ -1,9 +1,9 @@
 import { APP_CREDIT } from "@/app/branding";
-import type { InventoryCounts } from "@/modules/te-lab-components/types";
+import type { CatalogCounts } from "@/modules/te-lab-components/types";
 import { cn } from "@/shared/lib/utils";
 
 interface StatusStripProps {
-  counts?: InventoryCounts;
+  counts?: Pick<CatalogCounts, "lowStock" | "noStock">;
   message?: string;
   resultsLabel?: string;
 }
@@ -16,14 +16,10 @@ export function StatusStrip({ message, counts, resultsLabel }: StatusStripProps)
           {resultsLabel ? <span className="shrink-0 text-muted-foreground">{resultsLabel}</span> : null}
           {message ? <span className="min-w-0 truncate text-muted-foreground">{message}</span> : null}
           {counts ? (
-            <span
-              className={cn(
-                "shrink-0 rounded-none border px-2 py-0.5 font-medium",
-                "border-success/25 bg-success/10 text-success-foreground",
-              )}
-            >
-              Verified: {counts.verified}/{counts.total}
-            </span>
+            <div aria-label="Catalog status counts" className="flex flex-wrap">
+              <CountPill label="Low stock" value={counts.lowStock} tone="warning" />
+              <CountPill label="No stock" value={counts.noStock} tone="danger" />
+            </div>
           ) : null}
         </div>
       </div>
@@ -32,5 +28,30 @@ export function StatusStrip({ message, counts, resultsLabel }: StatusStripProps)
         {APP_CREDIT}
       </span>
     </footer>
+  );
+}
+
+function CountPill({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  tone: "danger" | "warning" | "muted" | "info" | "success";
+}) {
+  return (
+    <span
+      className={cn(
+        "rounded-none border px-2 py-0.5 font-medium not-first:border-l-0",
+        tone === "success" && "border-success/25 bg-success/10 text-success-foreground",
+        tone === "danger" && "border-destructive/25 bg-destructive/10 text-destructive-foreground",
+        tone === "warning" && "border-warning/25 bg-warning/10 text-warning-foreground",
+        tone === "info" && "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+        tone === "muted" && "border-border bg-muted/50 text-muted-foreground",
+      )}
+    >
+      {label}: {value}
+    </span>
   );
 }

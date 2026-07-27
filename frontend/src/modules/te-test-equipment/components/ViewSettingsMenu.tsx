@@ -49,7 +49,7 @@ export function ViewSettingsMenu({
         <DropdownPanel
           align="right"
           className="w-72"
-          maxHeightClassName="max-h-[min(24rem,calc(100vh-10rem))]"
+          maxHeightClassName="max-h-[min(40rem,calc(100dvh-5rem))]"
           title="View settings"
         >
           <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-accent/40">

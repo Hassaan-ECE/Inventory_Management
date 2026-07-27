@@ -1,4 +1,4 @@
-import { ChevronDownIcon, FileCodeIcon, FileSpreadsheetIcon, UploadIcon } from "lucide-react";
+import { FileCodeIcon, FileSpreadsheetIcon, UploadIcon } from "lucide-react";
 
 import {
   DropdownItem,
@@ -18,10 +18,17 @@ export function ExportMenu({ onExportExcel, onExportHtml, onOpenChange }: Export
 
   return (
     <div className="relative" ref={menuRef}>
-      <Button aria-expanded={open} aria-haspopup="menu" size="sm" variant="outline" onClick={toggle}>
+      <Button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Export"
+        className="size-8"
+        size="icon"
+        title="Export"
+        variant="outline"
+        onClick={toggle}
+      >
         <UploadIcon className="size-3.5" />
-        Export
-        <ChevronDownIcon className="size-3.5" />
       </Button>
       {open ? (
         <DropdownPanel align="right" className="w-44" maxHeightClassName="max-h-none" title="Export">

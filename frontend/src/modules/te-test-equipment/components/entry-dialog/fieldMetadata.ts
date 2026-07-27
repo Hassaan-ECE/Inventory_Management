@@ -74,7 +74,7 @@ export function buildEntryContextRows(entry: InventoryEntry): Array<{ label: str
     { label: "Created", value: entry.createdAt || "-" },
     { label: "Updated", value: entry.updatedAt || "-" },
     { label: "Status", value: entry.archived ? "Archived" : "Inventory" },
-    { label: "Verified", value: entry.verifiedAt ? `${entry.verifiedAt}${entry.verifiedBy ? ` by ${entry.verifiedBy}` : ""}` : "Pending" },
+    { label: "Verified", value: entry.verifiedAt ? "Verified" : "Pending" },
     { label: "Manual Entry", value: entry.manualEntry ? "Yes" : "No" },
   ];
 }

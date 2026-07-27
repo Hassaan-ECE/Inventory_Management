@@ -67,7 +67,10 @@ export function sortEntries(
 function getSortValue(entry: InventoryEntry, column: ColumnKey, localDate: string): number | string | undefined {
   switch (column) {
     case "verified":
-      return entry.verifiedAt;
+      // Boolean-like rank so both directions work. Unverified is not treated as a
+      // blank (blanks always sink), which previously blocked "unverified first".
+      // Asc: verified first; desc: unverified first.
+      return entry.verifiedAt ? 0 : 1;
     case "qty":
       return entry.qty ?? undefined;
     case "assetNumber":
@@ -103,7 +106,7 @@ function getSortValue(entry: InventoryEntry, column: ColumnKey, localDate: strin
     case "calibrationNotes":
       return entry.calibrationNotes?.trim().toLowerCase();
     case "calibrationHealth": {
-      const health = deriveCalibrationHealth(entry, localDate);
+      const health = deriveCalibrationHealth(entry, localDate, 30, true);
       return health === null ? undefined : HEALTH_ORDER[health];
     }
     case "links":

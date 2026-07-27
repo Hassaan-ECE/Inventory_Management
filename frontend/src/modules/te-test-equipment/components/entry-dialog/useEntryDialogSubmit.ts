@@ -33,34 +33,39 @@ export function useEntryDialogSubmit({
 }: UseEntryDialogSubmitOptions) {
   const [isSaving, setIsSaving] = useState(false);
 
+  const saveEntry = useCallback(async (): Promise<boolean> => {
+    if (readOnly) {
+      return false;
+    }
+
+    const result = buildEntryInput(form);
+    if ("error" in result) {
+      setError(result.error);
+      return false;
+    }
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      await onSave(result.value, buildEditContext(mode, entry, initialForm, result.value));
+      return true;
+    } catch (submissionError) {
+      if (!isMountedRef.current) {
+        return false;
+      }
+      setIsSaving(false);
+      setError(submissionError instanceof Error ? submissionError.message : "Could not save this entry.");
+      return false;
+    }
+  }, [entry, form, initialForm, isMountedRef, mode, onSave, readOnly, setError]);
+
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>): Promise<void> => {
       event.preventDefault();
-
-      if (readOnly) {
-        return;
-      }
-
-      const result = buildEntryInput(form);
-      if ("error" in result) {
-        setError(result.error);
-        return;
-      }
-
-      try {
-        setIsSaving(true);
-        setError(null);
-        await onSave(result.value, buildEditContext(mode, entry, initialForm, result.value));
-      } catch (submissionError) {
-        if (!isMountedRef.current) {
-          return;
-        }
-        setIsSaving(false);
-        setError(submissionError instanceof Error ? submissionError.message : "Could not save this entry.");
-      }
+      await saveEntry();
     },
-    [entry, form, initialForm, isMountedRef, mode, onSave, readOnly, setError],
+    [saveEntry],
   );
 
-  return { handleSubmit, isSaving };
+  return { handleSubmit, isSaving, saveEntry };
 }

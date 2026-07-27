@@ -1,9 +1,5 @@
 import type { InventoryEntry } from "@/modules/te-test-equipment/types";
 
-import { useMediaQuery } from "./useMediaQuery";
-
-const LARGE_VIEWPORT_QUERY = "(min-width: 1024px)";
-
 interface UseEntryDialogLayoutOptions {
   entry?: InventoryEntry | null;
   mode: "add" | "edit";
@@ -11,19 +7,14 @@ interface UseEntryDialogLayoutOptions {
   readOnly: boolean;
 }
 
+/** Layout is always a single column + footer actions (no right sidebar). */
 export function useEntryDialogLayout({
-  entry,
-  mode,
   picturePath,
   readOnly,
 }: UseEntryDialogLayoutOptions) {
-  const isLargeViewport = useMediaQuery(LARGE_VIEWPORT_QUERY);
-  const showsSidebarActions = mode === "edit" && Boolean(entry) && isLargeViewport;
   const hasPicturePath = Boolean(picturePath);
 
   return {
-    showInlinePicturePreview: (!showsSidebarActions && !readOnly) || (!showsSidebarActions && hasPicturePath),
-    showSidebarPicturePreview: showsSidebarActions && (!readOnly || hasPicturePath),
-    showsSidebarActions,
+    showInlinePicturePreview: !readOnly || hasPicturePath,
   };
 }

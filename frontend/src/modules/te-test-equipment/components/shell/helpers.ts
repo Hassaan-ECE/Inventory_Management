@@ -16,7 +16,8 @@ import type {
 export { THEME_STORAGE_KEY, readTheme } from "@/platform/ui/theme";
 export const COLOR_ROWS_STORAGE_KEY = "teTestEquipmentInventory.colorRows";
 export const COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.columnVisibility";
-export const CALIBRATION_COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.calibrationColumnVisibility";
+// Bumped when default calibration columns change so 1080p-friendly defaults replace old wide layouts.
+export const CALIBRATION_COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.calibrationColumnVisibility.v4";
 export const UPDATE_CHECK_INTERVAL_MS = 5 * 60_000;
 
 export const MOCK_SHARED_STATUS: InventorySharedStatus = {

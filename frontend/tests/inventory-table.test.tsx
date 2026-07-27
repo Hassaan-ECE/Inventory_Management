@@ -4,12 +4,28 @@ import userEvent from "@testing-library/user-event";
 
 import { InventoryTable } from "@/modules/te-test-equipment/components/InventoryTable";
 import { OVERSCAN_ROWS, ROW_HEIGHT, getVisibleRange } from "@/modules/te-test-equipment/components/table/virtualization";
+import { buildDefaultColumnVisibility } from "@/modules/te-test-equipment/lib";
 import {
   CALIBRATION_COLUMNS,
   INVENTORY_COLUMNS,
+  type ColumnConfig,
   type InventoryEntry,
 } from "@/modules/te-test-equipment/types";
 import { InventoryShell } from "@/shell/InventoryShell";
+
+function tableExtras(columns: readonly ColumnConfig[] = INVENTORY_COLUMNS) {
+  return {
+    allColumns: columns,
+    columnVisibility: buildDefaultColumnVisibility(columns),
+    onToggleColumn: () => undefined,
+  };
+}
+
+async function openColumnMenu() {
+  const header = screen.getAllByRole("columnheader")[0];
+  fireEvent.contextMenu(header);
+  expect(await screen.findByRole("checkbox", { name: "Qty" })).toBeInTheDocument();
+}
 
 describe("InventoryShell table controls", () => {
   beforeEach(() => {
@@ -62,6 +78,7 @@ describe("InventoryShell table controls", () => {
         onOpenExternalLink={() => undefined}
         onSortChange={() => undefined}
         onToggleVerified={() => undefined}
+        {...tableExtras()}
       />,
     );
 
@@ -110,6 +127,7 @@ describe("InventoryShell table controls", () => {
         onOpenExternalLink={onOpenExternalLink}
         onSortChange={() => undefined}
         onToggleVerified={() => undefined}
+        {...tableExtras()}
       />,
     );
 
@@ -141,6 +159,7 @@ describe("InventoryShell table controls", () => {
         onOpenExternalLink={() => undefined}
         onSortChange={() => undefined}
         onToggleVerified={onToggleVerified}
+        {...tableExtras()}
       />,
     );
 
@@ -183,23 +202,61 @@ describe("InventoryShell table controls", () => {
       verifiedBy: "Avery",
     });
     render(
-      <InventoryTable canModifyEntries colorRows columns={CALIBRATION_COLUMNS} entries={[entry]}
+      <InventoryTable
+        canModifyEntries
+        colorRows
+        columns={CALIBRATION_COLUMNS}
+        entries={[entry]}
         localDate="2026-07-13"
-        sortState={{ column: "calibrationHealth", direction: "asc" }} onOpenContextMenu={() => undefined}
-        onOpenEntry={() => undefined} onOpenExternalLink={() => undefined} onSortChange={() => undefined}
-        onToggleVerified={() => undefined} workspace="calibration" />,
+        sortState={{ column: "calibrationHealth", direction: "asc" }}
+        onOpenContextMenu={() => undefined}
+        onOpenEntry={() => undefined}
+        onOpenExternalLink={() => undefined}
+        onSortChange={() => undefined}
+        onToggleVerified={() => undefined}
+        workspace="calibration"
+        {...tableExtras(CALIBRATION_COLUMNS)}
+      />,
     );
     expect(screen.getAllByText("Out to cal").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("2026-07-20")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Clear verification.*2026-07-13T12:00:00Z.*Avery/i })).toBeInTheDocument();
+    expect(screen.getByText("07/26")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear verification for Table row entry" })).toBeInTheDocument();
     expect(screen.getByText("Table row entry").closest("tr")?.className).toContain("bg-warning/10");
+  });
+
+  it("colors archived calibration rows by health when color rows is on", () => {
+    const entry = buildEntry({
+      archived: true,
+      calibrationRequirement: "required",
+      calibrationDueAt: "2026-07-01",
+      outToCalibration: false,
+    });
+    render(
+      <InventoryTable
+        canModifyEntries
+        colorRows
+        columns={CALIBRATION_COLUMNS}
+        entries={[entry]}
+        localDate="2026-07-13"
+        sortState={{ column: "calibrationDueAt", direction: "asc" }}
+        onOpenContextMenu={() => undefined}
+        onOpenEntry={() => undefined}
+        onOpenExternalLink={() => undefined}
+        onSortChange={() => undefined}
+        onToggleVerified={() => undefined}
+        workspace="calibration"
+        {...tableExtras(CALIBRATION_COLUMNS)}
+      />,
+    );
+    expect(screen.getByText("Table row entry").closest("tr")?.className).toContain("bg-destructive/10");
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
   });
 
   it("hides a selected column from the table", async () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
 
-    await user.click(screen.getByRole("button", { name: "View settings" }));
+    await openColumnMenu();
     await user.click(screen.getByRole("checkbox", { name: "Links" }));
 
     expect(screen.queryByRole("columnheader", { name: /Links/i })).not.toBeInTheDocument();
@@ -209,19 +266,17 @@ describe("InventoryShell table controls", () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
 
-    await user.click(screen.getByRole("button", { name: "View settings" }));
     const colorRowsToggle = screen.getByRole("button", { name: "Color rows" });
     const firstRow = screen.getByText("Stainless socket-head cap screws, 1/4-20").closest("tr");
 
     expect(colorRowsToggle).toHaveAttribute("aria-pressed", "true");
-    expect(colorRowsToggle.className).toContain("bg-primary");
-    expect(colorRowsToggle.className).toContain("text-primary-foreground");
-    expect(colorRowsToggle.className).toContain("shadow-sm");
+    expect(colorRowsToggle.className).not.toContain("grayscale");
     expect(firstRow?.className).toContain("bg-success/10");
 
     await user.click(colorRowsToggle);
 
     expect(colorRowsToggle).toHaveAttribute("aria-pressed", "false");
+    expect(colorRowsToggle.className).toContain("grayscale");
     expect(firstRow?.className).toContain("bg-transparent");
   });
 
@@ -229,7 +284,7 @@ describe("InventoryShell table controls", () => {
     const user = userEvent.setup();
     render(<InventoryShell />);
 
-    await user.click(screen.getByRole("button", { name: "View settings" }));
+    await openColumnMenu();
     await user.click(screen.getByRole("checkbox", { name: "Links" }));
     await user.click(screen.getByRole("checkbox", { name: "Location" }));
     await user.click(screen.getByRole("checkbox", { name: "Description" }));
