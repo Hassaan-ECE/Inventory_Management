@@ -98,3 +98,7 @@
 1. From `C:\Projects\Active\Inventory_Management`, run `bun run desktop` and complete the owner manual checklist in `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
 2. Verify module switching, TE Equipment/Calibration behavior, Lab catalog/grid behavior, calibration workbook preview, and restart persistence.
 3. Schedule IM-014 and IM-015 live cutovers separately under their plans/runbooks only after owner acceptance and backups.
+
+## Future release backlog (do not forget)
+
+- **IM-F01 — Settings: due-soon days** — Owner wants a later in-app **Settings** control for the calibration “due soon” window (currently hard-coded **30** local days). Recorded in [DECISIONS.md](planning/DECISIONS.md) under *Future release backlog*. Touch points: `calibrationHealth.ts` / backend `derive_calibration_health`, counts strip, health filter, export labels.

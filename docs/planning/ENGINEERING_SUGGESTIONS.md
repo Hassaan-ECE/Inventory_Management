@@ -67,7 +67,7 @@ Follow accepted decision D-005 and split calibration semantics rather than using
 - **Explicit non-goal v1** unless requested: full compliance vault, multi-year audit reports, heavy cal-job workflow.
 
 **Due-soon rule (agree with review):**  
-`today <= dueDate <= today + 30 days` (local workstation date). Make window configurable later if needed.
+`today <= dueDate <= today + 30 days` (local workstation date). **Owner backlog IM-F01** (DECISIONS.md): make window configurable later via in-app Settings (default remains 30).
 
 **Required without due date → `missing_due`**, never “current.” Sample data (~212 calibrated vs ~140 due dates) makes this mandatory.
 

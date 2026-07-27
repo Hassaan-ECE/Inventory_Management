@@ -1,7 +1,7 @@
 # Inventory Management — Decision Register
 
 **Status:** Authoritative for this product
-**Last updated:** 2026-07-25
+**Last updated:** 2026-07-27
 
 ## Accepted decisions
 
@@ -23,6 +23,14 @@
 | IM-014 | **TE Lab Components is a generalized electronic-parts catalog:** flexible category attributes; Part separate from StockPlacement; area/desk → container → Excel-style bin; per-placement quantities; shared bins allowed with warnings; totals/status derived by unit; lossless reviewed migration; Lab-only sync schema v2; six-sheet export. | Implementation completed 2026-07-25. Owner copied-data desktop rehearsal and coordinated live Lab root cutover remain mandatory. Authority: [2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md](../superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md) and [migration runbook](../runbooks/te-lab-components-catalog-v2-migration.md). |
 | IM-015 | Add a dedicated **Calibration** workspace inside TE Test Equipment as a second projection of the existing equipment records, plus a calibration-specific one-time workbook roster preview/review/commit flow. The workbook seeds initial membership; Inventory Management is the source of truth afterward. | No second equipment table, database, shared root, or sync stream. Equipment keeps due/health only; detailed calibration tracking, explicit membership, and roster review live in Calibration. Implementation and pre-cutover verification completed 2026-07-25; backed-up single-writer live cutover remains pending. Authority: [2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md](../superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md). |
 | IM-016 | Copied-data desktop rehearsals use the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` override. A process-local `LOCALAPPDATA` change alone is not an accepted isolation boundary on Windows. | TE, Lab, and deprecated-database cleanup resolve through one explicit test root; the normal production Local AppData path remains unchanged when the override is absent. |
+
+## Future release backlog (owner reminders)
+
+Items the owner asked to park for a later release—not committed scope until pulled into a plan.
+
+| ID | Idea | Notes / current code |
+|----|------|----------------------|
+| IM-F01 | **In-app Settings: configurable calibration “due soon” window** | Today health uses a fixed **30 local days** (`deriveCalibrationHealth(..., dueSoonDays = 30)` in `frontend/src/modules/te-test-equipment/lib/calibrationHealth.ts`; backend mirror in `derive_calibration_health`). Rule: for **Required** equipment not archived/out-to-cal, with a valid due date: due before today → Overdue; `today ≤ due ≤ today + N` → Due soon; later → Current. **Ship later:** product Settings UI (not env-only) to set `N` (days), persist per workstation (or product preference store), wire FE + BE/export so Health, footer Due soon count, filters, and exports agree. Default remains 30 until settings exist. Owner note 2026-07-27. |
 
 ## Supersedes (context only)
 
