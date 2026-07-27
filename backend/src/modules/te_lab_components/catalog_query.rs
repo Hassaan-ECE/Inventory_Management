@@ -1,4 +1,5 @@
 use crate::modules::te_lab_components::{
+    catalog_demo_seed::seed_demo_catalog_if_empty,
     catalog_migration::{catalog_migration_status, ensure_catalog_initialized},
     catalog_model::{catalog_counts, summarize_part_stock, CatalogSyncResult, PartStockSummary},
     model::{CommandResult, InventorySharedStatus},
@@ -32,6 +33,18 @@ pub(crate) fn load_catalog_from_store(
             entries_changed,
             shared,
         });
+    }
+
+    // Explicit demo seed only (layout review / empty-lab bootstrap). Never auto-seed
+    // production shared catalogs; set INVENTORY_MANAGEMENT_LAB_DEMO_SEED=1 to enable.
+    if std::env::var_os("INVENTORY_MANAGEMENT_LAB_DEMO_SEED").is_some_and(|value| {
+        let value = value.to_string_lossy();
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    }) {
+        seed_demo_catalog_if_empty(db)?;
     }
 
     let parts = db.load_parts()?;

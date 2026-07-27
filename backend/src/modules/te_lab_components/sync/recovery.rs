@@ -145,8 +145,16 @@ fn repair_outbox_operations(
     report: &mut LocalSyncRecoveryReport,
 ) -> CommandResult<()> {
     let mut operations = Vec::new();
-    db.scan_sync_outbox_records::<SyncOperationEnvelope, _>(None, usize::MAX, |_, operation| {
-        operations.push(operation);
+    // Skip catalog / future op kinds so inventory-style recovery never blocks app open.
+    db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, value| {
+        match serde_json::from_slice::<SyncOperationEnvelope>(value) {
+            Ok(operation) => operations.push(operation),
+            Err(error) => {
+                eprintln!(
+                    "Lab inventory-style sync recovery: skipping outbox seq {local_seq} (unrecognized op): {error}"
+                );
+            }
+        }
         Ok(true)
     })?;
 
@@ -233,8 +241,9 @@ fn repair_next_local_sequence_marker(
     let local_client_id = db.client_id()?;
     let mut max_local_seq = 0u64;
 
-    db.scan_sync_outbox_records::<SyncOperationEnvelope, _>(None, usize::MAX, |_, operation| {
-        max_local_seq = max_local_seq.max(operation.local_seq);
+    // Key local_seq covers catalog and inventory outbox rows alike.
+    db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, _value| {
+        max_local_seq = max_local_seq.max(local_seq);
         Ok(true)
     })?;
 

@@ -30,13 +30,21 @@ pub fn run() {
             let te_db = stores.te_test_equipment();
             let lab_db = stores.te_lab_components();
             let _ = deprecated_db_cleanup::quarantine_deprecated_databases_once(&app_paths, te_db);
-            sync::recover_local_sync_state(te_db)?;
-            if lab_db.schema_version()?
+            // Recovery must never prevent the window from opening: unknown/future outbox
+            // op kinds (or mixed catalog vs inventory rows) should not brick launches or
+            // block in-app updates from an older install.
+            if let Err(error) = sync::recover_local_sync_state(te_db) {
+                eprintln!("TE local sync recovery failed (continuing startup): {error}");
+            }
+            let lab_recovery = if lab_db.schema_version()?
                 == Some(modules::te_lab_components::catalog_model::CATALOG_SCHEMA_VERSION)
             {
-                modules::te_lab_components::catalog_sync::recover_local_sync_state(lab_db)?;
+                modules::te_lab_components::catalog_sync::recover_local_sync_state(lab_db)
             } else {
-                modules::te_lab_components::sync::recover_local_sync_state(lab_db)?;
+                modules::te_lab_components::sync::recover_local_sync_state(lab_db).map(|_| ())
+            };
+            if let Err(error) = lab_recovery {
+                eprintln!("Lab local sync recovery failed (continuing startup): {error}");
             }
             app.manage(stores);
             app.manage(shared_sync::SharedSyncCoordinator::new());

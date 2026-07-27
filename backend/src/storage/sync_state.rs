@@ -112,6 +112,22 @@ impl InventoryDb {
         T: DeserializeOwned,
         F: FnMut(u64, T) -> CommandResult<bool>,
     {
+        self.scan_sync_outbox_raw(start_after_local_seq, limit, |local_seq, value| {
+            let record = serde_json::from_slice(value).map_err(db_error)?;
+            visit(local_seq, record)
+        })
+    }
+
+    /// Visit outbox rows as raw JSON bytes so callers can skip unknown/future op kinds.
+    pub(crate) fn scan_sync_outbox_raw<F>(
+        &self,
+        start_after_local_seq: Option<u64>,
+        limit: usize,
+        mut visit: F,
+    ) -> CommandResult<()>
+    where
+        F: FnMut(u64, &[u8]) -> CommandResult<bool>,
+    {
         let start_key = match start_after_local_seq {
             Some(local_seq) => {
                 keys::next_entry_range_start(keys::sync_outbox_key(local_seq)?.into_bytes())
@@ -121,8 +137,7 @@ impl InventoryDb {
 
         self.scan_sync_prefix_from(keys::SYNC_OUTBOX_PREFIX, start_key, limit, |key, value| {
             let local_seq = keys::parse_local_seq_from_key(keys::SYNC_OUTBOX_PREFIX, key)?;
-            let record = serde_json::from_slice(value).map_err(db_error)?;
-            visit(local_seq, record)
+            visit(local_seq, value)
         })
     }
 

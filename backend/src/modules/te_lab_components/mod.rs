@@ -1,3 +1,4 @@
+pub(crate) mod catalog_demo_seed;
 pub(crate) mod catalog_migration;
 pub(crate) mod catalog_model;
 pub(crate) mod catalog_mutations;

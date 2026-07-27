@@ -145,8 +145,16 @@ fn repair_outbox_operations(
     report: &mut LocalSyncRecoveryReport,
 ) -> CommandResult<()> {
     let mut operations = Vec::new();
-    db.scan_sync_outbox_records::<SyncOperationEnvelope, _>(None, usize::MAX, |_, operation| {
-        operations.push(operation);
+    // Skip unknown/future op kinds (e.g. catalog.entity.*) so startup never panics.
+    db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, value| {
+        match serde_json::from_slice::<SyncOperationEnvelope>(value) {
+            Ok(operation) => operations.push(operation),
+            Err(error) => {
+                eprintln!(
+                    "TE sync recovery: skipping outbox seq {local_seq} (unrecognized op): {error}"
+                );
+            }
+        }
         Ok(true)
     })?;
 
@@ -233,8 +241,9 @@ fn repair_next_local_sequence_marker(
     let local_client_id = db.client_id()?;
     let mut max_local_seq = 0u64;
 
-    db.scan_sync_outbox_records::<SyncOperationEnvelope, _>(None, usize::MAX, |_, operation| {
-        max_local_seq = max_local_seq.max(operation.local_seq);
+    // Use key local_seq so foreign/future outbox rows still advance the counter.
+    db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, _value| {
+        max_local_seq = max_local_seq.max(local_seq);
         Ok(true)
     })?;
 
@@ -399,4 +408,140 @@ fn report_total_repairs(report: &LocalSyncRecoveryReport) -> usize {
         + report.repaired_entries
         + report.repaired_local_sequence_markers
         + report.repaired_tombstones
+}
+
+#[cfg(test)]
+mod live_legacy_repair_tests {
+    use std::{env, path::PathBuf};
+
+    use serde::Deserialize;
+    use serde_json::Value;
+    use uuid::Uuid;
+
+    use crate::{model::InventoryEntry, store::InventoryDb, sync::types::SyncOperationEnvelope};
+
+    use super::recover_local_sync_state;
+
+    /// Repair live TE AppData so installed 0.1.0 can open after newer builds
+    /// wrote entries/outbox payloads that omit required `entryUuid`.
+    ///
+    ///   set REPAIR_TE_LEGACY=1
+    ///   cargo test repair_live_te_for_legacy_install -- --ignored --nocapture
+    #[test]
+    #[ignore = "live TE repair for 0.1.0; set REPAIR_TE_LEGACY=1"]
+    fn repair_live_te_for_legacy_install() {
+        if env::var("REPAIR_TE_LEGACY").ok().as_deref() != Some("1") {
+            eprintln!("skip: set REPAIR_TE_LEGACY=1 to repair live TE DB for 0.1.0");
+            return;
+        }
+
+        let path = PathBuf::from(env::var("LOCALAPPDATA").expect("LOCALAPPDATA"))
+            .join("com.inventory.management")
+            .join("inventory.feox");
+        assert!(path.is_file(), "missing TE DB at {}", path.display());
+        let file_size = std::fs::metadata(&path).expect("metadata").len().max(64 * 1024 * 1024);
+        let db = InventoryDb::open_at_with_size(path.clone(), file_size).expect("open TE DB");
+
+        // 1) Ensure every stored entry serializes with entryUuid (0.1.0 requires the field).
+        let entries = db.load_entries().expect("load entries");
+        let mut rewritten = 0usize;
+        let mut filled_uuid = 0usize;
+        for mut entry in entries {
+            let before = entry.entry_uuid.clone();
+            if entry.entry_uuid.trim().is_empty() {
+                entry.entry_uuid = Uuid::new_v4().simple().to_string();
+                filled_uuid += 1;
+            }
+            // Re-put so on-disk JSON includes entryUuid even when value was only defaulted at read.
+            db.put_entry(&entry).expect("put entry");
+            rewritten += 1;
+            if before != entry.entry_uuid {
+                eprintln!(
+                    "filled entryUuid for id={} asset={}",
+                    entry.id, entry.asset_number
+                );
+            }
+        }
+        eprintln!("rewrote_entries={rewritten} filled_empty_uuid={filled_uuid}");
+
+        // 2) Drop outbox rows that fail 0.1.0-style strict entryUuid checks.
+        let mut outbox_rows: Vec<(u64, Vec<u8>)> = Vec::new();
+        db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, value| {
+            outbox_rows.push((local_seq, value.to_vec()));
+            Ok(true)
+        })
+        .expect("scan outbox");
+        eprintln!("outbox_before={}", outbox_rows.len());
+
+        let mut deleted = 0usize;
+        for (seq, bytes) in &outbox_rows {
+            let keep = outbox_row_ok_for_legacy(bytes);
+            if !keep {
+                let preview = String::from_utf8_lossy(bytes);
+                let snippet: String = preview.chars().take(160).collect();
+                eprintln!("delete outbox seq={seq}: {snippet}");
+                db.delete_sync_outbox_record(*seq).expect("delete outbox");
+                deleted += 1;
+            }
+        }
+        db.flush();
+        eprintln!("deleted_outbox={deleted}");
+
+        // 3) Recovery should succeed under current code after repair.
+        let report = recover_local_sync_state(&db).expect("recover after repair");
+        eprintln!(
+            "recovery ok repaired_outbox={} repaired_entries={}",
+            report.repaired_outbox_operations, report.repaired_entries
+        );
+
+        // 4) Strict re-check: every entry JSON must contain entryUuid.
+        let entries = db.load_entries().expect("reload");
+        for entry in &entries {
+            let json = serde_json::to_string(entry).expect("serialize");
+            assert!(
+                json.contains("entryUuid"),
+                "entry {} missing entryUuid after rewrite",
+                entry.id
+            );
+            let strict: StrictInventoryEntry = serde_json::from_str(&json).expect("strict entry");
+            assert!(!strict.entry_uuid.is_empty(), "empty entryUuid for {}", entry.id);
+        }
+        eprintln!("strict_entry_check_ok count={}", entries.len());
+        let _ = path;
+    }
+
+    fn outbox_row_ok_for_legacy(bytes: &[u8]) -> bool {
+        // Must parse as inventory envelope under current types.
+        let Ok(op) = serde_json::from_slice::<SyncOperationEnvelope>(bytes) else {
+            return false;
+        };
+        // 0.1.0 required entryUuid on nested entry objects.
+        let Ok(value) = serde_json::from_slice::<Value>(bytes) else {
+            return false;
+        };
+        if let Some(entry) = value
+            .get("payload")
+            .and_then(|payload| payload.get("entry"))
+            .filter(|entry| !entry.is_null())
+        {
+            if entry.get("entryUuid").and_then(Value::as_str).unwrap_or("").is_empty() {
+                return false;
+            }
+            if serde_json::from_value::<StrictInventoryEntry>(entry.clone()).is_err() {
+                return false;
+            }
+        }
+        let _ = op;
+        true
+    }
+
+    /// Matches installed 0.1.0 behavior: entryUuid is required (no serde default).
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct StrictInventoryEntry {
+        entry_uuid: String,
+    }
+
+    #[allow(dead_code)]
+    fn _use_inventory_entry(_: &InventoryEntry) {}
 }

@@ -105,34 +105,63 @@ pub(crate) fn delete_part_in_store(
     let part = db
         .find_part(part_id)?
         .ok_or_else(|| "The selected part could not be found.".to_string())?;
-    if !db
-        .load_stock_placements_for_part(&part.entry_uuid)?
-        .is_empty()
-    {
+    if !part.archived {
         return Err(
-            "Archive the part or remove its stock placements before deleting it.".to_string(),
+            "Archive the part before deleting it permanently.".to_string(),
         );
     }
+
+    // Permanent delete removes remaining stock placements with the part so the
+    // archive "Delete Part" confirm does not strand on leftover placement rows.
+    let placements = db.load_stock_placements_for_part(&part.entry_uuid)?;
     let sync_backup = db.backup_sync_state()?;
+    let deleted_at = timestamp_now();
+
+    for placement in &placements {
+        db.delete_stock_placement(placement)?;
+        if let Err(error) = catalog_sync::queue_delete_operation(
+            db,
+            CatalogEntityType::StockPlacement,
+            &placement.placement_uuid,
+            deleted_at.clone(),
+            Some(placement.updated_at.clone()),
+        ) {
+            for restored in &placements {
+                let _ = db.put_stock_placement(restored);
+            }
+            let _ = db.restore_sync_state(sync_backup);
+            db.flush();
+            return Err(error);
+        }
+    }
+
     db.delete_part(&part)?;
     if let Err(error) = catalog_sync::queue_delete_operation(
         db,
         CatalogEntityType::Part,
         &part.entry_uuid,
-        timestamp_now(),
+        deleted_at,
         Some(part.updated_at.clone()),
     ) {
         let _ = db.put_part(&part);
+        for restored in &placements {
+            let _ = db.put_stock_placement(restored);
+        }
         let _ = db.restore_sync_state(sync_backup);
         db.flush();
         return Err(error);
     }
     db.flush();
-    Ok(delete_result(
-        part.entry_uuid,
-        "Part deleted from the Lab Components catalog.",
-        db,
-    ))
+    let message = if placements.is_empty() {
+        "Part deleted from the Lab Components catalog.".to_string()
+    } else {
+        format!(
+            "Part deleted from the Lab Components catalog ({} stock placement{} removed).",
+            placements.len(),
+            if placements.len() == 1 { "" } else { "s" }
+        )
+    };
+    Ok(delete_result(part.entry_uuid, &message, db))
 }
 
 pub(crate) fn create_storage_area_in_store(

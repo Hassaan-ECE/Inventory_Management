@@ -490,15 +490,25 @@ pub(crate) fn recover_local_sync_state(db: &InventoryDb) -> CommandResult<()> {
     }
     db.set_sync_schema_version(CATALOG_SYNC_SCHEMA_VERSION.into())?;
     let mut max_local_seq = 0u64;
-    db.scan_sync_outbox_records::<CatalogOperationEnvelope, _>(
-        None,
-        usize::MAX,
-        |local_seq, op| {
-            validate_operation(&op)?;
-            max_local_seq = max_local_seq.max(local_seq);
-            Ok(true)
-        },
-    )?;
+    // Skip non-catalog / corrupt outbox rows so recovery never blocks startup.
+    db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, value| {
+        max_local_seq = max_local_seq.max(local_seq);
+        match serde_json::from_slice::<CatalogOperationEnvelope>(value) {
+            Ok(op) => {
+                if let Err(error) = validate_operation(&op) {
+                    eprintln!(
+                        "Lab catalog sync recovery: skipping outbox seq {local_seq} (invalid catalog op): {error}"
+                    );
+                }
+            }
+            Err(error) => {
+                eprintln!(
+                    "Lab catalog sync recovery: skipping outbox seq {local_seq} (unrecognized op): {error}"
+                );
+            }
+        }
+        Ok(true)
+    })?;
     if db.next_local_seq()? <= max_local_seq {
         db.set_next_local_seq(max_local_seq + 1)?;
     }
@@ -2405,5 +2415,293 @@ mod tests {
 
     fn unique_test_dir(prefix: &str) -> PathBuf {
         env::temp_dir().join(format!("{prefix}-{}", Uuid::new_v4().simple()))
+    }
+
+    /// Owner one-shot: seed demo parts into local Lab DB if empty, cut over product
+    /// shared root to catalog-v2, and publish the initial shared snapshot.
+    ///
+    ///   set SEED_LAB_SHARED=1
+    ///   cargo test seed_live_lab_shared_demo_catalog -- --ignored --nocapture
+    #[test]
+    #[ignore = "live shared Lab cutover; set SEED_LAB_SHARED=1"]
+    fn seed_live_lab_shared_demo_catalog() {
+        use crate::modules::te_lab_components::catalog_demo_seed::seed_demo_catalog_if_empty;
+        use crate::platform::DEFAULT_LAB_COMPONENTS_SHARED_ROOT;
+
+        if env::var("SEED_LAB_SHARED").ok().as_deref() != Some("1") {
+            eprintln!("skip: set SEED_LAB_SHARED=1 to seed shared Lab catalog");
+            return;
+        }
+
+        let local = env::var("LOCALAPPDATA").expect("LOCALAPPDATA");
+        let lab_path = PathBuf::from(local)
+            .join("com.inventory.management")
+            .join("te-lab-components.feox");
+        assert!(
+            lab_path.is_file(),
+            "local Lab DB missing at {}",
+            lab_path.display()
+        );
+
+        let shared_root = PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT);
+        assert!(
+            shared_root.is_dir(),
+            "shared root missing at {}",
+            shared_root.display()
+        );
+
+        let db = InventoryDb::open_at(lab_path).expect("open local Lab DB");
+        ensure_catalog_initialized(&db).expect("init catalog v2");
+        seed_demo_catalog_if_empty(&db).expect("seed demo parts when empty");
+        repair_demo_counted_placements(&db);
+        queue_all_catalog_entities(&db);
+
+        let part_count = db.load_parts().expect("load parts").len();
+        let placement_count = db.load_stock_placements().expect("load placements").len();
+        assert!(
+            part_count >= 6,
+            "expected at least the 6 demo parts, got {part_count}"
+        );
+        eprintln!("local catalog: {part_count} parts, {placement_count} placements");
+
+        let preview = preview_shared_cutover_with_root(&db, shared_root.clone()).expect("preview");
+        eprintln!(
+            "cutover preview: blocking={} catalog_v2_initialized={} legacy={} parts={} areas={} containers={} placements={}",
+            preview.blocking,
+            preview.catalog_v2_initialized,
+            preview.legacy_stream_state,
+            preview.part_count,
+            preview.area_count,
+            preview.container_count,
+            preview.placement_count
+        );
+        assert!(
+            !preview.blocking,
+            "shared cutover blocked: root available={} legacy={}",
+            preview.shared_root_available,
+            preview.legacy_stream_state
+        );
+
+        let commit = commit_shared_cutover_with_root(
+            CatalogSharedCutoverCommitInput {
+                local_fingerprint: preview.local_fingerprint.clone(),
+                confirmed: true,
+            },
+            &db,
+            shared_root.clone(),
+        )
+        .expect("commit cutover");
+        eprintln!(
+            "cutover commit: noop={} catalog_root={} message={}",
+            commit.noop, commit.catalog_root_path, commit.message
+        );
+
+        let sync = run_shared_sync_with_root(&db, shared_root).expect("shared sync");
+        eprintln!(
+            "shared sync: available={} enabled={} mode={} message={}",
+            sync.shared.available,
+            sync.shared.enabled,
+            sync.shared.mutation_mode,
+            sync.shared.message
+        );
+        assert!(
+            sync.shared.available && sync.shared.enabled,
+            "expected shared ready after cutover"
+        );
+        assert!(
+            PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT)
+                .join("shared")
+                .join("catalog-v2")
+                .join("cutover.json")
+                .is_file(),
+            "expected catalog-v2 cutover marker on shared root"
+        );
+    }
+
+    /// Make installed 0.1.0 openable after newer catalog-v2 Lab writes.
+    ///
+    /// 0.1.0 has **no** catalog sync types. Its inventory-style recovery panics on
+    /// catalog tombstones/entry-states that use `entityUuid` instead of `entryUuid`.
+    /// This strips catalog sync metadata (keeps part/placement data for newer builds).
+    ///
+    ///   set REPAIR_LAB_OUTBOX=1
+    ///   cargo test repair_live_lab_outbox_for_legacy_install -- --ignored --nocapture
+    #[test]
+    #[ignore = "live Lab outbox repair for 0.1.0; set REPAIR_LAB_OUTBOX=1"]
+    fn repair_live_lab_outbox_for_legacy_install() {
+        if env::var("REPAIR_LAB_OUTBOX").ok().as_deref() != Some("1") {
+            eprintln!("skip: set REPAIR_LAB_OUTBOX=1 to strip Lab outbox for legacy 0.1.0");
+            return;
+        }
+
+        let local = env::var("LOCALAPPDATA").expect("LOCALAPPDATA");
+        let lab_path = PathBuf::from(local)
+            .join("com.inventory.management")
+            .join("te-lab-components.feox");
+        assert!(lab_path.is_file(), "missing Lab DB at {}", lab_path.display());
+
+        let file_size = std::fs::metadata(&lab_path)
+            .expect("metadata")
+            .len()
+            .max(64 * 1024 * 1024);
+        let db = InventoryDb::open_at_with_size(lab_path.clone(), file_size).expect("open local Lab DB");
+        let schema = db.schema_version().expect("schema");
+        eprintln!("Lab DB {} schema_version={schema:?}", lab_path.display());
+
+        let mut rows: Vec<(u64, String)> = Vec::new();
+        db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, value| {
+            let preview = String::from_utf8_lossy(value);
+            let op = if preview.contains("catalog.entity.upsert") {
+                "catalog.entity.upsert".to_string()
+            } else if preview.contains("catalog.entity.delete") {
+                "catalog.entity.delete".to_string()
+            } else if preview.contains("inventory.entry") {
+                "inventory.entry.*".to_string()
+            } else {
+                format!("other/unknown ({} bytes)", value.len())
+            };
+            rows.push((local_seq, op));
+            Ok(true)
+        })
+        .expect("scan outbox");
+
+        eprintln!("outbox rows before repair: {}", rows.len());
+        for (seq, op) in &rows {
+            eprintln!("  seq={seq} op={op}");
+        }
+
+        let mut deleted_outbox = 0usize;
+        for (seq, op) in &rows {
+            // Remove everything that installed 0.1.0 inventory-style recovery cannot parse,
+            // and catalog ops that re-poison after mixed dev use of the same AppData path.
+            if op.starts_with("catalog.entity") || op.starts_with("other") {
+                db.delete_sync_outbox_record(*seq)
+                    .unwrap_or_else(|error| panic!("delete outbox seq {seq}: {error}"));
+                deleted_outbox += 1;
+            }
+        }
+
+        // Catalog entity states/tombstones use entityUuid — 0.1.0 expects entryUuid and panics.
+        let mut deleted_states = 0usize;
+        let mut state_keys: Vec<String> = Vec::new();
+        db.scan_sync_range(SyncKeyspace::EntryState, usize::MAX, |key, value| {
+            let preview = String::from_utf8_lossy(value);
+            if preview.contains("entityUuid") || !preview.contains("entryUuid") {
+                state_keys.push(String::from_utf8_lossy(key).into_owned());
+            }
+            Ok(true)
+        })
+        .expect("scan entry states");
+        for key in &state_keys {
+            let entity = key
+                .strip_prefix("sync:entry_state:")
+                .unwrap_or(key.as_str());
+            db.delete_sync_entry_state(entity)
+                .unwrap_or_else(|error| panic!("delete entry state {entity}: {error}"));
+            deleted_states += 1;
+        }
+
+        let mut deleted_tombstones = 0usize;
+        let mut tombstone_keys: Vec<String> = Vec::new();
+        db.scan_sync_range(SyncKeyspace::Tombstone, usize::MAX, |key, value| {
+            let preview = String::from_utf8_lossy(value);
+            if preview.contains("entityUuid") || !preview.contains("entryUuid") {
+                tombstone_keys.push(String::from_utf8_lossy(key).into_owned());
+            }
+            Ok(true)
+        })
+        .expect("scan tombstones");
+        for key in &tombstone_keys {
+            let entity = key
+                .strip_prefix("sync:tombstone:")
+                .unwrap_or(key.as_str());
+            db.delete_sync_tombstone(entity)
+                .unwrap_or_else(|error| panic!("delete tombstone {entity}: {error}"));
+            deleted_tombstones += 1;
+        }
+
+        db.flush();
+
+        let mut remaining = 0usize;
+        db.scan_sync_outbox_raw(None, usize::MAX, |_, _| {
+            remaining += 1;
+            Ok(true)
+        })
+        .expect("rescan");
+        eprintln!(
+            "deleted_outbox={deleted_outbox} deleted_entry_states={deleted_states} deleted_tombstones={deleted_tombstones} remaining_outbox={remaining}"
+        );
+        assert_eq!(remaining, 0, "expected catalog outbox cleared");
+        assert_eq!(deleted_states, state_keys.len());
+        assert_eq!(deleted_tombstones, tombstone_keys.len());
+    }
+
+    /// Re-bootstrap the six demo parts after accidental local/shared deletion.
+    ///
+    ///   set RESEED_LAB_DEMO=1
+    ///   cargo test reseed_live_lab_demo_catalog -- --ignored --nocapture
+    #[test]
+    #[ignore = "live reseed Lab demo catalog; set RESEED_LAB_DEMO=1"]
+    fn reseed_live_lab_demo_catalog() {
+        use crate::modules::te_lab_components::catalog_demo_seed::reseed_demo_catalog;
+        use crate::platform::DEFAULT_LAB_COMPONENTS_SHARED_ROOT;
+
+        if env::var("RESEED_LAB_DEMO").ok().as_deref() != Some("1") {
+            eprintln!("skip: set RESEED_LAB_DEMO=1 to reseed Lab demo catalog");
+            return;
+        }
+
+        let local = env::var("LOCALAPPDATA").expect("LOCALAPPDATA");
+        let lab_path = PathBuf::from(local)
+            .join("com.inventory.management")
+            .join("te-lab-components.feox");
+        let shared_root = PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT);
+        let db = InventoryDb::open_at(lab_path).expect("open local Lab DB");
+        ensure_catalog_initialized(&db).expect("init catalog v2");
+
+        let before = db.load_parts().expect("parts").len();
+        reseed_demo_catalog(&db).expect("reseed demo catalog");
+        repair_demo_counted_placements(&db);
+        queue_all_catalog_entities(&db);
+        let after = db.load_parts().expect("parts").len();
+        eprintln!("reseeded demo catalog: before={before} after={after}");
+        assert_eq!(after, 6);
+
+        let sync = publish_pending_local_changes_with_root(&db, shared_root.clone())
+            .expect("publish demo catalog");
+        let again = run_shared_sync_with_root(&db, shared_root).expect("shared sync");
+        eprintln!(
+            "publish: available={} enabled={} message={}",
+            again.shared.available, again.shared.enabled, again.shared.message
+        );
+        assert!(sync.shared.enabled || again.shared.enabled);
+    }
+
+    fn repair_demo_counted_placements(db: &InventoryDb) {
+        for mut placement in db.load_stock_placements().expect("load placements") {
+            if placement.count_state == "counted" && placement.last_counted_at.is_none() {
+                placement.last_counted_at = Some(now_timestamp());
+                if placement.last_counted_by.trim().is_empty() {
+                    placement.last_counted_by = "demo-seed".to_string();
+                }
+                db.put_stock_placement(&placement)
+                    .expect("repair counted placement timestamp");
+            }
+        }
+    }
+
+    fn queue_all_catalog_entities(db: &InventoryDb) {
+        for area in db.load_storage_areas().expect("areas") {
+            queue_upsert_operation(db, area.into(), Vec::new(), None).expect("queue area");
+        }
+        for container in db.load_storage_containers().expect("containers") {
+            queue_upsert_operation(db, container.into(), Vec::new(), None).expect("queue container");
+        }
+        for part in db.load_parts().expect("parts") {
+            queue_upsert_operation(db, part.into(), Vec::new(), None).expect("queue part");
+        }
+        for placement in db.load_stock_placements().expect("placements") {
+            queue_upsert_operation(db, placement.into(), Vec::new(), None).expect("queue placement");
+        }
     }
 }

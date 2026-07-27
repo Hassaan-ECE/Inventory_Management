@@ -1043,3 +1043,252 @@ fn write_excel_date(sheet: &mut Worksheet, row: u32, column: u16, year: u16, mon
         .write_datetime_with_format(row, column, &date, &format)
         .unwrap();
 }
+
+#[test]
+fn apply_owner_calibration_roster_cutover_when_requested() {
+    if std::env::var("IM015_CALIBRATION_COMMIT").ok().as_deref() != Some("1") {
+        return;
+    }
+
+    let workbook_path = PathBuf::from(
+        std::env::var("TE_CALIBRATION_ROSTER_XLSX")
+            .expect("TE_CALIBRATION_ROSTER_XLSX must point to the calibration workbook"),
+    );
+    let db_path = PathBuf::from(
+        std::env::var("TE_CALIBRATION_ROSTER_DB_COPY")
+            .expect("TE_CALIBRATION_ROSTER_DB_COPY must point to the target database file"),
+    );
+    let file_size = fs::metadata(&db_path).unwrap().len();
+    let db = InventoryDb::open_at_with_size(db_path, file_size).unwrap();
+
+    let report = preview_calibration_roster_from_path(&workbook_path, &db).unwrap();
+    println!(
+        "preview: matched={} create={} conflicts={} dups={} junk={} absent={} blocking={}",
+        report.counts.matched_updates,
+        report.counts.create_candidates,
+        report.counts.conflicts,
+        report.counts.duplicate_source_rows,
+        report.counts.ignored_junk,
+        report.counts.current_required_absent,
+        report.blocking
+    );
+
+    let mut seen_targets = std::collections::BTreeSet::<String>::new();
+    for row in &report.row_outcomes {
+        if row.classification == CalibrationRosterClassification::MatchedUpdate {
+            if let Some(target) = row.candidate_entry_uuid.as_ref() {
+                seen_targets.insert(target.clone());
+            }
+        }
+    }
+    let mut resolutions = Vec::new();
+    for row in &report.row_outcomes {
+        match row.classification {
+            CalibrationRosterClassification::MatchedUpdate => {
+                // Some matched rows still require_review (semantics / notes) and need confirmation.
+                if row.requires_review {
+                    if let Some(target) = row.candidate_entry_uuid.clone() {
+                        if seen_targets.insert(target.clone()) {
+                            resolutions.push(CalibrationRosterResolution {
+                                source_sheet: row.source_sheet.clone(),
+                                source_row: row.source_row,
+                                action: CalibrationRosterResolutionAction::UseExisting,
+                                target_entry_uuid: Some(target),
+                                create_input: None,
+                                confirmed: true,
+                            });
+                        } else {
+                            resolutions.push(ignore_resolution(row));
+                        }
+                    } else {
+                        resolutions.push(ignore_resolution(row));
+                    }
+                }
+            }
+            CalibrationRosterClassification::IgnoredJunk => {
+                resolutions.push(ignore_resolution(row));
+            }
+            CalibrationRosterClassification::DuplicateSourceRow => {
+                if let Some(target) = row
+                    .candidate_entry_uuid
+                    .clone()
+                    .or_else(|| row.candidate_entries.first().map(|c| c.entry_uuid.clone()))
+                {
+                    if seen_targets.insert(target.clone()) {
+                        resolutions.push(CalibrationRosterResolution {
+                            source_sheet: row.source_sheet.clone(),
+                            source_row: row.source_row,
+                            action: CalibrationRosterResolutionAction::UseExisting,
+                            target_entry_uuid: Some(target),
+                            create_input: None,
+                            confirmed: true,
+                        });
+                    } else {
+                        resolutions.push(ignore_resolution(row));
+                    }
+                } else {
+                    resolutions.push(ignore_resolution(row));
+                }
+            }
+            CalibrationRosterClassification::CreateCandidate => {
+                if row.candidate_entries.len() == 1 {
+                    let target = row.candidate_entries[0].entry_uuid.clone();
+                    if seen_targets.insert(target.clone()) {
+                        resolutions.push(CalibrationRosterResolution {
+                            source_sheet: row.source_sheet.clone(),
+                            source_row: row.source_row,
+                            action: CalibrationRosterResolutionAction::UseExisting,
+                            target_entry_uuid: Some(target),
+                            create_input: None,
+                            confirmed: true,
+                        });
+                    } else {
+                        resolutions.push(ignore_resolution(row));
+                    }
+                } else {
+                    // Unmatched workbook rows (including multi-hint noise) stay out of inventory/calibration.
+                    resolutions.push(ignore_resolution(row));
+                }
+            }
+            CalibrationRosterClassification::ConflictReviewRequired => {
+                let target = resolve_conflict_target(row);
+                if let Some(target) = target {
+                    if seen_targets.insert(target.clone()) {
+                        resolutions.push(CalibrationRosterResolution {
+                            source_sheet: row.source_sheet.clone(),
+                            source_row: row.source_row,
+                            action: CalibrationRosterResolutionAction::UseExisting,
+                            target_entry_uuid: Some(target),
+                            create_input: None,
+                            confirmed: true,
+                        });
+                    } else {
+                        resolutions.push(ignore_resolution(row));
+                    }
+                } else {
+                    resolutions.push(ignore_resolution(row));
+                }
+            }
+        }
+    }
+
+    let input = CalibrationRosterCommitInput {
+        batch_id: report.batch_id.clone(),
+        confirmed: true,
+        replace_active_required_roster: true,
+        verification_attribution: "Calibration tracking workbook cutover 2026-07-27".to_string(),
+        resolutions,
+    };
+
+    let result = commit_calibration_roster_from_store(input, &db).unwrap();
+    println!(
+        "commit: updated={} created={} reset={} ignored={} noop={} final_required={} changed={} message={}",
+        result.updated,
+        result.created,
+        result.reset,
+        result.ignored,
+        result.noop,
+        result.final_required,
+        result.entries_changed,
+        result.message
+    );
+
+    let entries = db.load_entries().unwrap();
+    let required: Vec<_> = entries
+        .iter()
+        .filter(|e| !e.archived && e.calibration_requirement == CalibrationRequirement::Required)
+        .collect();
+    let required_verified = required.iter().filter(|e| e.verified_at.is_some()).count();
+    let required_pending = required.len() - required_verified;
+    println!(
+        "post: total={} active_required={} required_verified={} required_pending={}",
+        entries.len(),
+        required.len(),
+        required_verified,
+        required_pending
+    );
+    assert!(result.entries_changed, "cutover should mutate entries");
+    assert_eq!(result.created, 0, "owner asked not to invent missing inventory rows");
+    if required_pending > 0 {
+        for entry in &required {
+            if entry.verified_at.is_none() {
+                println!(
+                    "pending required: asset={} serial={} desc={} uuid={}",
+                    entry.asset_number, entry.serial_number, entry.description, entry.entry_uuid
+                );
+            }
+        }
+    }
+    // Prefer verified for all approved workbook matches; report any leftovers for owner review.
+    assert!(required_verified >= 78, "expected at least the matched workbook set verified");
+}
+
+fn resolve_conflict_target(row: &CalibrationRosterRowOutcome) -> Option<String> {
+    let asset = row.asset_number.as_deref().unwrap_or("").trim().to_ascii_lowercase();
+    let serial = row.serial_number.as_deref().unwrap_or("").trim().to_ascii_lowercase();
+    if !asset.is_empty() {
+        let asset_matches: Vec<_> = row
+            .candidate_entries
+            .iter()
+            .filter(|c| c.asset_number.trim().to_ascii_lowercase() == asset)
+            .collect();
+        if asset_matches.len() == 1 {
+            return Some(asset_matches[0].entry_uuid.clone());
+        }
+        if asset_matches.len() > 1 && !serial.is_empty() {
+            if let Some(hit) = asset_matches.iter().find(|c| {
+                c.serial_number.trim().to_ascii_lowercase() == serial
+            }) {
+                return Some(hit.entry_uuid.clone());
+            }
+            // Prefer the cleaner-looking serial (no leading +) among asset matches.
+            if let Some(hit) = asset_matches.iter().find(|c| {
+                let s = c.serial_number.trim();
+                !s.is_empty() && !s.starts_with('+')
+            }) {
+                return Some(hit.entry_uuid.clone());
+            }
+            return Some(asset_matches[0].entry_uuid.clone());
+        }
+    }
+    if !serial.is_empty() {
+        let serial_matches: Vec<_> = row
+            .candidate_entries
+            .iter()
+            .filter(|c| c.serial_number.trim().to_ascii_lowercase() == serial)
+            .collect();
+        if serial_matches.len() == 1 {
+            return Some(serial_matches[0].entry_uuid.clone());
+        }
+    }
+    None
+}
+
+#[test]
+fn clear_cutover_verification_attribution_when_requested() {
+    if std::env::var("IM015_CLEAR_CUTOVER_VERIFIED_BY").ok().as_deref() != Some("1") {
+        return;
+    }
+    let db_path = PathBuf::from(
+        std::env::var("TE_CALIBRATION_ROSTER_DB_COPY")
+            .expect("TE_CALIBRATION_ROSTER_DB_COPY must point to the target database file"),
+    );
+    let file_size = fs::metadata(&db_path).unwrap().len();
+    let db = InventoryDb::open_at_with_size(db_path, file_size).unwrap();
+    let marker = "Calibration tracking workbook cutover";
+    let mut cleared = 0usize;
+    for mut entry in db.load_entries().unwrap() {
+        let Some(verified_by) = entry.verified_by.as_ref() else {
+            continue;
+        };
+        if !verified_by.contains(marker) {
+            continue;
+        }
+        entry.verified_by = None;
+        db.put_entry(&entry).unwrap();
+        cleared += 1;
+    }
+    db.flush();
+    println!("cleared verified_by on {cleared} entries");
+    assert!(cleared > 0, "expected to clear at least one cutover attribution");
+}
