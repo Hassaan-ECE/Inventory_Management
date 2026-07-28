@@ -16,6 +16,7 @@ dist-ssr
 backend/target
 backend/gen
 .tmp
+/.superpowers/
 coverage
 .nyc_output
 .vitest
