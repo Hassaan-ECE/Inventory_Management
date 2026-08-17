@@ -6,6 +6,14 @@ Copy everything below the line into a **new chat** with workspace:
 C:\Projects\Active\Inventory_Management
 ```
 
+For the Lab simple-workspace feature branch/worktree instead:
+
+```text
+C:\Users\Syed.h.Shah\.grok\worktrees\active-inventory-management\subagent-01a01092-c1e3-7292-9e15-0f9ec316cc30
+```
+
+Branch: `feature/lab-simple-workspace`
+
 ---
 
 You are working on **Inventory Management**, a unified multi-inventory Windows desktop product.
@@ -15,6 +23,8 @@ You are working on **Inventory Management**, a unified multi-inventory Windows d
 ```text
 C:\Projects\Active\Inventory_Management
 ```
+
+For unfinished Lab simple-workspace work, open the feature worktree above on `feature/lab-simple-workspace` instead.
 
 Do **not** use `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory` as the active app tree. Sibling standalones under `Inventory_Apps\` remain legacy until owner-controlled cutover.
 
@@ -26,8 +36,9 @@ Do **not** use `C:\Projects\Active\Inventory_Apps\TE\TE_Test_Equipment_Inventory
 4. `README.md`
 5. `docs/superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md` and `docs/runbooks/te-lab-components-catalog-v2-migration.md` for IM-014
 6. `docs/superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md` for IM-015
-7. `docs/runbooks/im-014-im-015-combined-desktop-smoke.md` for safe combined copied-data testing
-8. `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md` for IM-011 sync behavior
+7. `docs/superpowers/specs/2026-07-28-te-lab-components-simple-workspace-and-order-export-design.md` and `docs/superpowers/plans/2026-08-17-te-lab-components-simple-workspace-and-order-export.md` for the Lab simple workspace + order export
+8. `docs/runbooks/im-014-im-015-combined-desktop-smoke.md` for safe combined copied-data testing
+9. `docs/superpowers/plans/2026-07-18-adaptive-per-inventory-sync-lifecycle.md` for IM-011 sync behavior
 
 Prefer live code and these current documents over older TE planning copies.
 
@@ -43,7 +54,7 @@ Prefer live code and these current documents over older TE planning copies.
 | Item | Value |
 |------|-------|
 | Display | Inventory Management |
-| Package | `inventory-management` `0.1.0` |
+| Package | `inventory-management` `0.1.1` (source; first team installer remains `0.1.0`) |
 | Tauri id | `com.inventory.management` |
 | TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
@@ -52,9 +63,9 @@ Prefer live code and these current documents over older TE planning copies.
 | Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
 | Env prefix | `INVENTORY_MANAGEMENT_*` |
 
-## Current state — 2026-07-25
+## Current state — 2026-08-17
 
-**Implemented**
+**On `main` (active product checkout)**
 
 - IM-011 adaptive per-inventory sync lifecycle.
 - IM-012 shell/platform/module architecture.
@@ -62,19 +73,26 @@ Prefer live code and these current documents over older TE planning copies.
 - First team release `0.1.0`, signed installer, GitHub Release, and updater metadata.
 - IM-014 generalized Lab parts catalog: flexible attributes, multi-location stock, grid bins, migration, Lab sync schema v2, and six-sheet export.
 - IM-015 TE Equipment/Calibration workspace and guarded calibration-roster preview/review/commit tooling.
-- Both features are integrated into `main` in `C:\Projects\Active\Inventory_Management`; temporary feature worktrees are no longer the active app.
-- Combined automated gates and an explicit-root isolated desktop startup smoke pass; manual owner workflow QA remains.
+
+**On `feature/lab-simple-workspace` (implementation complete; acceptance pending)**
+
+- Five-column everyday Lab table, simple through-hole editor, review mode for non-simple rows.
+- Atomic simple Part+placement mutations with rollback; order-request workbook export for selected components.
+- Automated gates (focused + full frontend, lint/build, rustfmt, full Rust suite, strict Clippy) passed in the feature worktree.
+- Isolated desktop **startup** smoke passed under `C:\tmp\inventory-management-simple-workspace-smoke\` with shared sync disabled; live Lab DB and product shared root were **not** modified.
+- Full GUI click-through acceptance was **not** completed in the verification agent session.
 
 **Not completed**
 
-- Owner copied-data rehearsal and live IM-014 Lab schema-v2 cutover.
-- Owner-backed-up single-writer IM-015 calibration roster cutover.
+- Owner acceptance of the simple Lab workspace + order export (manual checklist).
+- Product **version bump**, **installer staging**, and team rollout for this feature.
+- Live IM-014 Lab schema-v2 cutover and live IM-015 calibration roster cutover (separate owner ops).
 - ME Storage and TE Storage Room implementations.
 
 ## Next priorities
 
-1. Run `bun run desktop` from `C:\Projects\Active\Inventory_Management` for the combined owner manual smoke.
-2. Verify TE Equipment/Calibration and Lab catalog/grid/migration workflows coexist across module switching and restart.
+1. Owner-manual Lab simple workspace acceptance on `feature/lab-simple-workspace` (isolated root only).
+2. Integrate/merge after acceptance; then version bump + signed installer only when the owner asks to release.
 3. Perform IM-014 and IM-015 live cutovers separately under their owner runbooks, backups, and one-writer rules.
 
 ## Rules
@@ -85,7 +103,8 @@ Prefer live code and these current documents over older TE planning copies.
 - Do not rename the Tauri id without a migration plan.
 - Do not run either live cutover during a normal development smoke.
 - For copied-data desktop testing, set the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT`; changing `LOCALAPPDATA` alone is insufficient on Windows.
+- Do not point verification env vars at live `%LOCALAPPDATA%\com.inventory.management` or `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App`.
 
 ## First reply in a new chat
 
-Summarize the stable product identity, that IM-011/IM-012/C1/IM-014/IM-015 implementation is complete on `main` in the single active checkout, and that both live data cutovers remain pending and separate.
+Summarize the stable product identity; that IM-011/IM-012/C1/IM-014/IM-015 are on main; that Lab simple workspace + order export is implemented on `feature/lab-simple-workspace` with automated gates green and isolated startup smoke only; and that owner acceptance, version bump, installer staging, and live cutovers remain pending and separate.
