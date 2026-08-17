@@ -125,6 +125,8 @@ export function createDesktopBridge(
     deleteEntry: vi.fn(),
     createLabPart: vi.fn(),
     updateLabPart: vi.fn(),
+    createLabSimpleComponent: vi.fn(),
+    updateLabSimpleComponent: vi.fn(),
     deleteLabPart: vi.fn(),
     createLabStorageArea: vi.fn(),
     updateLabStorageArea: vi.fn(),

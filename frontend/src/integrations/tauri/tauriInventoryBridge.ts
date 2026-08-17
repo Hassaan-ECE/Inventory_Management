@@ -29,6 +29,7 @@ import {
   parseLabPartMutationResult,
   parseLabSharedCutoverCommitResult,
   parseLabSharedCutoverPreview,
+  parseLabSimpleComponentMutationResult,
   parseLabStockMoveMutationResult,
   parseLabStockPlacementMutationResult,
   parseLabStorageAreaMutationResult,
@@ -43,6 +44,7 @@ import type {
   CatalogMigrationCommitInput,
   CatalogSharedCutoverCommitInput,
   PartInput,
+  SimpleComponentInput,
   StockCountInput,
   StockMoveInput,
   StockPlacementInput,
@@ -91,6 +93,12 @@ if (typeof window !== "undefined" && isTauri()) {
       invoke("create_lab_part", { input }).then(parseLabPartMutationResult),
     updateLabPart: (partId: string, input: PartInput) =>
       invoke("update_lab_part", { input, partId }).then(parseLabPartMutationResult),
+    createLabSimpleComponent: (input: SimpleComponentInput) =>
+      invoke("create_lab_simple_component", { input }).then(parseLabSimpleComponentMutationResult),
+    updateLabSimpleComponent: (partId: string, input: SimpleComponentInput) =>
+      invoke("update_lab_simple_component", { input, partId }).then(
+        parseLabSimpleComponentMutationResult,
+      ),
     deleteLabPart: (partId: string) =>
       invoke("delete_lab_part", { partId }).then(parseLabCatalogDeleteResult),
     createLabStorageArea: (input: StorageAreaInput) =>

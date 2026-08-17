@@ -24,7 +24,8 @@ use crate::{
         catalog_migration as lab_catalog_migration, catalog_model as lab_catalog_model,
         catalog_mutations as lab_catalog_mutations, catalog_query as lab_catalog_query,
         catalog_sync as lab_catalog_sync, model as lab_model, mutations as lab_mutations,
-        query as lab_query, store::InventoryDb as LabInventoryDb, sync as lab_sync,
+        query as lab_query, simple_workflow as lab_simple_workflow,
+        store::InventoryDb as LabInventoryDb, sync as lab_sync,
     },
     platform::ModuleId,
     query::{get_inventory_counts, query_entries},
@@ -416,6 +417,43 @@ pub(crate) fn update_lab_part(
         coordinator.run_exclusive(ModuleId::TeLabComponents, "catalog part update", || {
             lab_catalog_mutations::update_part_in_store(&part_id, input, db)
         })?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn create_lab_simple_component(
+    app: AppHandle,
+    input: lab_simple_workflow::SimpleComponentInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result = coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "simple component create",
+        || lab_simple_workflow::create_simple_component_in_store(input, db),
+    )?;
+    schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
+    command_value(result)
+}
+
+#[tauri::command]
+pub(crate) fn update_lab_simple_component(
+    app: AppHandle,
+    part_id: String,
+    input: lab_simple_workflow::SimpleComponentInput,
+    coordinator: State<'_, SharedSyncCoordinator>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<Value> {
+    let coordinator = coordinator.inner().clone();
+    let db = stores.te_lab_components();
+    let result = coordinator.run_exclusive(
+        ModuleId::TeLabComponents,
+        "simple component update",
+        || lab_simple_workflow::update_simple_component_in_store(&part_id, input, db),
+    )?;
     schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
     command_value(result)
 }

@@ -36,6 +36,8 @@ import type {
   InventorySharedStatus as LabInventorySharedStatus,
   Part,
   PartInput,
+  SimpleComponentInput,
+  SimpleComponentValue,
   StockCountInput,
   StockMoveInput,
   StockPlacement,
@@ -137,6 +139,13 @@ export interface InventoryDesktopBridge {
   ) => Promise<InventoryDeleteMutationResultFor<M>>;
   createLabPart?: (input: PartInput) => Promise<LabCatalogMutationResult<Part>>;
   updateLabPart?: (partId: string, input: PartInput) => Promise<LabCatalogMutationResult<Part>>;
+  createLabSimpleComponent?: (
+    input: SimpleComponentInput,
+  ) => Promise<LabCatalogMutationResult<SimpleComponentValue>>;
+  updateLabSimpleComponent?: (
+    partId: string,
+    input: SimpleComponentInput,
+  ) => Promise<LabCatalogMutationResult<SimpleComponentValue>>;
   deleteLabPart?: (partId: string) => Promise<LabCatalogDeleteResult>;
   createLabStorageArea?: (input: StorageAreaInput) => Promise<LabCatalogMutationResult<StorageArea>>;
   updateLabStorageArea?: (

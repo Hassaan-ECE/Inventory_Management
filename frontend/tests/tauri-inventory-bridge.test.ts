@@ -216,6 +216,52 @@ describe("tauri inventory bridge", () => {
     });
   });
 
+  it("invokes and parses simple Lab component create and update commands", async () => {
+    const invoke = vi
+      .fn()
+      .mockResolvedValueOnce(validSimpleComponentMutation())
+      .mockResolvedValueOnce(validSimpleComponentMutation());
+    const bridge = await registerDesktopBridge(invoke);
+    const input = validSimpleComponentInput();
+
+    await expect(bridge.createLabSimpleComponent?.(input)).resolves.toMatchObject({
+      value: {
+        part: { entryUuid: "lab-part-1", manufacturerPartNumber: "GHR-04V-S" },
+        placement: { placementUuid: "lab-placement-1", quantity: 12 },
+      },
+      message: "Simple component saved.",
+      mutationMode: "shared",
+    });
+    await expect(bridge.updateLabSimpleComponent?.("part-1", input)).resolves.toMatchObject({
+      value: {
+        part: { entryUuid: "lab-part-1" },
+        placement: { placementUuid: "lab-placement-1" },
+      },
+      mutationMode: "shared",
+    });
+
+    expect(invoke).toHaveBeenNthCalledWith(1, "create_lab_simple_component", { input });
+    expect(invoke).toHaveBeenNthCalledWith(2, "update_lab_simple_component", {
+      input,
+      partId: "part-1",
+    });
+  });
+
+  it("rejects a malformed simple Lab component mutation", async () => {
+    const bridge = await registerDesktopBridge(
+      vi.fn().mockResolvedValue({
+        value: { part: null, placement: null },
+        message: "bad",
+        mutationMode: "shared",
+        shared: validLabSharedStatus(),
+      }),
+    );
+
+    await expect(bridge.createLabSimpleComponent?.(validSimpleComponentInput())).rejects.toThrow(
+      "simple component mutation",
+    );
+  });
+
   it("runs Tauri shared inventory cleanup after pending listener registration resolves", async () => {
     const deferredUnlisten = createDeferred<() => void>();
     const unlisten = vi.fn();
@@ -936,6 +982,30 @@ function validLabPartInput(): LabPartInput {
     picturePath: "",
     notes: "",
     archived: false,
+  };
+}
+
+function validSimpleComponentInput(): {
+  part: LabPartInput;
+  quantity: number;
+  location: string;
+} {
+  return {
+    part: validLabPartInput(),
+    quantity: 12,
+    location: "Shelf A",
+  };
+}
+
+function validSimpleComponentMutation(): Record<string, unknown> {
+  return {
+    value: {
+      part: validLabCatalogPart(),
+      placement: validLabStockPlacement(),
+    },
+    message: "Simple component saved.",
+    mutationMode: "shared",
+    shared: validLabSharedStatus(),
   };
 }
 

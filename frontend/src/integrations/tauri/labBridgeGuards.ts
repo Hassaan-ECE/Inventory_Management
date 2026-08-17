@@ -24,6 +24,7 @@ import {
   type Part,
   type PartStockSummary,
   type QuantityTotal,
+  type SimpleComponentValue,
   type StockPlacement,
   type StockStatus,
   type StorageArea,
@@ -62,6 +63,26 @@ export function parseLabInventorySyncResult(value: unknown): InventorySyncResult
 
 export function parseLabPartMutationResult(value: unknown): CatalogMutationResult<Part> {
   return parseCatalogMutationResult(value, "part mutation", parsePart);
+}
+
+export function parseLabSimpleComponentMutationResult(
+  value: unknown,
+): CatalogMutationResult<SimpleComponentValue> {
+  return parseCatalogMutationResult(value, "simple component mutation", parseSimpleComponentValue);
+}
+
+function parseSimpleComponentValue(value: unknown): SimpleComponentValue {
+  const record = requireRecord(value, "simple component mutation value");
+  if (record.part == null) {
+    throw new Error("Invalid simple component mutation: missing part.");
+  }
+  if (record.placement !== null && !isRecord(record.placement)) {
+    throw new Error("Invalid simple component mutation: placement must be object or null.");
+  }
+  return {
+    part: parsePart(record.part),
+    placement: record.placement === null ? null : parseStockPlacement(record.placement),
+  };
 }
 
 export function parseLabStorageAreaMutationResult(value: unknown): CatalogMutationResult<StorageArea> {

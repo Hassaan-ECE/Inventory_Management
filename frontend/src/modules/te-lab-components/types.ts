@@ -301,6 +301,17 @@ export interface CatalogMutationResult<T> {
   shared: InventorySharedStatus;
 }
 
+export interface SimpleComponentInput {
+  part: PartInput;
+  quantity: number;
+  location: string;
+}
+
+export interface SimpleComponentValue {
+  part: Part;
+  placement: StockPlacement | null;
+}
+
 export interface CatalogDeleteResult {
   entityUuid: string;
   message: string;

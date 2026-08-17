@@ -64,6 +64,8 @@ pub fn run() {
             commands::delete_entry,
             commands::create_lab_part,
             commands::update_lab_part,
+            commands::create_lab_simple_component,
+            commands::update_lab_simple_component,
             commands::delete_lab_part,
             commands::create_lab_storage_area,
             commands::update_lab_storage_area,

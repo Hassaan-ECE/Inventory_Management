@@ -9,8 +9,6 @@ pub(crate) mod entry_changes;
 pub(crate) mod model;
 pub(crate) mod mutations;
 pub(crate) mod query;
-// Wired by Task 3 desktop bridge; keep dead_code quiet until then.
-#[allow(dead_code)]
 pub(crate) mod simple_workflow;
 pub(crate) mod storage;
 #[allow(dead_code)]
