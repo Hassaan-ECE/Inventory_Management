@@ -3,13 +3,16 @@ use serde::{Deserialize, Serialize};
 use crate::modules::te_lab_components::{
     catalog_migration::ensure_catalog_initialized,
     catalog_model::{
-        create_part, create_stock_placement, grid_coordinate_label, indistinguishable_placement_key,
-        normalize_part_input, normalize_stock_placement_input, normalized_lookup,
-        normalized_part_number, update_part, update_stock_placement, validate_part_input,
-        validate_stock_placement_input, CatalogMutationResult, Part, PartInput, StockPlacement,
-        StockPlacementInput, StorageAreaInput, StorageContainer, StorageContainerInput,
+        create_part, create_stock_placement, grid_coordinate_label, normalize_part_input,
+        normalize_stock_placement_input, normalized_lookup, update_part, update_stock_placement,
+        validate_part_input, validate_stock_placement_input, CatalogMutationResult, Part,
+        PartInput, StockPlacement, StockPlacementInput, StorageAreaInput, StorageContainer,
+        StorageContainerInput,
     },
-    catalog_mutations::{create_storage_area_in_store, create_storage_container_in_store},
+    catalog_mutations::{
+        create_storage_area_in_store, create_storage_container_in_store, ensure_distinct_placement,
+        ensure_unique_part_number,
+    },
     catalog_sync::{self, queued_local_status},
     model::{CommandResult, InventorySharedStatus},
     store::InventoryDb,
@@ -97,9 +100,10 @@ fn save_simple_component_with_failure(
         .find(|placement| !placement.archived)
         .cloned();
 
-    // Validate placement shape before any part write (container may not exist yet for creates).
-    if location.is_empty() {
-        // qty 0 + blank already validated by normalize_location
+    // Resolve/create TE Lab / Shelf before any part/placement write so create helpers
+    // never flush() a durable part without its placement. Leftover empty shelf is OK.
+    let shelf_for_write = if location.is_empty() {
+        None
     } else if let Some(existing) = &active_placement {
         let existing_container = require_container(db, &existing.container_uuid)?;
         let current_location = placement_short_location(existing, &existing_container);
@@ -107,11 +111,53 @@ fn save_simple_component_with_failure(
             let mut next_input = placement_input_from(existing);
             next_input.quantity = quantity;
             next_input.unit_of_measure = "pcs".to_string();
-            let next_input =
-                normalize_stock_placement_input(next_input, Some("pcs"));
+            let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
             validate_stock_placement_input(&next_input, &existing_container)?;
+            None
+        } else {
+            let shelf = ensure_simple_shelf(db)?;
+            let mut next_input = placement_input_from(existing);
+            next_input.container_uuid = shelf.container_uuid.clone();
+            next_input.column_index = None;
+            next_input.row_index = None;
+            next_input.freeform_position = location.clone();
+            next_input.quantity = quantity;
+            next_input.unit_of_measure = "pcs".to_string();
+            next_input.archived = false;
+            let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
+            validate_stock_placement_input(&next_input, &shelf)?;
+            Some(shelf)
         }
-        // location change validated after shelf resolution
+    } else {
+        let shelf = ensure_simple_shelf(db)?;
+        let placement_input = normalize_stock_placement_input(
+            StockPlacementInput {
+                part_uuid: String::new(), // filled after part id is known
+                container_uuid: shelf.container_uuid.clone(),
+                freeform_position: location.clone(),
+                quantity,
+                unit_of_measure: "pcs".to_string(),
+                ..StockPlacementInput::default()
+            },
+            Some("pcs"),
+        );
+        // part_uuid empty fails validate — validate container geometry only via a temp part uuid
+        let mut check = placement_input;
+        check.part_uuid = "pending".to_string();
+        validate_stock_placement_input(&check, &shelf)?;
+        Some(shelf)
+    };
+
+    if location.is_empty() {
+        if let Some(existing) = &active_placement {
+            let container = require_container(db, &existing.container_uuid)?;
+            let mut next_input = placement_input_from(existing);
+            next_input.quantity = 0.0;
+            next_input.archived = true;
+            next_input.unit_of_measure = "pcs".to_string();
+            let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
+            validate_stock_placement_input(&next_input, &container)?;
+        }
     }
 
     let next_entry_id_before = db.next_entry_id()?;
@@ -170,8 +216,7 @@ fn save_simple_component_with_failure(
                 next_input.archived = true;
                 next_input.unit_of_measure = "pcs".to_string();
                 let container = require_container(db, &existing.container_uuid)?;
-                let next_input =
-                    normalize_stock_placement_input(next_input, Some("pcs"));
+                let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
                 validate_stock_placement_input(&next_input, &container)?;
                 let archived = update_stock_placement(existing.clone(), next_input);
                 let changed_fields = catalog_sync::changed_fields(existing, &archived);
@@ -188,7 +233,9 @@ fn save_simple_component_with_failure(
                 None
             }
             (None, false) => {
-                let shelf = ensure_simple_shelf(db)?;
+                let shelf = shelf_for_write
+                    .as_ref()
+                    .expect("shelf resolved before part write for non-empty location");
                 let placement_input = normalize_stock_placement_input(
                     StockPlacementInput {
                         part_uuid: part.entry_uuid.clone(),
@@ -200,7 +247,7 @@ fn save_simple_component_with_failure(
                     },
                     Some("pcs"),
                 );
-                validate_stock_placement_input(&placement_input, &shelf)?;
+                validate_stock_placement_input(&placement_input, shelf)?;
                 let placement = create_stock_placement(placement_input);
                 ensure_distinct_placement(db, &placement, None)?;
                 db.put_stock_placement(&placement)?;
@@ -221,12 +268,13 @@ fn save_simple_component_with_failure(
                     next_input.quantity = quantity;
                     next_input.unit_of_measure = "pcs".to_string();
                     next_input.archived = false;
-                    let next_input =
-                        normalize_stock_placement_input(next_input, Some("pcs"));
+                    let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
                     validate_stock_placement_input(&next_input, &existing_container)?;
                     update_stock_placement(existing.clone(), next_input)
                 } else {
-                    let shelf = ensure_simple_shelf(db)?;
+                    let shelf = shelf_for_write
+                        .as_ref()
+                        .expect("shelf resolved before part write when relocating");
                     let mut next_input = placement_input_from(existing);
                     next_input.container_uuid = shelf.container_uuid.clone();
                     next_input.column_index = None;
@@ -235,9 +283,8 @@ fn save_simple_component_with_failure(
                     next_input.quantity = quantity;
                     next_input.unit_of_measure = "pcs".to_string();
                     next_input.archived = false;
-                    let next_input =
-                        normalize_stock_placement_input(next_input, Some("pcs"));
-                    validate_stock_placement_input(&next_input, &shelf)?;
+                    let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
+                    validate_stock_placement_input(&next_input, shelf)?;
                     let updated = update_stock_placement(existing.clone(), next_input);
                     ensure_distinct_placement(db, &updated, Some(&existing.placement_uuid))?;
                     updated
@@ -449,45 +496,6 @@ fn placement_short_location(
     placement.freeform_position.trim().to_ascii_uppercase()
 }
 
-fn ensure_unique_part_number(
-    db: &InventoryDb,
-    internal_part_number: &str,
-    current_uuid: Option<&str>,
-) -> CommandResult<()> {
-    if normalized_part_number(internal_part_number).is_empty() {
-        return Ok(());
-    }
-    if let Some(existing) = db.find_part_by_internal_number(internal_part_number)? {
-        if current_uuid != Some(existing.entry_uuid.as_str()) {
-            return Err("Internal part number must be unique.".to_string());
-        }
-    }
-    Ok(())
-}
-
-fn ensure_distinct_placement(
-    db: &InventoryDb,
-    placement: &StockPlacement,
-    current_uuid: Option<&str>,
-) -> CommandResult<()> {
-    let key = indistinguishable_placement_key(placement);
-    if let Some(existing) = db
-        .load_stock_placements_for_part(&placement.part_uuid)?
-        .into_iter()
-        .find(|existing| {
-            !existing.archived
-                && current_uuid != Some(existing.placement_uuid.as_str())
-                && indistinguishable_placement_key(existing) == key
-        })
-    {
-        return Err(format!(
-            "An indistinguishable placement already exists ({}). Adjust that placement instead.",
-            existing.placement_uuid
-        ));
-    }
-    Ok(())
-}
-
 fn require_container(db: &InventoryDb, container_uuid: &str) -> CommandResult<StorageContainer> {
     db.find_storage_container(container_uuid)?
         .ok_or_else(|| "The selected storage container could not be found.".to_string())
@@ -608,7 +616,7 @@ mod tests {
     #[test]
     fn restores_part_placement_next_id_and_sync_state_after_second_write_failure() {
         let db = ready_catalog_db();
-        let before = workflow_snapshot(&db);
+        let before_next_id = db.next_entry_id().unwrap();
         let error = save_simple_component_with_failure(
             None,
             simple_input("Capacitor", "1 µF", 2, "A1"),
@@ -618,7 +626,55 @@ mod tests {
         .unwrap_err();
 
         assert!(error.contains("injected simple-workflow failure"));
+        // Part/placement/next-id must roll back. Empty TE Lab/Shelf leftovers (and their
+        // sync ops) are allowed when the shelf was resolved before the composite write.
+        assert!(db.load_parts().unwrap().is_empty());
+        assert!(db.load_stock_placements().unwrap().is_empty());
+        assert_eq!(db.next_entry_id().unwrap(), before_next_id);
+    }
+
+    #[test]
+    fn resolves_shelf_before_part_write_so_failure_leaves_empty_shelf_only() {
+        let db = ready_catalog_db();
+        let error = save_simple_component_with_failure(
+            None,
+            simple_input("Capacitor", "1 µF", 2, "A1"),
+            &db,
+            Some(SimpleWorkflowFailurePoint::AfterPartWrite),
+        )
+        .unwrap_err();
+
+        assert!(error.contains("injected simple-workflow failure"));
+        assert!(db.load_parts().unwrap().is_empty());
+        // Shelf must be resolved before put_part so create helpers never flush a bare part.
+        assert!(db
+            .find_storage_area_by_name(SIMPLE_AREA_NAME)
+            .unwrap()
+            .is_some());
+        let area = db.find_storage_area_by_name(SIMPLE_AREA_NAME).unwrap().unwrap();
+        assert!(db
+            .find_storage_container_by_name(&area.area_uuid, SIMPLE_CONTAINER_NAME)
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn restores_composite_after_part_write_failure_when_shelf_already_exists() {
+        let db = ready_catalog_db();
+        create_simple_component_in_store(simple_input("Resistor", "1 kΩ", 5, "A1"), &db).unwrap();
+        let before = workflow_snapshot(&db);
+
+        let error = save_simple_component_with_failure(
+            None,
+            simple_input("Capacitor", "1 µF", 2, "B3"),
+            &db,
+            Some(SimpleWorkflowFailurePoint::AfterPartWrite),
+        )
+        .unwrap_err();
+
+        assert!(error.contains("injected simple-workflow failure"));
         assert_eq!(workflow_snapshot(&db), before);
+        assert_eq!(db.load_parts().unwrap().len(), 1);
     }
 
     #[test]

@@ -723,7 +723,7 @@ fn require_active_destination(db: &InventoryDb, container: &StorageContainer) ->
     Ok(())
 }
 
-fn ensure_unique_part_number(
+pub(crate) fn ensure_unique_part_number(
     db: &InventoryDb,
     internal_part_number: &str,
     current_uuid: Option<&str>,
@@ -774,7 +774,7 @@ fn ensure_unique_container_name(
     Ok(())
 }
 
-fn ensure_distinct_placement(
+pub(crate) fn ensure_distinct_placement(
     db: &InventoryDb,
     placement: &StockPlacement,
     current_uuid: Option<&str>,
