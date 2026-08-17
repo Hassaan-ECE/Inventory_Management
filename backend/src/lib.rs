@@ -89,6 +89,7 @@ pub fn run() {
             commands::preview_calibration_roster,
             commands::commit_calibration_roster,
             export::export_excel,
+            export::export_lab_order_request,
             native::load_picture_preview,
             native::open_external,
             native::open_path,

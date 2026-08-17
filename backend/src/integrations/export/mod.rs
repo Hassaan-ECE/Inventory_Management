@@ -1,9 +1,11 @@
 mod catalog_workbook;
+mod lab_order_workbook;
 mod lab_workbook;
 mod workbook;
 
 use std::path::{Path, PathBuf};
 
+use chrono::Local;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
@@ -20,6 +22,8 @@ use crate::{
     platform::ModuleId,
     store::InventoryDb,
 };
+
+pub(crate) use lab_order_workbook::LabOrderRequestLineInput;
 
 pub(crate) const DEFAULT_EXCEL_EXPORT_FILENAME: &str = "TE_Test_Equipment_Inventory_Export.xlsx";
 pub(crate) const LAB_COMPONENTS_EXCEL_EXPORT_FILENAME: &str =
@@ -67,6 +71,35 @@ pub(crate) async fn export_excel(
     };
 
     match export_result {
+        Ok(stats) => Ok(ExcelExportResult::success(stats.output_path)),
+        Err(error) => Ok(ExcelExportResult::failed(error)),
+    }
+}
+
+#[tauri::command]
+pub(crate) async fn export_lab_order_request(
+    app: AppHandle,
+    lines: Vec<LabOrderRequestLineInput>,
+    stores: State<'_, InventoryStores>,
+) -> CommandResult<ExcelExportResult> {
+    let db = stores.te_lab_components();
+    catalog_migration::ensure_catalog_initialized(db)?;
+    // Resolve authoritative rows before the save dialog so validation failures
+    // never open a picker, and cancel never leaves partial work.
+    let rows = lab_order_workbook::build_lab_order_rows(db, &lines)?;
+    let default_filename = format!(
+        "TE_Lab_Components_Order_Request_{}.xlsx",
+        Local::now().format("%Y-%m-%d")
+    );
+    let Some(output_path) = pick_export_path_with_title(
+        &app,
+        "Export Selected Components for Order",
+        &default_filename,
+    ) else {
+        return Ok(ExcelExportResult::canceled());
+    };
+
+    match lab_order_workbook::write_lab_order_workbook(&rows, &output_path) {
         Ok(stats) => Ok(ExcelExportResult::success(stats.output_path)),
         Err(error) => Ok(ExcelExportResult::failed(error)),
     }
@@ -150,9 +183,17 @@ impl ExcelExportResult {
 }
 
 fn pick_export_path(app: &AppHandle, default_filename: &str) -> Option<PathBuf> {
+    pick_export_path_with_title(app, "Export All Entries to Excel", default_filename)
+}
+
+fn pick_export_path_with_title(
+    app: &AppHandle,
+    title: &str,
+    default_filename: &str,
+) -> Option<PathBuf> {
     app.dialog()
         .file()
-        .set_title("Export All Entries to Excel")
+        .set_title(title)
         .set_file_name(default_filename)
         .add_filter("Excel Workbook", &["xlsx"])
         .blocking_save_file()

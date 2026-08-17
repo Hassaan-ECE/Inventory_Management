@@ -43,6 +43,7 @@ import type {
 import type {
   CatalogMigrationCommitInput,
   CatalogSharedCutoverCommitInput,
+  LabOrderRequestLineInput,
   PartInput,
   SimpleComponentInput,
   StockCountInput,
@@ -163,6 +164,8 @@ if (typeof window !== "undefined" && isTauri()) {
       invoke("commit_calibration_roster", { input, moduleId }).then(parseCalibrationRosterCommitResult),
     exportExcel: (moduleId: ImplementedInventoryModuleId) =>
       invoke("export_excel", { moduleId }).then(parseExcelExportResult),
+    exportLabOrderRequest: (lines: LabOrderRequestLineInput[]) =>
+      invoke("export_lab_order_request", { lines }).then(parseExcelExportResult),
     checkForUpdate,
     downloadUpdate,
     installUpdate,

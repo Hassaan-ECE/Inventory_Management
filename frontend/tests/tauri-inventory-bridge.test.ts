@@ -216,6 +216,19 @@ describe("tauri inventory bridge", () => {
     });
   });
 
+  it("exports selected Lab order lines with the exact payload", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      canceled: false,
+      outputPath: "C:/tmp/TE_Lab_Components_Order_Request_2026-08-17.xlsx",
+    });
+    const bridge = await registerDesktopBridge(invoke);
+    const lines = [{ partUuid: "part-1", requestedQuantity: 25, note: "" }];
+
+    await bridge.exportLabOrderRequest?.(lines);
+
+    expect(invoke).toHaveBeenCalledWith("export_lab_order_request", { lines });
+  });
+
   it("invokes and parses simple Lab component create and update commands", async () => {
     const invoke = vi
       .fn()
