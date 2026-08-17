@@ -38,7 +38,7 @@ export const CATEGORY_TEMPLATES: CategoryTemplate[] = [
   },
   {
     category: "Integrated Circuit",
-    subcategories: ["Op-amp", "Logic", "Regulator", "MCU", "Interface", "Driver"],
+    subcategories: ["Op-amp", "Logic", "Regulator", "MCU", "Interface", "Driver", "IC"],
     attributes: [
       { key: "function", label: "Function" },
       { key: "supplyVoltage", label: "Supply voltage", unit: "V" },
@@ -50,7 +50,7 @@ export const CATEGORY_TEMPLATES: CategoryTemplate[] = [
   },
   {
     category: "Connector",
-    subcategories: ["Header", "Terminal Block", "Housing", "Contact", "Socket"],
+    subcategories: ["Header", "Terminal Block", "Housing", "Contact", "Socket", "Connector"],
     attributes: [
       { key: "positions", label: "Positions" },
       { key: "pitch", label: "Pitch", unit: "mm" },
@@ -72,7 +72,7 @@ export const CATEGORY_TEMPLATES: CategoryTemplate[] = [
   },
   {
     category: "Module / Board",
-    subcategories: ["Development Board", "Sensor Module", "Converter"],
+    subcategories: ["Development Board", "Sensor Module", "Converter", "Sensor", "Module/Board"],
     attributes: [
       { key: "function", label: "Function" },
       { key: "interface", label: "Interface" },
@@ -82,7 +82,7 @@ export const CATEGORY_TEMPLATES: CategoryTemplate[] = [
   },
   {
     category: "Cable / Wire",
-    subcategories: ["Hook-up Wire", "Ribbon Cable", "Harness"],
+    subcategories: ["Hook-up Wire", "Ribbon Cable", "Harness", "Cable/Wire"],
     attributes: [
       { key: "conductorCount", label: "Conductor count" },
       { key: "wireGauge", label: "Wire gauge", unit: "AWG" },
@@ -93,7 +93,7 @@ export const CATEGORY_TEMPLATES: CategoryTemplate[] = [
   },
   {
     category: "Hardware / Mechanical",
-    subcategories: ["Standoff", "Screw", "Heat Sink", "Enclosure"],
+    subcategories: ["Standoff", "Screw", "Heat Sink", "Enclosure", "Hardware"],
     attributes: [
       { key: "thread", label: "Thread" },
       { key: "dimensions", label: "Dimensions" },
@@ -102,7 +102,7 @@ export const CATEGORY_TEMPLATES: CategoryTemplate[] = [
   },
   {
     category: "Other",
-    subcategories: [],
+    subcategories: ["Other"],
     attributes: [],
   },
 ];
