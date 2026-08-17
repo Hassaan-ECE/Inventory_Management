@@ -54,7 +54,7 @@ Prefer live code and these current documents over older TE planning copies.
 | Item | Value |
 |------|-------|
 | Display | Inventory Management |
-| Package | `inventory-management` `0.1.1` (source; first team installer remains `0.1.0`) |
+| Package | `inventory-management` `0.1.2` |
 | Tauri id | `com.inventory.management` |
 | TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
@@ -70,22 +70,14 @@ Prefer live code and these current documents over older TE planning copies.
 - IM-011 adaptive per-inventory sync lifecycle.
 - IM-012 shell/platform/module architecture.
 - Real TE Test Equipment and TE Lab Components modules; ME Storage and TE Storage Room remain placeholders.
-- First team release `0.1.0`, signed installer, GitHub Release, and updater metadata.
+- Signed team installer **0.1.2** on S: (`Inventory Management_0.1.2_x64-setup.exe`).
 - IM-014 generalized Lab parts catalog: flexible attributes, multi-location stock, grid bins, migration, Lab sync schema v2, and six-sheet export.
 - IM-015 TE Equipment/Calibration workspace and guarded calibration-roster preview/review/commit tooling.
-
-**On `feature/lab-simple-workspace` (implementation complete; acceptance pending)**
-
-- Five-column everyday Lab table, simple through-hole editor, review mode for non-simple rows.
-- Atomic simple Part+placement mutations with rollback; order-request workbook export for selected components.
-- Automated gates (focused + full frontend, lint/build, rustfmt, full Rust suite, strict Clippy) passed in the feature worktree.
-- Isolated desktop **startup** smoke passed under `C:\tmp\inventory-management-simple-workspace-smoke\` with shared sync disabled; live Lab DB and product shared root were **not** modified.
-- Full GUI click-through acceptance was **not** completed in the verification agent session.
+- Simple Lab workspace: five-column table, on-demand bin picker, review mode, order-request Excel.
 
 **Not completed**
 
-- Owner acceptance of the simple Lab workspace + order export (manual checklist).
-- Product **version bump**, **installer staging**, and team rollout for this feature.
+- GitHub Release of 0.1.2 (required before the in-app Update button serves this build).
 - Live IM-014 Lab schema-v2 cutover and live IM-015 calibration roster cutover (separate owner ops).
 - ME Storage and TE Storage Room implementations.
 

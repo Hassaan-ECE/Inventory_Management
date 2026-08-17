@@ -1,9 +1,18 @@
 # Session handoff — Inventory Management
 
 **Last updated:** 2026-08-17  
-**State:** Product source remains `0.1.1` (no version bump this session). Branch `feature/lab-simple-workspace` implements the TE Lab Components simple workspace + order export. Automated gates and isolated desktop startup smoke passed. **Owner acceptance, version bump, installer staging, and live Lab cutover are NOT done.**
+**State:** Product source and signed team installer are **0.1.2**. Simple Lab workspace + bin picker + order export are on `main` and staged on S:. Live IM-014 Lab catalog cutover and IM-015 calibration roster cutover remain owner ops. In-app updater still needs a GitHub Release of 0.1.2.
 
 **New chat:** paste [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md).
+
+## 0.1.2 team staging (2026-08-17)
+
+- Version triple: `package.json` / `backend/Cargo.toml` / `backend/tauri.conf.json` = **0.1.2**
+- Signed installer: `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\Inventory Management_0.1.2_x64-setup.exe`
+- Signature: same folder, `.sig`
+- Support: `release-support\v0.1.2\` (installer copy, `.sig`, `latest.json`, `SHA256SUMS.txt`, `RELEASE_NOTES.md`)
+- SHA-256: `2583cd3d20627538cc7bcc14cdb706f8752f05bc8e6b7e862a034d37813fda15`
+- GitHub Release for in-app updater **not** published in this session.
 
 ## Workspaces and branches
 
@@ -19,7 +28,7 @@
 | Item | Value |
 |------|-------|
 | Display | Inventory Management |
-| Package | `inventory-management` `0.1.1` (source; no bump in this work) |
+| Package | `inventory-management` `0.1.2` |
 | Tauri id | `com.inventory.management` |
 | TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
@@ -34,7 +43,7 @@
 - TE uses the existing `inventory.feox` and sync schema v2.
 - Lab uses the separate `te-lab-components.feox` and IM-014 Lab-only catalog sync schema v2.
 - Shared roots, watcher sessions, sync gates, tokens, statuses, and events remain keyed by module.
-- First team release `0.1.0` installer remains on S:; source is `0.1.1` pending signed restage. Product roots and updater metadata already exist.
+- Team installer **0.1.2** is on S: root: `Inventory Management_0.1.2_x64-setup.exe` (+ `.sig`). 0.1.1 moved to `archive\`. Notes: `release-support\v0.1.2\`.
 
 ## Shipped on `feature/lab-simple-workspace` (2026-08-17)
 
