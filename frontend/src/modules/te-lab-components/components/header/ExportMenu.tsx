@@ -1,4 +1,4 @@
-import { FileCodeIcon, FileSpreadsheetIcon, UploadIcon } from "lucide-react";
+import { FileSpreadsheetIcon, ListChecksIcon, UploadIcon } from "lucide-react";
 
 import {
   DropdownItem,
@@ -9,11 +9,11 @@ import { Button } from "@/shared/components/ui/button";
 
 interface ExportMenuProps {
   onExportExcel: () => void;
-  onExportHtml: () => void;
+  onSelectForOrder: () => void;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function ExportMenu({ onExportExcel, onExportHtml, onOpenChange }: ExportMenuProps) {
+export function ExportMenu({ onExportExcel, onSelectForOrder, onOpenChange }: ExportMenuProps) {
   const { open, menuRef, toggle, close } = useDropdownMenu({ onOpenChange });
 
   return (
@@ -31,7 +31,7 @@ export function ExportMenu({ onExportExcel, onExportHtml, onOpenChange }: Export
         <UploadIcon className="size-3.5" />
       </Button>
       {open ? (
-        <DropdownPanel align="right" className="w-44" maxHeightClassName="max-h-none" title="Export">
+        <DropdownPanel align="right" className="w-64" maxHeightClassName="max-h-none" title="Export">
           <DropdownItem
             onClick={() => {
               close();
@@ -39,16 +39,16 @@ export function ExportMenu({ onExportExcel, onExportHtml, onOpenChange }: Export
             }}
           >
             <FileSpreadsheetIcon className="size-4" />
-            Excel
+            Full Catalog Excel
           </DropdownItem>
           <DropdownItem
             onClick={() => {
               close();
-              onExportHtml();
+              onSelectForOrder();
             }}
           >
-            <FileCodeIcon className="size-4" />
-            HTML
+            <ListChecksIcon className="size-4" />
+            Select Components for Order
           </DropdownItem>
         </DropdownPanel>
       ) : null}

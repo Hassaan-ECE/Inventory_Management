@@ -16,7 +16,7 @@ interface CatalogHeaderProps {
   counts: CatalogCounts;
   onAddPart: () => void;
   onExportExcel: () => void;
-  onExportHtml: () => void;
+  onSelectForOrder: () => void;
   onManageLocations?: () => void;
   onOpenSharedCutover?: () => void;
   onScopeChange: (scope: CatalogScope) => void;
@@ -35,7 +35,7 @@ export function CatalogHeader({
   counts,
   onAddPart,
   onExportExcel,
-  onExportHtml,
+  onSelectForOrder,
   onManageLocations,
   onOpenSharedCutover,
   onScopeChange,
@@ -153,7 +153,7 @@ export function CatalogHeader({
           </Button>
           <ExportMenu
             onExportExcel={onExportExcel}
-            onExportHtml={onExportHtml}
+            onSelectForOrder={onSelectForOrder}
             onOpenChange={setExportOpen}
           />
           <Button

@@ -10,7 +10,7 @@ import {
   type CatalogColumnKey,
 } from "@/modules/te-lab-components/catalog/catalogColumns";
 import type { CatalogSortState } from "@/modules/te-lab-components/catalog/catalogSorting";
-import { projectSimpleStock } from "@/modules/te-lab-components/catalog/simpleComponent";
+import { isOrderSelectable, projectSimpleStock } from "@/modules/te-lab-components/catalog/simpleComponent";
 import type { CatalogSyncResult, Part, StockStatus } from "@/modules/te-lab-components/types";
 import { Badge } from "@/shared/components/ui/badge";
 import { DropdownPanel } from "@/shared/components/ui/DropdownMenu";
@@ -30,7 +30,10 @@ interface PartsTableProps {
   onOpenPart: (part: Part) => void;
   onSortChange: (columnKey: CatalogColumnKey) => void;
   onToggleColumn: (columnKey: CatalogColumnKey) => void;
+  onToggleSelection?: (part: Part) => void;
   parts: Part[];
+  selectedPartIds?: ReadonlySet<string>;
+  selectionMode?: boolean;
   sortState: CatalogSortState | null;
   visibleColumns: Record<CatalogColumnKey, boolean>;
 }
@@ -48,7 +51,10 @@ export function PartsTable({
   onOpenPart,
   onSortChange,
   onToggleColumn,
+  onToggleSelection,
   parts,
+  selectedPartIds,
+  selectionMode = false,
   sortState,
   visibleColumns,
 }: PartsTableProps) {
@@ -56,6 +62,7 @@ export function PartsTable({
   const columns = CATALOG_COLUMNS.filter((column) => visibleColumns[column.key]);
   const [columnMenu, setColumnMenu] = useState<ColumnMenuState | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const selectedIds = selectedPartIds ?? EMPTY_SELECTED_PART_IDS;
 
   useEffect(() => {
     if (!columnMenu) {
@@ -130,6 +137,16 @@ export function PartsTable({
       <table className="min-w-full border-separate border-spacing-0 text-left text-xs">
         <thead className="sticky top-0 z-20 bg-card">
           <tr>
+            {selectionMode ? (
+              <th
+                className="relative overflow-hidden whitespace-nowrap border-b border-border bg-card p-0 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+                scope="col"
+              >
+                <span className="relative z-[1] flex min-h-[2.75rem] w-full items-center justify-center px-1.5 py-2.5 leading-none sm:min-h-[3rem] sm:px-2 sm:py-3">
+                  Select
+                </span>
+              </th>
+            ) : null}
             {columns.map((column) => {
               const isActiveSort = sortState?.column === column.key;
               const sortDirection = isActiveSort ? sortState.direction : null;
@@ -198,15 +215,50 @@ export function PartsTable({
             const summary = lookups.summariesByPartId.get(part.entryUuid);
             const placements = partPlacements(catalog, part.entryUuid);
             const status = summary?.stockStatus ?? (part.archived ? "archived" : "no_stock");
+            const selectable = isOrderSelectable(summary);
+            const isSelected = selectedIds.has(part.entryUuid);
+            const selectionLabel = `Select ${part.subcategory || "component"} ${part.displayValue}`.trim();
             return (
               <tr
+                aria-selected={selectionMode ? isSelected : undefined}
                 className={cn(
                   "cursor-pointer transition-colors hover:bg-accent/45 focus-within:bg-accent/45",
                   stockRowToneClass(status, colorRows),
+                  selectionMode && isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/25",
                 )}
                 key={part.entryUuid}
-                onDoubleClick={() => onOpenPart(part)}
+                onClick={
+                  selectionMode
+                    ? () => {
+                        if (selectable) {
+                          onToggleSelection?.(part);
+                        }
+                      }
+                    : undefined
+                }
+                onDoubleClick={
+                  selectionMode
+                    ? undefined
+                    : () => onOpenPart(part)
+                }
               >
+                {selectionMode ? (
+                  <td className="border-b border-border/65 px-3 py-2 align-middle">
+                    <input
+                      aria-label={selectionLabel}
+                      checked={isSelected}
+                      className="size-4 accent-[var(--primary)]"
+                      disabled={!selectable}
+                      type="checkbox"
+                      onChange={() => {
+                        if (selectable) {
+                          onToggleSelection?.(part);
+                        }
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                    />
+                  </td>
+                ) : null}
                 {columns.map((column) => (
                   <td className="max-w-[24rem] border-b border-border/65 px-3 py-2 align-top" key={column.key}>
                     <CatalogCell
@@ -434,3 +486,5 @@ function stockRowToneClass(status: StockStatus, colorRows: boolean): string {
       return "bg-background/55";
   }
 }
+
+const EMPTY_SELECTED_PART_IDS: ReadonlySet<string> = new Set();

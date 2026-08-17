@@ -414,6 +414,12 @@ export interface ExcelExportResult {
   outputPath?: string;
 }
 
+export interface LabOrderRequestLineInput {
+  partUuid: string;
+  requestedQuantity: number;
+  note: string;
+}
+
 export type UpdateStatus =
   | "idle"
   | "checking"

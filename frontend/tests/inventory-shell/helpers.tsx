@@ -150,6 +150,10 @@ export function createDesktopBridge(
     previewImport: vi.fn(),
     commitImport: vi.fn(),
     exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
+    exportLabOrderRequest: vi.fn().mockResolvedValue({
+      canceled: false,
+      outputPath: "D:/exports/Lab_Order_Request.xlsx",
+    }),
     ...overrides,
   } as NonNullable<Window["inventoryDesktop"]>;
 }

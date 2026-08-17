@@ -36,6 +36,7 @@ import type {
   InventorySharedStatus as LabInventorySharedStatus,
   Part,
   PartInput,
+  LabOrderRequestLineInput,
   SimpleComponentInput,
   SimpleComponentValue,
   StockCountInput,
@@ -199,6 +200,7 @@ export interface InventoryDesktopBridge {
     input: CalibrationRosterCommitInput,
   ) => Promise<CalibrationRosterCommitResult>;
   exportExcel?: (moduleId: ImplementedInventoryModuleId) => Promise<ExcelExportResult>;
+  exportLabOrderRequest?: (lines: LabOrderRequestLineInput[]) => Promise<ExcelExportResult>;
   checkForUpdate?: () => Promise<UpdateState>;
   downloadUpdate?: () => Promise<UpdateState>;
   installUpdate?: () => Promise<UpdateState>;

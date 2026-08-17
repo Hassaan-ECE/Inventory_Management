@@ -18,7 +18,7 @@ interface InventoryHeaderProps {
   inventoryCount: number;
   onAddEntry: () => void;
   onExportExcel: () => void;
-  onExportHtml: () => void;
+  onSelectForOrder: () => void;
   onScopeChange: (scope: InventoryScope) => void;
   onThemeToggle: () => void;
   onUpdateAction: () => void;
@@ -36,7 +36,7 @@ export function InventoryHeader({
   inventoryCount,
   onAddEntry,
   onExportExcel,
-  onExportHtml,
+  onSelectForOrder,
   onScopeChange,
   onThemeToggle,
   onUpdateAction,
@@ -100,7 +100,7 @@ export function InventoryHeader({
           >
             {theme === "light" ? <MoonIcon className="size-3.5" /> : <SunIcon className="size-3.5" />}
           </Button>
-          <ExportMenu onExportExcel={onExportExcel} onExportHtml={onExportHtml} onOpenChange={setExportOpen} />
+          <ExportMenu onExportExcel={onExportExcel} onSelectForOrder={onSelectForOrder} onOpenChange={setExportOpen} />
           <Button
             aria-label="Add Entry"
             className="size-8"

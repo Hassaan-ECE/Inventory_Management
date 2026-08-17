@@ -7,6 +7,7 @@ import type {
   InventorySharedChangedPayload,
   InventorySyncResult,
 } from "@/integrations/tauri/desktop-bridge";
+import { MOCK_CATALOG } from "@/modules/te-lab-components/catalog/mockCatalog";
 import type {
   CatalogMigrationPreview,
   CatalogMutationResult,
@@ -448,6 +449,114 @@ describe("TE Lab Components catalog shell integration", () => {
       confirmed: true,
     }));
   });
+
+  it("shows selection only after Export → Select Components for Order", async () => {
+    localStorage.setItem("inventory.activeSystem", "te-lab-components");
+    const user = userEvent.setup();
+    render(<InventoryShell />);
+
+    expect(await screen.findByText("100 nF")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Select" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    await user.click(screen.getByRole("menuitem", { name: "Select Components for Order" }));
+
+    expect(screen.getByRole("columnheader", { name: "Select" })).toBeInTheDocument();
+    expect(screen.getByText("0 selected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+  });
+
+  it("retains selected rows while filtering and collects requested quantities", async () => {
+    localStorage.setItem("inventory.activeSystem", "te-lab-components");
+    const user = userEvent.setup();
+    const exportLabOrderRequest = vi.fn().mockResolvedValue({
+      canceled: false,
+      outputPath: "C:/tmp/order.xlsx",
+    });
+    window.inventoryDesktop = createDesktopBridge({
+      exportLabOrderRequest,
+      loadInventory: vi.fn().mockResolvedValue(MOCK_CATALOG),
+      syncInventory: vi.fn().mockResolvedValue({ ...MOCK_CATALOG, entriesChanged: false }),
+    });
+    render(<InventoryShell />);
+
+    await enterOrderSelection(user);
+    await user.click(await screen.findByRole("checkbox", { name: "Select Capacitor 100 nF" }));
+    await user.type(screen.getByLabelText("Search Lab components"), "resistor");
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Prepare Order Request" });
+    await user.type(within(dialog).getByLabelText("Qty Requested for Capacitor 100 nF"), "25");
+    await user.type(
+      within(dialog).getByLabelText("Order note for Capacitor 100 nF"),
+      "Preferred equivalent acceptable",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Create Order Excel" }));
+
+    await waitFor(() =>
+      expect(exportLabOrderRequest).toHaveBeenCalledWith([{
+        partUuid: "mock-part-capacitor",
+        requestedQuantity: 25,
+        note: "Preferred equivalent acceptable",
+      }]),
+    );
+  });
+
+  it("blocks mixed-unit rows and warns without blocking missing purchasing fields", async () => {
+    localStorage.setItem("inventory.activeSystem", "te-lab-components");
+    const user = userEvent.setup();
+    const mixedUnit = buildLabPart({
+      entryUuid: "lab-part-mixed",
+      // Subcategory leads the checkbox name so /Select mixed-unit/i matches.
+      subcategory: "mixed-unit",
+      displayValue: "cable",
+      manufacturer: "CableCo",
+      manufacturerPartNumber: "MIX-1",
+      supplier: "DigiKey",
+      supplierSku: "MIX-1-ND",
+      productUrl: "https://example.com/mix",
+    });
+    const incomplete = buildLabPart({
+      entryUuid: "lab-part-incomplete",
+      subcategory: "BJT",
+      displayValue: "2N3904",
+      manufacturer: "",
+      manufacturerPartNumber: "",
+      supplier: "",
+      supplierSku: "",
+      productUrl: "",
+    });
+    const catalog = buildLabCatalog([mixedUnit, incomplete], undefined, {
+      summaries: [
+        {
+          partUuid: mixedUnit.entryUuid,
+          totals: [
+            { unitOfMeasure: "pcs", quantity: 10 },
+            { unitOfMeasure: "reel", quantity: 1 },
+          ],
+          stockStatus: "mixed_units",
+        },
+        {
+          partUuid: incomplete.entryUuid,
+          totals: [{ unitOfMeasure: "pcs", quantity: 5 }],
+          stockStatus: "in_stock",
+        },
+      ],
+    });
+    window.inventoryDesktop = createDesktopBridge({
+      loadInventory: vi.fn().mockResolvedValue(catalog),
+      syncInventory: vi.fn().mockResolvedValue({ ...catalog, entriesChanged: false }),
+    });
+    render(<InventoryShell />);
+
+    await enterOrderSelection(user);
+
+    expect(await screen.findByRole("checkbox", { name: /Select mixed-unit/i })).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: "Select BJT 2N3904" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByText(/Missing manufacturer, MPN, supplier, SKU, or product link/i)).toBeInTheDocument();
+  });
 });
 
 function buildLabPart(overrides: Partial<Part> = {}): Part {
@@ -635,4 +744,11 @@ async function switchInventory(
 ): Promise<void> {
   await user.click(screen.getByRole("button", { name: "Switch inventory system" }));
   await user.click(screen.getByRole("option", { name: label }));
+}
+
+async function enterOrderSelection(
+  user: ReturnType<typeof userEvent.setup>,
+): Promise<void> {
+  await user.click(await screen.findByRole("button", { name: "Export" }));
+  await user.click(screen.getByRole("menuitem", { name: "Select Components for Order" }));
 }

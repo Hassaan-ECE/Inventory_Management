@@ -25,6 +25,11 @@ import {
 import { CATEGORY_TEMPLATES } from "@/modules/te-lab-components/catalog/categoryTemplates";
 import { LocationManagerDialog } from "@/modules/te-lab-components/catalog/LocationManagerDialog";
 import { MigrationPanel } from "@/modules/te-lab-components/catalog/MigrationPanel";
+import {
+  OrderExportDialog,
+  type OrderDraftLine,
+} from "@/modules/te-lab-components/catalog/OrderExportDialog";
+import { OrderSelectionBar } from "@/modules/te-lab-components/catalog/OrderSelectionBar";
 import { PartDialog } from "@/modules/te-lab-components/catalog/PartDialog";
 import {
   CountStockDialog,
@@ -41,6 +46,7 @@ import type {
   CatalogMigrationPreview,
   CatalogScope,
   CatalogSharedCutoverPreview,
+  LabOrderRequestLineInput,
   Part,
   PartInput,
   SimpleComponentInput,
@@ -150,6 +156,10 @@ export function TeLabComponentsView({
   const [countPlacementUuid, setCountPlacementUuid] = useState<string | null>(null);
   const [locationsOpen, setLocationsOpen] = useState(false);
   const [sharedCutoverOpen, setSharedCutoverOpen] = useState(false);
+  const [orderSelectionMode, setOrderSelectionMode] = useState(false);
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(() => new Set());
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [orderDrafts, setOrderDrafts] = useState<Record<string, OrderDraftLine>>({});
   const lookups = useMemo(() => createCatalogLookups(catalog), [catalog]);
   const filterOptions = useMemo(
     () => ({
@@ -209,13 +219,21 @@ export function TeLabComponentsView({
     ? catalog.stockPlacements.find((placement) => placement.placementUuid === countPlacementUuid) ?? null
     : null;
 
-  // Collapse filters when leaving Lab Components (switcher / other modules).
+  // Collapse filters / order selection when leaving Lab Components (switcher / other modules).
   // Adjust during render when `active` flips — avoids setState-in-effect lint.
   const [filtersOpenActive, setFiltersOpenActive] = useState(active);
   if (filtersOpenActive !== active) {
     setFiltersOpenActive(active);
-    if (!active && filtersOpen) {
-      setFiltersOpen(false);
+    if (!active) {
+      if (filtersOpen) {
+        setFiltersOpen(false);
+      }
+      if (orderSelectionMode || selectedPartIds.size > 0 || orderDialogOpen) {
+        setOrderSelectionMode(false);
+        setSelectedPartIds(new Set());
+        setOrderDialogOpen(false);
+        setOrderDrafts({});
+      }
     }
   }
 
@@ -400,8 +418,56 @@ export function TeLabComponentsView({
     announceStatus(result.canceled ? "Export canceled." : result.error || `Exported Lab catalog to ${result.outputPath ?? "the selected workbook"}.`);
   }
 
-  function exportHtml(): void {
-    announceStatus("HTML export is not implemented yet.");
+  function clearOrderSelection(): void {
+    setOrderSelectionMode(false);
+    setSelectedPartIds(new Set());
+    setOrderDialogOpen(false);
+    setOrderDrafts({});
+  }
+
+  function enterOrderSelection(): void {
+    setOrderSelectionMode(true);
+    setSelectedPartIds(new Set());
+    setOrderDialogOpen(false);
+    setOrderDrafts({});
+  }
+
+  function togglePartSelection(part: Part): void {
+    setSelectedPartIds((current) => {
+      const next = new Set(current);
+      if (next.has(part.entryUuid)) {
+        next.delete(part.entryUuid);
+      } else {
+        next.add(part.entryUuid);
+      }
+      return next;
+    });
+  }
+
+  function handleScopeChange(nextScope: CatalogScope): void {
+    setScope(nextScope);
+    if (orderSelectionMode || selectedPartIds.size > 0 || orderDialogOpen) {
+      clearOrderSelection();
+    }
+  }
+
+  async function exportOrderRequest(lines: LabOrderRequestLineInput[]): Promise<void> {
+    const bridge = window.inventoryDesktop;
+    if (!bridge?.exportLabOrderRequest) {
+      announceStatus("Order export is available in the desktop app.");
+      throw new Error("Order export is available in the desktop app.");
+    }
+    const result = await bridge.exportLabOrderRequest(lines);
+    if (result.canceled) {
+      announceStatus("Order export canceled.");
+      return;
+    }
+    if (result.error) {
+      announceStatus(result.error);
+      throw new Error(result.error);
+    }
+    announceStatus(`Exported order request to ${result.outputPath ?? "the selected workbook"}.`);
+    clearOrderSelection();
   }
 
   async function openExternal(url: string): Promise<void> {
@@ -427,10 +493,10 @@ export function TeLabComponentsView({
         onExportExcel={() => {
           void exportExcel();
         }}
-        onExportHtml={exportHtml}
+        onSelectForOrder={enterOrderSelection}
         onManageLocations={locationsAvailable ? () => setLocationsOpen(true) : undefined}
         onOpenSharedCutover={sharedCutoverAvailable ? () => setSharedCutoverOpen(true) : undefined}
-        onScopeChange={setScope}
+        onScopeChange={handleScopeChange}
         onThemeToggle={onThemeToggle}
         onUpdateAction={() => {
           void handleUpdateAction();
@@ -486,6 +552,14 @@ export function TeLabComponentsView({
             subcategoryOptions={filterOptions.subcategories}
           />
 
+          {orderSelectionMode ? (
+            <OrderSelectionBar
+              selectedCount={selectedPartIds.size}
+              onCancel={clearOrderSelection}
+              onContinue={() => setOrderDialogOpen(true)}
+            />
+          ) : null}
+
           <div className="min-h-0 flex-1 overflow-hidden">
             {isLoading ? (
               <section className="flex h-full items-center justify-center rounded-xl border border-border bg-card/70 text-sm text-muted-foreground">Loading Lab Components catalog…</section>
@@ -506,7 +580,10 @@ export function TeLabComponentsView({
                     return { ...current, [columnKey]: nextVisible };
                   });
                 }}
+                onToggleSelection={togglePartSelection}
                 parts={displayParts}
+                selectedPartIds={selectedPartIds}
+                selectionMode={orderSelectionMode}
                 sortState={sortState}
                 visibleColumns={columnVisibility}
               />
@@ -591,6 +668,28 @@ export function TeLabComponentsView({
             return result;
           }}
           onPreview={() => requireSharedCutoverBridge().previewLabSharedCutover()}
+        />
+      ) : null}
+      {orderDialogOpen ? (
+        <OrderExportDialog
+          catalog={catalog}
+          drafts={orderDrafts}
+          selectedPartIds={selectedPartIds}
+          onClose={() => setOrderDialogOpen(false)}
+          onDraftChange={(partUuid, patch) => {
+            setOrderDrafts((current) => {
+              const existing = current[partUuid] ?? {
+                partUuid,
+                requestedQuantity: "",
+                note: "",
+              };
+              return {
+                ...current,
+                [partUuid]: { ...existing, ...patch, partUuid },
+              };
+            });
+          }}
+          onExport={exportOrderRequest}
         />
       ) : null}
     </>
