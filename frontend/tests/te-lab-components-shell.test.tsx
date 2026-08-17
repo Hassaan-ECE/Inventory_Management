@@ -8,6 +8,7 @@ import type {
   InventorySyncResult,
 } from "@/integrations/tauri/desktop-bridge";
 import { MOCK_CATALOG } from "@/modules/te-lab-components/catalog/mockCatalog";
+import { PartDialog } from "@/modules/te-lab-components/catalog/PartDialog";
 import type {
   CatalogMigrationPreview,
   CatalogMutationResult,
@@ -217,6 +218,84 @@ describe("TE Lab Components catalog shell integration", () => {
     expect(within(dialog).getByText(/advanced location review/i)).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Quantity")).toBeDisabled();
     expect(within(dialog).getByLabelText("Location")).toBeDisabled();
+  });
+
+  it("reseeds quantity and location when a review-required part becomes simple", async () => {
+    const user = userEvent.setup();
+    const part = buildLabPart({
+      displayValue: "Transition part",
+      subcategory: "Header",
+      manufacturerPartNumber: "TR-1",
+    });
+    const remaining = placementFor(part.entryUuid, "p1", {
+      freeformPosition: "A1",
+      quantity: 10,
+      unitOfMeasure: "pcs",
+    });
+    const reviewCatalog = buildLabCatalog([part], undefined, {
+      stockPlacements: [
+        remaining,
+        placementFor(part.entryUuid, "p2", { freeformPosition: "B2", quantity: 5 }),
+      ],
+      summaries: [{
+        partUuid: part.entryUuid,
+        totals: [{ unitOfMeasure: "pcs", quantity: 15 }],
+        stockStatus: "in_stock",
+      }],
+    });
+    const simpleCatalog = buildLabCatalog([part], undefined, {
+      stockPlacements: [remaining],
+      summaries: [{
+        partUuid: part.entryUuid,
+        totals: [{ unitOfMeasure: "pcs", quantity: 10 }],
+        stockStatus: "in_stock",
+      }],
+    });
+    const onSaveSimple = vi.fn().mockResolvedValue(undefined);
+    const onSaveAdvanced = vi.fn().mockResolvedValue(undefined);
+    const dialogProps = {
+      onAddPlacement: vi.fn(),
+      onClose: vi.fn(),
+      onCountPlacement: vi.fn(),
+      onDeletePart: vi.fn(),
+      onDeletePlacement: vi.fn(),
+      onEditPlacement: vi.fn(),
+      onMovePlacement: vi.fn(),
+      onSaveAdvanced,
+      onSaveSimple,
+      part,
+      readOnly: false,
+    };
+
+    const { rerender } = render(<PartDialog {...dialogProps} catalog={reviewCatalog} />);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/advanced location review/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Quantity")).toBeDisabled();
+    expect(within(dialog).getByLabelText("Quantity")).toHaveValue(0);
+    expect(within(dialog).getByLabelText("Location")).toHaveValue("");
+
+    rerender(<PartDialog {...dialogProps} catalog={simpleCatalog} />);
+
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText("Quantity")).not.toBeDisabled();
+      expect(within(dialog).getByLabelText("Quantity")).toHaveValue(10);
+      expect(within(dialog).getByLabelText("Location")).toHaveValue("A1");
+    });
+    expect(within(dialog).queryByText(/advanced location review/i)).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Save Component" }));
+
+    await waitFor(() => {
+      expect(onSaveSimple).toHaveBeenCalledWith(expect.objectContaining({
+        quantity: 10,
+        location: "A1",
+      }));
+    });
+    expect(onSaveSimple).not.toHaveBeenCalledWith(expect.objectContaining({
+      quantity: 0,
+      location: "",
+    }));
+    expect(onSaveAdvanced).not.toHaveBeenCalled();
   });
 
   it("opens Lab storage management from the catalog header", async () => {

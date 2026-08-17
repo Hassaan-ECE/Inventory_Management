@@ -230,7 +230,7 @@ describe("simple Lab component projection", () => {
     ).toEqual({ value: "2N3904", unit: "" });
   });
 
-  it("applies recognized identity fields and leaves unrecognized types unchanged", () => {
+  it("applies recognized identity fields and still writes displayValue for unrecognized types", () => {
     const base = partInput({
       category: "Legacy Category",
       subcategory: "Legacy Custom Type",
@@ -249,11 +249,25 @@ describe("simple Lab component projection", () => {
     expect(applied.attributes.tolerance).toEqual({ value: "10", unit: "%" });
     expect(applied.manufacturer).toBe(base.manufacturer);
 
-    const unchanged = applySimpleIdentity(base, "Legacy Custom Type", "x", "y");
-    expect(unchanged).toEqual(base);
-    expect(unchanged.category).toBe("Legacy Category");
-    expect(unchanged.subcategory).toBe("Legacy Custom Type");
-    expect(unchanged.displayValue).toBe("old label");
+    const custom = applySimpleIdentity(base, "Legacy Custom Type", "Header 4-pin", "");
+    expect(custom.category).toBe("Legacy Category");
+    expect(custom.subcategory).toBe("Legacy Custom Type");
+    expect(custom.displayValue).toBe("Header 4-pin");
+    // Unrecognized types must not invent attributes.value.
+    expect(custom.attributes.value).toEqual({ value: "old", unit: "x" });
+    expect(custom.attributes.tolerance).toEqual({ value: "10", unit: "%" });
+  });
+
+  it("flags non-whole pcs quantities as review-required", () => {
+    expect(
+      projectSimpleStock(
+        [placement({ quantity: 3.5, unitOfMeasure: "pcs", freeformPosition: "A1" })],
+        new Map(),
+      ),
+    ).toMatchObject({
+      kind: "review",
+      reasons: ["non_whole_quantity"],
+    });
   });
 
   it("clears stale attributes.value when switching to a non-unit component type", () => {

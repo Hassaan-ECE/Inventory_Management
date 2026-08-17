@@ -45,6 +45,7 @@ export type SimpleReviewReason =
   | "multiple_placements"
   | "mixed_units"
   | "non_piece_unit"
+  | "non_whole_quantity"
   | "invalid_location";
 
 export type SimpleStockProjection =
@@ -241,6 +242,10 @@ export function projectSimpleStock(
     return reviewProjection(active, containersById, ["non_piece_unit"]);
   }
 
+  if (!Number.isInteger(only.quantity)) {
+    return reviewProjection(active, containersById, ["non_whole_quantity"]);
+  }
+
   if (only.quantity === 0 && isBlankPlacementPosition(only, container)) {
     return {
       kind: "simple",
@@ -279,7 +284,11 @@ export function applySimpleIdentity(
   unit: string,
 ): PartInput {
   if (!isComponentType(componentType)) {
-    return input;
+    // Keep category/subcategory and advanced attributes; still persist the simple value label.
+    return {
+      ...input,
+      displayValue: formatComponentValue(componentType, value, unit),
+    };
   }
 
   const profile = COMPONENT_PROFILES[componentType];

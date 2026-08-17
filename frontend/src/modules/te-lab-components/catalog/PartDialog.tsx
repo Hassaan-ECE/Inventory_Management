@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArchiveRestoreIcon, BoxesIcon, CalculatorIcon, MapPinIcon, MoveRightIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import {
@@ -81,7 +81,7 @@ export function PartDialog({
     () => catalog.stockPlacements.filter((placement) => placement.partUuid === part?.entryUuid && !placement.archived),
     [catalog.stockPlacements, part?.entryUuid],
   );
-  const initialProjection = useMemo(
+  const projection = useMemo(
     () => projectSimpleStock(placements, lookups.containersById),
     [lookups.containersById, placements],
   );
@@ -96,10 +96,10 @@ export function PartDialog({
   const [initialValue] = useState(() => initialComponentValue.value);
   const [initialUnit] = useState(() => initialComponentValue.unit);
   const [initialQuantity] = useState(() =>
-    initialProjection.kind === "simple" ? initialProjection.quantity : 0,
+    projection.kind === "simple" ? projection.quantity : 0,
   );
   const [initialLocation] = useState(() =>
-    initialProjection.kind === "simple" ? initialProjection.location : "",
+    projection.kind === "simple" ? projection.location : "",
   );
 
   const [form, setForm] = useState<PartInput>(initialForm);
@@ -113,11 +113,21 @@ export function PartDialog({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+  const previousProjectionKindRef = useRef(projection.kind);
+
+  // When placements collapse from review → simple, seed stock fields from the live projection.
+  useEffect(() => {
+    const previousKind = previousProjectionKindRef.current;
+    previousProjectionKindRef.current = projection.kind;
+    if (previousKind === "review" && projection.kind === "simple") {
+      setQuantity(projection.quantity);
+      setLocation(projection.location);
+    }
+  }, [projection]);
 
   const template = categoryTemplate(form.category);
   const isArchived = form.archived;
   const summary = part ? lookups.summariesByPartId.get(part.entryUuid) : undefined;
-  const projection = initialProjection;
   const reviewRequired = projection.kind === "review";
   const stockDisabled = readOnly || reviewRequired;
 
@@ -267,6 +277,11 @@ export function PartDialog({
       return false;
     }
 
+    if (!Number.isInteger(quantity) || quantity < 0) {
+      setError("Quantity must be a whole number of pieces.");
+      return false;
+    }
+
     const normalizedLocation = normalizeShelfLocation(location);
     const locationError = shelfLocationError(normalizedLocation, quantity);
     if (locationError) {
@@ -291,7 +306,7 @@ export function PartDialog({
     try {
       await onSaveSimple({
         part: partInput,
-        quantity: Math.trunc(quantity),
+        quantity,
         location: normalizedLocation,
       });
       return true;
