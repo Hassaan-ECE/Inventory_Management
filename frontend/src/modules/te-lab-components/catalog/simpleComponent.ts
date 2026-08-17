@@ -30,8 +30,8 @@ const COMPONENT_PROFILES = {
 type ComponentType = keyof typeof COMPONENT_PROFILES;
 
 const SIMPLE_LOCATION = /^[A-Z][1-9][0-9]*$/;
-/** Existing grid labels may use multi-letter columns (e.g. AA1). */
-const DISPLAY_LOCATION = /^[A-Z]+[1-9][0-9]*$/;
+/** Real grid labels may use multi-letter columns (e.g. AA1). Freeform must not. */
+const GRID_LOCATION = /^[A-Z]+[1-9][0-9]*$/;
 
 const RECOGNIZED_UNITS = Array.from(
   new Set(
@@ -134,15 +134,22 @@ export function shelfLocationError(value: string, quantity: number): string | nu
   return null;
 }
 
+function isGridCell(
+  placement: StockPlacement,
+  container?: StorageContainer,
+): boolean {
+  return Boolean(
+    container?.gridEnabled &&
+      placement.rowIndex !== null &&
+      placement.columnIndex !== null,
+  );
+}
+
 function isBlankPlacementPosition(
   placement: StockPlacement,
   container?: StorageContainer,
 ): boolean {
-  if (
-    container?.gridEnabled &&
-    placement.rowIndex !== null &&
-    placement.columnIndex !== null
-  ) {
+  if (isGridCell(placement, container)) {
     return false;
   }
   return placement.freeformPosition.trim() === "";
@@ -152,11 +159,7 @@ function resolvePlacementLocation(
   placement: StockPlacement,
   container?: StorageContainer,
 ): string {
-  if (
-    container?.gridEnabled &&
-    placement.rowIndex !== null &&
-    placement.columnIndex !== null
-  ) {
+  if (isGridCell(placement, container)) {
     return placementPosition(placement, container);
   }
   const freeform = placement.freeformPosition.trim();
@@ -166,8 +169,15 @@ function resolvePlacementLocation(
   return normalizeShelfLocation(freeform);
 }
 
-function isValidDisplayLocation(location: string): boolean {
-  return SIMPLE_LOCATION.test(location) || DISPLAY_LOCATION.test(location);
+function isValidSimpleLocation(
+  placement: StockPlacement,
+  container: StorageContainer | undefined,
+  location: string,
+): boolean {
+  if (isGridCell(placement, container)) {
+    return GRID_LOCATION.test(location) || SIMPLE_LOCATION.test(location);
+  }
+  return SIMPLE_LOCATION.test(location);
 }
 
 function reviewProjection(
@@ -211,24 +221,14 @@ export function projectSimpleStock(
     };
   }
 
-  if (active.length === 1) {
-    const only = active[0]!;
-    const container = containersById.get(only.containerUuid);
-    if (only.quantity === 0 && isBlankPlacementPosition(only, container)) {
-      return {
-        kind: "simple",
-        location: "",
-        placementUuid: null,
-        quantity: 0,
-      };
-    }
-  }
-
   if (active.length > 1) {
     const reasons: SimpleReviewReason[] = ["multiple_placements"];
     const units = new Set(active.map((item) => item.unitOfMeasure));
     if (units.size > 1) {
       reasons.push("mixed_units");
+    }
+    if (active.some((item) => item.unitOfMeasure !== "pcs")) {
+      reasons.push("non_piece_unit");
     }
     return reviewProjection(active, containersById, reasons);
   }
@@ -241,7 +241,16 @@ export function projectSimpleStock(
     return reviewProjection(active, containersById, ["non_piece_unit"]);
   }
 
-  if (!isValidDisplayLocation(location)) {
+  if (only.quantity === 0 && isBlankPlacementPosition(only, container)) {
+    return {
+      kind: "simple",
+      location: "",
+      placementUuid: null,
+      quantity: 0,
+    };
+  }
+
+  if (!isValidSimpleLocation(only, container, location)) {
     return reviewProjection(active, containersById, ["invalid_location"]);
   }
 
@@ -274,20 +283,19 @@ export function applySimpleIdentity(
   }
 
   const profile = COMPONENT_PROFILES[componentType];
-  const next: PartInput = {
+  const attributes = { ...input.attributes };
+
+  if (profile.units.length > 0) {
+    attributes.value = { value, unit };
+  } else {
+    delete attributes.value;
+  }
+
+  return {
     ...input,
     category: profile.category,
     subcategory: componentType,
     displayValue: formatComponentValue(componentType, value, unit),
-    attributes: { ...input.attributes },
+    attributes,
   };
-
-  if (profile.units.length > 0) {
-    next.attributes = {
-      ...next.attributes,
-      value: { value, unit },
-    };
-  }
-
-  return next;
 }

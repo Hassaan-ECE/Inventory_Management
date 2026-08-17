@@ -256,6 +256,23 @@ describe("simple Lab component projection", () => {
     expect(unchanged.displayValue).toBe("old label");
   });
 
+  it("clears stale attributes.value when switching to a non-unit component type", () => {
+    const base = partInput({
+      attributes: {
+        value: { value: "100", unit: "nF" },
+        tolerance: { value: "10", unit: "%" },
+      },
+    });
+
+    const applied = applySimpleIdentity(base, "BJT", "2N3904", "");
+    expect(applied.category).toBe("Semiconductor");
+    expect(applied.subcategory).toBe("BJT");
+    expect(applied.displayValue).toBe("2N3904");
+    expect(applied.attributes.value).toBeUndefined();
+    expect(applied.attributes).not.toHaveProperty("value");
+    expect(applied.attributes.tolerance).toEqual({ value: "10", unit: "%" });
+  });
+
   it("ignores archived placements when projecting simple stock", () => {
     expect(
       projectSimpleStock(
@@ -305,6 +322,60 @@ describe("simple Lab component projection", () => {
     });
   });
 
+  it("rejects multi-letter freeform codes but accepts real multi-letter grid cells", () => {
+    expect(
+      projectSimpleStock(
+        [
+          placement({
+            freeformPosition: "AA1",
+            columnIndex: null,
+            rowIndex: null,
+            unitOfMeasure: "pcs",
+            quantity: 3,
+          }),
+        ],
+        new Map(),
+      ),
+    ).toMatchObject({ kind: "review", reasons: ["invalid_location"] });
+
+    expect(
+      projectSimpleStock(
+        [
+          placement({
+            freeformPosition: "BIN2",
+            columnIndex: null,
+            rowIndex: null,
+            unitOfMeasure: "pcs",
+            quantity: 3,
+          }),
+        ],
+        new Map(),
+      ),
+    ).toMatchObject({ kind: "review", reasons: ["invalid_location"] });
+
+    const grid = container({ columnCount: 30, rowCount: 10 });
+    const containersById = new Map([[grid.containerUuid, grid]]);
+    expect(
+      projectSimpleStock(
+        [
+          placement({
+            containerUuid: grid.containerUuid,
+            columnIndex: 26,
+            rowIndex: 0,
+            freeformPosition: "",
+            unitOfMeasure: "pcs",
+            quantity: 7,
+          }),
+        ],
+        containersById,
+      ),
+    ).toMatchObject({
+      kind: "simple",
+      location: "AA1",
+      quantity: 7,
+    });
+  });
+
   it("collects review reasons for non-piece, mixed units, and invalid locations", () => {
     expect(
       projectSimpleStock(
@@ -331,7 +402,11 @@ describe("simple Lab component projection", () => {
       ),
     ).toMatchObject({
       kind: "review",
-      reasons: expect.arrayContaining(["multiple_placements"]),
+      reasons: expect.arrayContaining([
+        "multiple_placements",
+        "mixed_units",
+        "non_piece_unit",
+      ]),
     });
 
     expect(
@@ -374,6 +449,55 @@ describe("simple Lab component projection", () => {
       placementUuid: null,
       quantity: 0,
     });
+  });
+
+  it("does not treat zero-qty blank non-pcs stock as simple empty", () => {
+    expect(
+      projectSimpleStock(
+        [
+          placement({
+            quantity: 0,
+            freeformPosition: "",
+            unitOfMeasure: "reel",
+          }),
+        ],
+        new Map(),
+      ),
+    ).toMatchObject({ kind: "review", reasons: ["non_piece_unit"] });
+  });
+
+  it("projects zero-qty pcs with a valid location and flags blank positive stock", () => {
+    expect(
+      projectSimpleStock(
+        [
+          placement({
+            quantity: 0,
+            freeformPosition: "A1",
+            unitOfMeasure: "pcs",
+          }),
+        ],
+        new Map(),
+      ),
+    ).toMatchObject({
+      kind: "simple",
+      location: "A1",
+      quantity: 0,
+    });
+
+    expect(
+      projectSimpleStock(
+        [
+          placement({
+            quantity: 5,
+            freeformPosition: "",
+            unitOfMeasure: "pcs",
+            columnIndex: null,
+            rowIndex: null,
+          }),
+        ],
+        new Map(),
+      ),
+    ).toMatchObject({ kind: "review", reasons: ["invalid_location"] });
   });
 
   it("treats missing summary and empty totals correctly for order selection", () => {
