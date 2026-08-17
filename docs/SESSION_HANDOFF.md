@@ -12,7 +12,7 @@
 - Signature: same folder, `.sig`
 - Support: `release-support\v0.1.2\` (installer copy, `.sig`, `latest.json`, `SHA256SUMS.txt`, `RELEASE_NOTES.md`)
 - SHA-256: `2583cd3d20627538cc7bcc14cdb706f8752f05bc8e6b7e862a034d37813fda15`
-- GitHub Release for in-app updater **not** published in this session.
+- GitHub Release **published:** https://github.com/Hassaan-ECE/Inventory_Management/releases/tag/v0.1.2 (`latest.json` + installer + `.sig`). In-app Update can now see 0.1.2.
 
 ## Workspaces and branches
 

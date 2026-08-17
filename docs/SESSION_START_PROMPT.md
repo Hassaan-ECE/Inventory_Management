@@ -77,15 +77,13 @@ Prefer live code and these current documents over older TE planning copies.
 
 **Not completed**
 
-- GitHub Release of 0.1.2 (required before the in-app Update button serves this build).
 - Live IM-014 Lab schema-v2 cutover and live IM-015 calibration roster cutover (separate owner ops).
 - ME Storage and TE Storage Room implementations.
 
 ## Next priorities
 
-1. Owner-manual Lab simple workspace acceptance on `feature/lab-simple-workspace` (isolated root only).
-2. Integrate/merge after acceptance; then version bump + signed installer only when the owner asks to release.
-3. Perform IM-014 and IM-015 live cutovers separately under their owner runbooks, backups, and one-writer rules.
+1. Team install from S: or in-app Update to **0.1.2**.
+2. Perform IM-014 and IM-015 live cutovers separately under their owner runbooks, backups, and one-writer rules.
 
 ## Rules
 
