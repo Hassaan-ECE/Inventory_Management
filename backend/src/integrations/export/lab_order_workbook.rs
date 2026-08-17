@@ -76,14 +76,20 @@ pub(crate) fn build_lab_order_rows(
             return Err("Each order line must include a part UUID.".to_string());
         }
         if !seen.insert(part_uuid.clone()) {
-            return Err(format!("Rejected duplicate part selection for order export: {part_uuid}."));
+            return Err(format!(
+                "Rejected duplicate part selection for order export: {part_uuid}."
+            ));
         }
         if line.requested_quantity == 0 {
             return Err(format!(
                 "Requested quantity must be greater than zero for part {part_uuid}."
             ));
         }
-        prepared.push((part_uuid, line.requested_quantity, line.note.trim().to_string()));
+        prepared.push((
+            part_uuid,
+            line.requested_quantity,
+            line.note.trim().to_string(),
+        ));
     }
 
     let containers = db
@@ -283,7 +289,13 @@ fn build_order_sheet(
         let text_format = formats.text(row_index);
         let number_format = formats.number(row_index);
 
-        write_text(worksheet, worksheet_row, 0, &row.component_type, text_format)?;
+        write_text(
+            worksheet,
+            worksheet_row,
+            0,
+            &row.component_type,
+            text_format,
+        )?;
         write_text(worksheet, worksheet_row, 1, &row.value, text_format)?;
         write_text(worksheet, worksheet_row, 2, &row.manufacturer, text_format)?;
         write_text(worksheet, worksheet_row, 3, &row.mpn, text_format)?;
@@ -458,9 +470,11 @@ mod tests {
         assert!(build_lab_order_rows(&db, &[request("missing", 1, "")])
             .unwrap_err()
             .contains("not found"));
-        assert!(build_lab_order_rows(&db, &[request("archived-part", 1, "")])
-            .unwrap_err()
-            .contains("archived"));
+        assert!(
+            build_lab_order_rows(&db, &[request("archived-part", 1, "")])
+                .unwrap_err()
+                .contains("archived")
+        );
         assert!(build_lab_order_rows(&db, &[request("wire-part", 1, "")])
             .unwrap_err()
             .contains("whole pieces"));
@@ -473,9 +487,11 @@ mod tests {
         )
         .unwrap_err()
         .contains("duplicate"));
-        assert!(build_lab_order_rows(&db, &[request("capacitor-part", 0, "")])
-            .unwrap_err()
-            .contains("greater than zero"));
+        assert!(
+            build_lab_order_rows(&db, &[request("capacitor-part", 0, "")])
+                .unwrap_err()
+                .contains("greater than zero")
+        );
     }
 
     #[test]
@@ -483,7 +499,10 @@ mod tests {
         let path = temp_xlsx_path("lab-order");
         write_lab_order_workbook(&[order_row()], &path).unwrap();
 
-        assert_eq!(workbook_sheet_names(&path), vec!["Order Request".to_string()]);
+        assert_eq!(
+            workbook_sheet_names(&path),
+            vec!["Order Request".to_string()]
+        );
         let shared_strings = shared_strings(&path);
         let rows = worksheet_rows(&path, "xl/worksheets/sheet1.xml", &shared_strings);
         assert_eq!(

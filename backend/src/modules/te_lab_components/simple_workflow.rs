@@ -36,6 +36,8 @@ pub(crate) struct SimpleComponentValue {
     pub placement: Option<StockPlacement>,
 }
 
+/// Constructed only by unit tests for composite-write rollback coverage.
+#[allow(dead_code)]
 enum SimpleWorkflowFailurePoint {
     AfterPartWrite,
 }
@@ -193,12 +195,7 @@ fn save_simple_component_with_failure(
                 wrote_part = true;
                 created_part = Some(part.clone());
                 db.set_next_entry_id(id + 1)?;
-                catalog_sync::queue_upsert_operation(
-                    db,
-                    part.clone().into(),
-                    Vec::new(),
-                    None,
-                )?;
+                catalog_sync::queue_upsert_operation(db, part.clone().into(), Vec::new(), None)?;
                 part
             }
         };
@@ -435,10 +432,7 @@ fn ensure_simple_shelf(db: &InventoryDb) -> CommandResult<StorageContainer> {
     .value)
 }
 
-fn refuse_if_review_required(
-    db: &InventoryDb,
-    placements: &[StockPlacement],
-) -> CommandResult<()> {
+fn refuse_if_review_required(db: &InventoryDb, placements: &[StockPlacement]) -> CommandResult<()> {
     if requires_advanced_review(db, placements)? {
         return Err(
             "This component requires advanced location review before simple edits.".to_string(),
@@ -482,10 +476,7 @@ fn is_grid_cell(placement: &StockPlacement, container: &StorageContainer) -> boo
     container.grid_enabled && placement.row_index.is_some() && placement.column_index.is_some()
 }
 
-fn placement_short_location(
-    placement: &StockPlacement,
-    container: &StorageContainer,
-) -> String {
+fn placement_short_location(placement: &StockPlacement, container: &StorageContainer) -> String {
     if is_grid_cell(placement, container) {
         return grid_coordinate_label(
             container,
@@ -557,11 +548,9 @@ mod tests {
     #[test]
     fn creates_simple_part_and_one_piece_placement() {
         let db = ready_catalog_db();
-        let result = create_simple_component_in_store(
-            simple_input("Capacitor", "100 nF", 40, " b3 "),
-            &db,
-        )
-        .unwrap();
+        let result =
+            create_simple_component_in_store(simple_input("Capacitor", "100 nF", 40, " b3 "), &db)
+                .unwrap();
 
         assert_eq!(result.value.part.subcategory, "Capacitor");
         assert_eq!(result.value.part.mounting_type, "through_hole");
@@ -651,7 +640,10 @@ mod tests {
             .find_storage_area_by_name(SIMPLE_AREA_NAME)
             .unwrap()
             .is_some());
-        let area = db.find_storage_area_by_name(SIMPLE_AREA_NAME).unwrap().unwrap();
+        let area = db
+            .find_storage_area_by_name(SIMPLE_AREA_NAME)
+            .unwrap()
+            .unwrap();
         assert!(db
             .find_storage_container_by_name(&area.area_uuid, SIMPLE_CONTAINER_NAME)
             .unwrap()
@@ -897,14 +889,7 @@ mod tests {
         let placements = db.load_stock_placements().unwrap();
         let next_entry_id = db.next_entry_id().unwrap();
         let shared = catalog_sync::queued_local_status(db);
-        serde_json::to_string(&(
-            parts,
-            areas,
-            containers,
-            placements,
-            next_entry_id,
-            shared,
-        ))
-        .unwrap()
+        serde_json::to_string(&(parts, areas, containers, placements, next_entry_id, shared))
+            .unwrap()
     }
 }

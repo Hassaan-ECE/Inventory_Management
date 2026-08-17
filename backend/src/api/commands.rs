@@ -430,11 +430,10 @@ pub(crate) fn create_lab_simple_component(
 ) -> CommandResult<Value> {
     let coordinator = coordinator.inner().clone();
     let db = stores.te_lab_components();
-    let result = coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "simple component create",
-        || lab_simple_workflow::create_simple_component_in_store(input, db),
-    )?;
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "simple component create", || {
+            lab_simple_workflow::create_simple_component_in_store(input, db)
+        })?;
     schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
     command_value(result)
 }
@@ -449,11 +448,10 @@ pub(crate) fn update_lab_simple_component(
 ) -> CommandResult<Value> {
     let coordinator = coordinator.inner().clone();
     let db = stores.te_lab_components();
-    let result = coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "simple component update",
-        || lab_simple_workflow::update_simple_component_in_store(&part_id, input, db),
-    )?;
+    let result =
+        coordinator.run_exclusive(ModuleId::TeLabComponents, "simple component update", || {
+            lab_simple_workflow::update_simple_component_in_store(&part_id, input, db)
+        })?;
     schedule_lab_catalog_shared_publish(app, db.clone(), coordinator);
     command_value(result)
 }
