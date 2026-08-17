@@ -28,12 +28,13 @@ const SELECT_CLASS =
 interface PlacementDialogProps {
   catalog: CatalogSyncResult;
   onClose: () => void;
+  onExpandGrid?: (container: StorageContainer, axis: "row" | "column") => void;
   onSave: (input: StockPlacementInput, mergeCandidate: StockPlacement | null) => Promise<void>;
   part: Part;
   placement: StockPlacement | null;
 }
 
-export function PlacementDialog({ catalog, onClose, onSave, part, placement }: PlacementDialogProps) {
+export function PlacementDialog({ catalog, onClose, onExpandGrid, onSave, part, placement }: PlacementDialogProps) {
   const currentContainer = catalog.storageContainers.find(
     (container) => container.containerUuid === placement?.containerUuid,
   );
@@ -139,6 +140,7 @@ export function PlacementDialog({ catalog, onClose, onSave, part, placement }: P
           container={container}
           containers={containers}
           input={input}
+          onExpandGrid={onExpandGrid}
           onAreaChange={(nextAreaUuid) => {
             setAreaUuid(nextAreaUuid);
             setInput((current) => ({
@@ -371,10 +373,11 @@ interface LocationFieldsProps {
   containers: StorageContainer[];
   input: StockPlacementInput;
   onAreaChange: (areaUuid: string) => void;
+  onExpandGrid?: (container: StorageContainer, axis: "row" | "column") => void;
   onInputChange: React.Dispatch<React.SetStateAction<StockPlacementInput>>;
 }
 
-function LocationFields({ areaUuid, areas, catalog, container, containers, input, onAreaChange, onInputChange }: LocationFieldsProps) {
+function LocationFields({ areaUuid, areas, catalog, container, containers, input, onAreaChange, onExpandGrid, onInputChange }: LocationFieldsProps) {
   const partsById = useMemo(() => new Map(catalog.parts.map((part) => [part.entryUuid, part])), [catalog.parts]);
   const area = areas.find((candidate) => candidate.areaUuid === areaUuid);
   return (
@@ -398,6 +401,7 @@ function LocationFields({ areaUuid, areas, catalog, container, containers, input
           areaName={area?.name ?? "Unknown area"}
           container={container}
           key={container.containerUuid}
+          onExpand={onExpandGrid ? (axis) => onExpandGrid(container, axis) : undefined}
           onSelect={(rowIndex, columnIndex) => onInputChange((current) => ({ ...current, rowIndex, columnIndex, freeformPosition: "" }))}
           partsById={partsById}
           placements={catalog.stockPlacements}

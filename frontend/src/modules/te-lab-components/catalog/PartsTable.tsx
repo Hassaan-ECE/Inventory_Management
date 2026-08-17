@@ -134,7 +134,7 @@ export function PartsTable({
 
   return (
     <div className="relative h-full overflow-auto rounded-xl border border-border bg-card/80 shadow-sm">
-      <table className="min-w-full border-separate border-spacing-0 text-left text-xs">
+      <table className="min-w-full border-separate border-spacing-0 text-center text-xs">
         <thead className="sticky top-0 z-20 bg-card">
           <tr>
             {selectionMode ? (
@@ -243,7 +243,7 @@ export function PartsTable({
                 }
               >
                 {selectionMode ? (
-                  <td className="border-b border-border/65 px-3 py-2 align-middle">
+                  <td className="border-b border-border/65 px-3 py-2 text-center align-middle">
                     <input
                       aria-label={selectionLabel}
                       checked={isSelected}
@@ -260,7 +260,7 @@ export function PartsTable({
                   </td>
                 ) : null}
                 {columns.map((column) => (
-                  <td className="max-w-[24rem] border-b border-border/65 px-3 py-2 align-top" key={column.key}>
+                  <td className="max-w-[24rem] border-b border-border/65 px-3 py-2 text-center align-middle" key={column.key}>
                     <CatalogCell
                       catalog={catalog}
                       column={column.key}
@@ -378,7 +378,7 @@ function CatalogCell({ catalog, column, onOpenExternal, part, placements, status
       }
 
       return (
-        <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col items-center gap-0.5">
           {links.map((link) => {
             const safeUrl = toSafeExternalUrl(link.url);
             const label = formatCatalogLinkLabel(link.url) || link.kind;

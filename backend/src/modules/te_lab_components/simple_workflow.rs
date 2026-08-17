@@ -116,36 +116,36 @@ fn save_simple_component_with_failure(
             let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
             validate_stock_placement_input(&next_input, &existing_container)?;
             None
-        } else {
-            let shelf = ensure_simple_shelf(db)?;
+        } else if existing_container.grid_enabled {
             let mut next_input = placement_input_from(existing);
-            next_input.container_uuid = shelf.container_uuid.clone();
-            next_input.column_index = None;
-            next_input.row_index = None;
-            next_input.freeform_position = location.clone();
             next_input.quantity = quantity;
             next_input.unit_of_measure = "pcs".to_string();
             next_input.archived = false;
+            apply_location_to_input(&mut next_input, &location, &existing_container)?;
+            let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
+            validate_stock_placement_input(&next_input, &existing_container)?;
+            None
+        } else {
+            let shelf = ensure_simple_shelf(db)?;
+            let mut next_input = placement_input_from(existing);
+            next_input.quantity = quantity;
+            next_input.unit_of_measure = "pcs".to_string();
+            next_input.archived = false;
+            apply_location_to_input(&mut next_input, &location, &shelf)?;
             let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
             validate_stock_placement_input(&next_input, &shelf)?;
             Some(shelf)
         }
     } else {
         let shelf = ensure_simple_shelf(db)?;
-        let placement_input = normalize_stock_placement_input(
-            StockPlacementInput {
-                part_uuid: String::new(), // filled after part id is known
-                container_uuid: shelf.container_uuid.clone(),
-                freeform_position: location.clone(),
-                quantity,
-                unit_of_measure: "pcs".to_string(),
-                ..StockPlacementInput::default()
-            },
-            Some("pcs"),
-        );
-        // part_uuid empty fails validate — validate container geometry only via a temp part uuid
-        let mut check = placement_input;
-        check.part_uuid = "pending".to_string();
+        let mut check = StockPlacementInput {
+            part_uuid: "pending".to_string(),
+            quantity,
+            unit_of_measure: "pcs".to_string(),
+            ..StockPlacementInput::default()
+        };
+        apply_location_to_input(&mut check, &location, &shelf)?;
+        let check = normalize_stock_placement_input(check, Some("pcs"));
         validate_stock_placement_input(&check, &shelf)?;
         Some(shelf)
     };
@@ -233,17 +233,14 @@ fn save_simple_component_with_failure(
                 let shelf = shelf_for_write
                     .as_ref()
                     .expect("shelf resolved before part write for non-empty location");
-                let placement_input = normalize_stock_placement_input(
-                    StockPlacementInput {
-                        part_uuid: part.entry_uuid.clone(),
-                        container_uuid: shelf.container_uuid.clone(),
-                        freeform_position: location.clone(),
-                        quantity,
-                        unit_of_measure: "pcs".to_string(),
-                        ..StockPlacementInput::default()
-                    },
-                    Some("pcs"),
-                );
+                let mut placement_input = StockPlacementInput {
+                    part_uuid: part.entry_uuid.clone(),
+                    quantity,
+                    unit_of_measure: "pcs".to_string(),
+                    ..StockPlacementInput::default()
+                };
+                apply_location_to_input(&mut placement_input, &location, shelf)?;
+                let placement_input = normalize_stock_placement_input(placement_input, Some("pcs"));
                 validate_stock_placement_input(&placement_input, shelf)?;
                 let placement = create_stock_placement(placement_input);
                 ensure_distinct_placement(db, &placement, None)?;
@@ -269,19 +266,20 @@ fn save_simple_component_with_failure(
                     validate_stock_placement_input(&next_input, &existing_container)?;
                     update_stock_placement(existing.clone(), next_input)
                 } else {
-                    let shelf = shelf_for_write
-                        .as_ref()
-                        .expect("shelf resolved before part write when relocating");
+                    let target = if existing_container.grid_enabled {
+                        existing_container.clone()
+                    } else {
+                        shelf_for_write
+                            .clone()
+                            .expect("shelf resolved before part write when relocating")
+                    };
                     let mut next_input = placement_input_from(existing);
-                    next_input.container_uuid = shelf.container_uuid.clone();
-                    next_input.column_index = None;
-                    next_input.row_index = None;
-                    next_input.freeform_position = location.clone();
                     next_input.quantity = quantity;
                     next_input.unit_of_measure = "pcs".to_string();
                     next_input.archived = false;
+                    apply_location_to_input(&mut next_input, &location, &target)?;
                     let next_input = normalize_stock_placement_input(next_input, Some("pcs"));
-                    validate_stock_placement_input(&next_input, shelf)?;
+                    validate_stock_placement_input(&next_input, &target)?;
                     let updated = update_stock_placement(existing.clone(), next_input);
                     ensure_distinct_placement(db, &updated, Some(&existing.placement_uuid))?;
                     updated
@@ -364,13 +362,49 @@ fn normalize_location(value: &str, quantity: u32) -> CommandResult<String> {
 }
 
 fn is_simple_location_code(location: &str) -> bool {
-    let mut chars = location.chars();
-    matches!(chars.next(), Some('A'..='Z'))
-        && chars
-            .clone()
-            .next()
-            .is_some_and(|value| ('1'..='9').contains(&value))
-        && chars.all(|value| value.is_ascii_digit())
+    is_grid_location_code(location)
+}
+
+fn column_index_from_label(label: &str) -> Option<u32> {
+    if label.is_empty() || !label.bytes().all(|byte| byte.is_ascii_uppercase()) {
+        return None;
+    }
+    let mut index: u32 = 0;
+    for byte in label.bytes() {
+        index = index.saturating_mul(26).saturating_add(u32::from(byte - b'A' + 1));
+    }
+    index.checked_sub(1)
+}
+
+fn parse_grid_location(location: &str, row_start: u32) -> Option<(u32, u32)> {
+    let split = location.bytes().position(|byte| byte.is_ascii_digit())?;
+    let (letters, digits) = location.split_at(split);
+    let column_index = column_index_from_label(letters)?;
+    let row_number = digits.parse::<u32>().ok()?;
+    if row_number < row_start {
+        return None;
+    }
+    Some((row_number - row_start, column_index))
+}
+
+fn apply_location_to_input(
+    input: &mut StockPlacementInput,
+    location: &str,
+    container: &StorageContainer,
+) -> CommandResult<()> {
+    input.container_uuid = container.container_uuid.clone();
+    if container.grid_enabled {
+        let (row_index, column_index) = parse_grid_location(location, container.row_start)
+            .ok_or_else(|| "Use a shelf code such as A1, B3, or M15.".to_string())?;
+        input.row_index = Some(row_index);
+        input.column_index = Some(column_index);
+        input.freeform_position.clear();
+    } else {
+        input.row_index = None;
+        input.column_index = None;
+        input.freeform_position = location.to_string();
+    }
+    Ok(())
 }
 
 fn is_grid_location_code(location: &str) -> bool {
@@ -398,7 +432,25 @@ fn is_grid_location_code(location: &str) -> bool {
     true
 }
 
+fn first_active_grid_container(db: &InventoryDb) -> CommandResult<Option<StorageContainer>> {
+    let mut grids: Vec<StorageContainer> = db
+        .load_storage_containers()?
+        .into_iter()
+        .filter(|container| container.grid_enabled && !container.archived)
+        .collect();
+    grids.sort_by(|left, right| {
+        left.name
+            .cmp(&right.name)
+            .then(left.container_uuid.cmp(&right.container_uuid))
+    });
+    Ok(grids.into_iter().next())
+}
+
 fn ensure_simple_shelf(db: &InventoryDb) -> CommandResult<StorageContainer> {
+    if let Some(grid) = first_active_grid_container(db)? {
+        return Ok(grid);
+    }
+
     let area = if let Some(area) = db.find_storage_area_by_name(SIMPLE_AREA_NAME)? {
         area
     } else {
@@ -424,7 +476,10 @@ fn ensure_simple_shelf(db: &InventoryDb) -> CommandResult<StorageContainer> {
             area_uuid: area.area_uuid,
             name: SIMPLE_CONTAINER_NAME.to_string(),
             container_type: "shelf".to_string(),
-            grid_enabled: false,
+            grid_enabled: true,
+            row_count: Some(20),
+            column_count: Some(26),
+            row_start: Some(1),
             ..StorageContainerInput::default()
         },
         db,
@@ -557,7 +612,9 @@ mod tests {
         let placement = result.value.placement.unwrap();
         assert_eq!(placement.quantity, 40.0);
         assert_eq!(placement.unit_of_measure, "pcs");
-        assert_eq!(placement.freeform_position, "B3");
+        assert_eq!(placement.column_index, Some(1));
+        assert_eq!(placement.row_index, Some(2));
+        assert_eq!(placement.freeform_position, "");
         assert_eq!(
             db.load_stock_placements_for_part(&result.value.part.entry_uuid)
                 .unwrap()
@@ -583,7 +640,9 @@ mod tests {
 
         let placement = updated.value.placement.unwrap();
         assert_eq!(placement.placement_uuid, placement_uuid);
-        assert_eq!(placement.freeform_position, "A2");
+        assert_eq!(placement.column_index, Some(0));
+        assert_eq!(placement.row_index, Some(1));
+        assert_eq!(placement.freeform_position, "");
         assert_eq!(placement.quantity, 9.0);
     }
 

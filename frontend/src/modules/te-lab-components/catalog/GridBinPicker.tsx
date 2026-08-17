@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PlusIcon } from "lucide-react";
 
 import { columnLabel, gridCoordinateLabel, partDisplayName } from "@/modules/te-lab-components/catalog/catalogUtils";
 import type { Part, StockPlacement, StorageContainer } from "@/modules/te-lab-components/types";
-import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 
 const PAGE_ROWS = 30;
 const PAGE_COLUMNS = 30;
+const MAX_GRID_SIZE = 1000;
 
 interface GridBinPickerProps {
   areaName: string;
   container: StorageContainer;
   disabled?: boolean;
+  onExpand?: (axis: "row" | "column") => void;
   onSelect?: (rowIndex: number, columnIndex: number) => void;
   partsById: Map<string, Part>;
   placements: StockPlacement[];
@@ -23,6 +25,7 @@ export function GridBinPicker({
   areaName,
   container,
   disabled = false,
+  onExpand,
   onSelect,
   partsById,
   placements,
@@ -102,68 +105,50 @@ export function GridBinPicker({
     return <p className="text-sm text-muted-foreground">This container does not use a grid.</p>;
   }
 
+  const lastVisibleColumn = visibleColumns[visibleColumns.length - 1];
+  const lastVisibleRow = visibleRows[visibleRows.length - 1];
+  const showAddColumn = Boolean(onExpand) && !disabled && lastVisibleColumn === columnCount - 1 && columnCount < MAX_GRID_SIZE;
+  const showAddRow = Boolean(onExpand) && !disabled && lastVisibleRow === rowCount - 1 && rowCount < MAX_GRID_SIZE;
+  const columnTracks = visibleColumns.length + (showAddColumn ? 1 : 0);
+
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>
-          Rows {rowOffset + 1}–{Math.min(rowOffset + PAGE_ROWS, rowCount)} of {rowCount}; columns{" "}
-          {columnLabel(columnOffset)}–{columnLabel(Math.min(columnOffset + PAGE_COLUMNS, columnCount) - 1)} of{" "}
-          {columnCount}
-        </span>
-        <div className="flex gap-1">
-          <Button
-            disabled={rowOffset === 0}
-            onClick={() => setRowOffset(Math.max(0, rowOffset - PAGE_ROWS))}
-            size="xs"
-            variant="outline"
-          >
-            Earlier rows
-          </Button>
-          <Button
-            disabled={rowOffset + PAGE_ROWS >= rowCount}
-            onClick={() => setRowOffset(Math.min(rowCount - 1, rowOffset + PAGE_ROWS))}
-            size="xs"
-            variant="outline"
-          >
-            Later rows
-          </Button>
-          <Button
-            disabled={columnOffset === 0}
-            onClick={() => setColumnOffset(Math.max(0, columnOffset - PAGE_COLUMNS))}
-            size="xs"
-            variant="outline"
-          >
-            Earlier columns
-          </Button>
-          <Button
-            disabled={columnOffset + PAGE_COLUMNS >= columnCount}
-            onClick={() => setColumnOffset(Math.min(columnCount - 1, columnOffset + PAGE_COLUMNS))}
-            size="xs"
-            variant="outline"
-          >
-            Later columns
-          </Button>
-        </div>
-      </div>
-      <div className="max-h-[54vh] overflow-auto rounded-xl border border-border bg-muted/20 p-2">
+      <div className="max-h-[40vh] overflow-auto rounded-lg border border-border bg-muted/20 p-2">
         <div
           className="grid w-max gap-1"
           ref={gridRef}
-          style={{ gridTemplateColumns: `2.5rem repeat(${visibleColumns.length}, 3.25rem)` }}
+          style={{ gridTemplateColumns: `2.75rem repeat(${columnTracks}, 3.25rem)` }}
         >
-          <div aria-hidden="true" className="sticky left-0 top-0 z-20 bg-background" />
+          <div
+            aria-hidden="true"
+            className="sticky left-0 top-0 z-20 flex h-8 items-center justify-center rounded-sm bg-zinc-300 text-[9px] font-semibold uppercase tracking-wide text-zinc-700 dark:bg-zinc-600 dark:text-zinc-100"
+          >
+            #
+          </div>
           {visibleColumns.map((columnIndex) => (
             <div
-              className="sticky top-0 z-10 flex h-8 items-center justify-center rounded-md bg-background text-xs font-semibold shadow-sm"
+              className="sticky top-0 z-10 flex h-8 items-center justify-center rounded-sm bg-sky-300 text-[11px] font-bold tracking-wide text-sky-950 dark:bg-sky-600 dark:text-white"
               key={columnIndex}
+              title={`Column ${columnLabel(columnIndex)}`}
             >
               {columnLabel(columnIndex)}
             </div>
           ))}
+          {showAddColumn ? (
+            <button
+              aria-label="Add column"
+              className="sticky top-0 z-10 flex h-8 items-center justify-center rounded-sm border border-dashed border-sky-700 bg-sky-300 text-sky-950 hover:bg-sky-200 dark:border-sky-300 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+              type="button"
+              onClick={() => onExpand?.("column")}
+            >
+              <PlusIcon className="size-3.5" />
+            </button>
+          ) : null}
           {visibleRows.flatMap((rowIndex) => [
             <div
-              className="sticky left-0 z-10 flex h-11 items-center justify-center rounded-md bg-background text-xs font-semibold shadow-sm"
+              className="sticky left-0 z-10 flex h-11 items-center justify-center rounded-sm bg-amber-300 text-[11px] font-bold tabular-nums text-amber-950 dark:bg-amber-600 dark:text-white"
               key={`row-${rowIndex}`}
+              title={`Row ${container.rowStart + rowIndex}`}
             >
               {container.rowStart + rowIndex}
             </div>,
@@ -185,9 +170,9 @@ export function GridBinPicker({
                   aria-label={accessibleLabel}
                   aria-pressed={selected}
                   className={cn(
-                    "relative flex h-11 w-[3.25rem] items-center justify-center rounded-md border text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "relative flex h-11 w-[3.25rem] items-center justify-center rounded-sm border text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     contents.length > 0
-                      ? "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-100"
+                      ? "border-amber-600 bg-amber-200 text-amber-950 dark:border-amber-400 dark:bg-amber-700 dark:text-amber-50"
                       : "border-border bg-background hover:bg-accent",
                     selected && "border-primary bg-primary text-primary-foreground hover:bg-primary",
                     disabled && "cursor-not-allowed opacity-55",
@@ -214,20 +199,30 @@ export function GridBinPicker({
                   type="button"
                 >
                   <span>{coordinate}</span>
-                  {contents.length > 0 ? (
-                    <span className="absolute right-0.5 top-0.5 rounded-full bg-amber-600 px-1 text-[9px] leading-3 text-white">
-                      {contents.length}
-                    </span>
-                  ) : null}
                 </button>
               );
             }),
+            showAddColumn ? (
+              <div aria-hidden="true" className="h-11" key={`pad-col-${rowIndex}`} />
+            ) : null,
           ])}
+          {showAddRow ? (
+            <>
+              <button
+                aria-label="Add row"
+                className="sticky left-0 z-10 flex h-8 items-center justify-center rounded-sm border border-dashed border-amber-700 bg-amber-300 text-amber-950 hover:bg-amber-200 dark:border-amber-300 dark:bg-amber-600 dark:text-white dark:hover:bg-amber-500"
+                type="button"
+                onClick={() => onExpand?.("row")}
+              >
+                <PlusIcon className="size-3.5" />
+              </button>
+              {visibleColumns.map((columnIndex) => (
+                <div aria-hidden="true" className="h-8" key={`pad-row-${columnIndex}`} />
+              ))}
+            </>
+          ) : null}
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Occupied bins show a count badge. They remain selectable so several part types can intentionally share one bin.
-      </p>
     </div>
   );
 }

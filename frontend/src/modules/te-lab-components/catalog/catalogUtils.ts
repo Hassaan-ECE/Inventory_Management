@@ -45,6 +45,34 @@ export function gridCoordinateLabel(
   return `${columnLabel(columnIndex)}${container.rowStart + rowIndex}`;
 }
 
+export function columnIndexFromLabel(label: string): number | null {
+  const letters = label.trim().toUpperCase();
+  if (!/^[A-Z]+$/.test(letters)) {
+    return null;
+  }
+  let index = 0;
+  for (const character of letters) {
+    index = index * 26 + (character.charCodeAt(0) - 64);
+  }
+  return index - 1;
+}
+
+export function parseGridCoordinate(
+  label: string,
+  rowStart = 1,
+): { columnIndex: number; rowIndex: number } | null {
+  const match = /^([A-Z]+)([1-9][0-9]*)$/.exec(label.trim().toUpperCase());
+  if (!match) {
+    return null;
+  }
+  const columnIndex = columnIndexFromLabel(match[1] ?? "");
+  const rowNumber = Number(match[2]);
+  if (columnIndex === null || !Number.isInteger(rowNumber) || rowNumber < rowStart) {
+    return null;
+  }
+  return { columnIndex, rowIndex: rowNumber - rowStart };
+}
+
 export function placementPosition(placement: StockPlacement, container?: StorageContainer): string {
   if (
     container?.gridEnabled &&

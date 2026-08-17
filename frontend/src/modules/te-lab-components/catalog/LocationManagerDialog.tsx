@@ -225,6 +225,17 @@ export function LocationManagerDialog({
                       areaName={selectedArea.name}
                       container={selectedContainer}
                       key={selectedContainer.containerUuid}
+                      onExpand={
+                        readOnly
+                          ? undefined
+                          : (axis) => {
+                              void onUpdateContainer(selectedContainer, {
+                                ...containerInput(selectedContainer, selectedContainer.archived),
+                                rowCount: (selectedContainer.rowCount ?? 0) + (axis === "row" ? 1 : 0),
+                                columnCount: (selectedContainer.columnCount ?? 0) + (axis === "column" ? 1 : 0),
+                              });
+                            }
+                      }
                       onSelect={(rowIndex, columnIndex) => {
                         setSelectedContainerUuid(selectedContainer.containerUuid);
                         setSelectedCell({ rowIndex, columnIndex });

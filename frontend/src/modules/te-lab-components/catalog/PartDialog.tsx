@@ -30,6 +30,7 @@ import type {
   PartInput,
   SimpleComponentInput,
   StockPlacement,
+  StorageContainer,
 } from "@/modules/te-lab-components/types";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -55,6 +56,7 @@ interface PartDialogProps {
   onDeletePlacement: (placement: StockPlacement) => void;
   onDeletePart: (part: Part) => Promise<void> | void;
   onEditPlacement: (placement: StockPlacement) => void;
+  onExpandGrid?: (container: StorageContainer, axis: "row" | "column") => Promise<void> | void;
   onMovePlacement: (placement: StockPlacement) => void;
   onSaveAdvanced: (input: PartInput) => Promise<void>;
   onSaveSimple: (input: SimpleComponentInput) => Promise<void>;
@@ -70,6 +72,7 @@ export function PartDialog({
   onDeletePlacement,
   onDeletePart,
   onEditPlacement,
+  onExpandGrid,
   onMovePlacement,
   onSaveAdvanced,
   onSaveSimple,
@@ -684,14 +687,17 @@ export function PartDialog({
         ) : null}
 
         <SimplePartFields
+          catalog={catalog}
           componentType={componentType}
           disabled={stockDisabled}
           location={location}
           onComponentTypeChange={handleComponentTypeChange}
+          onExpandGrid={onExpandGrid}
           onLocationChange={setLocation}
           onQuantityChange={setQuantity}
           onUnitChange={setUnit}
           onValueChange={setValue}
+          partPlacements={placements}
           projection={projection}
           quantity={quantity}
           unit={unit}

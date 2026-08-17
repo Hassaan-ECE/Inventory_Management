@@ -174,6 +174,11 @@ describe("TE Lab Components catalog shell integration", () => {
     await user.selectOptions(within(dialog).getByLabelText("Unit"), "nF");
     await user.clear(within(dialog).getByLabelText("Quantity"));
     await user.type(within(dialog).getByLabelText("Quantity"), "40");
+    expect(within(dialog).queryByRole("button", { name: "Add column" })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Choose bin" }));
+    expect(within(dialog).getByRole("button", { name: "Add column" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Add row" })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
     await user.type(within(dialog).getByLabelText("Location"), "b3");
     await user.click(within(dialog).getByRole("button", { name: "Add Component" }));
 

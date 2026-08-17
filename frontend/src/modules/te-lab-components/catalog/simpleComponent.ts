@@ -1,11 +1,62 @@
 import { placementPosition } from "@/modules/te-lab-components/catalog/catalogUtils";
 import type {
+  CatalogSyncResult,
   Part,
   PartInput,
   PartStockSummary,
   StockPlacement,
   StorageContainer,
 } from "@/modules/te-lab-components/types";
+
+export const SIMPLE_PREVIEW_AREA_NAME = "TE Lab";
+export const SIMPLE_PREVIEW_CONTAINER_NAME = "Shelf";
+
+export function resolveSimplePickerTarget(
+  catalog: CatalogSyncResult,
+  partPlacements: readonly StockPlacement[],
+): { areaName: string; container: StorageContainer } {
+  const containersById = new Map(
+    catalog.storageContainers.map((container) => [container.containerUuid, container]),
+  );
+  const areasById = new Map(catalog.storageAreas.map((area) => [area.areaUuid, area]));
+  const active = partPlacements.filter((placement) => !placement.archived);
+  if (active.length === 1) {
+    const existing = containersById.get(active[0]?.containerUuid ?? "");
+    if (existing?.gridEnabled && !existing.archived) {
+      return {
+        areaName: areasById.get(existing.areaUuid)?.name || SIMPLE_PREVIEW_AREA_NAME,
+        container: existing,
+      };
+    }
+  }
+  const firstGrid = [...catalog.storageContainers]
+    .filter((container) => container.gridEnabled && !container.archived)
+    .sort((left, right) => left.name.localeCompare(right.name) || left.containerUuid.localeCompare(right.containerUuid))[0];
+  if (firstGrid) {
+    return {
+      areaName: areasById.get(firstGrid.areaUuid)?.name || SIMPLE_PREVIEW_AREA_NAME,
+      container: firstGrid,
+    };
+  }
+  return {
+    areaName: SIMPLE_PREVIEW_AREA_NAME,
+    container: {
+      containerUuid: "simple-preview-shelf",
+      areaUuid: "simple-preview-area",
+      name: SIMPLE_PREVIEW_CONTAINER_NAME,
+      containerType: "shelf",
+      gridEnabled: true,
+      rowCount: 20,
+      columnCount: 26,
+      rowStart: 1,
+      origin: "top_left",
+      description: "",
+      archived: false,
+      createdAt: "",
+      updatedAt: "",
+    },
+  };
+}
 
 const COMPONENT_PROFILES = {
   Resistor: { category: "Passive", units: ["mΩ", "Ω", "kΩ", "MΩ"] },
@@ -129,7 +180,7 @@ export function shelfLocationError(value: string, quantity: number): string | nu
     }
     return null;
   }
-  if (!SIMPLE_LOCATION.test(normalized)) {
+  if (!GRID_LOCATION.test(normalized)) {
     return "Use a shelf code such as A1, B3, or M15.";
   }
   return null;

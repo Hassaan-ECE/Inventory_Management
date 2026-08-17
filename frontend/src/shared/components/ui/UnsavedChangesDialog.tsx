@@ -46,7 +46,7 @@ export function UnsavedChangesDialog({
           <Button disabled={isSaving} type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button disabled={isSaving} type="button" variant="ghost" onClick={onDiscard}>
+          <Button disabled={isSaving} type="button" variant="destructive" onClick={onDiscard}>
             Discard
           </Button>
           <Button disabled={isSaving || readOnly} type="button" onClick={onSave}>

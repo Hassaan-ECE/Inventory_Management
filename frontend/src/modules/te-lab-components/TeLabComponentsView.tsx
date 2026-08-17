@@ -351,6 +351,26 @@ export function TeLabComponentsView({
     setPartDialogId(null);
   }
 
+  async function expandGrid(container: StorageContainer, axis: "row" | "column"): Promise<void> {
+    if (!container.gridEnabled || typeof window.inventoryDesktop?.updateLabStorageContainer !== "function") {
+      return;
+    }
+    const nextRows = (container.rowCount ?? 0) + (axis === "row" ? 1 : 0);
+    const nextColumns = (container.columnCount ?? 0) + (axis === "column" ? 1 : 0);
+    const result = await requireLocationBridge().updateLabStorageContainer(container.containerUuid, {
+      areaUuid: container.areaUuid,
+      name: container.name,
+      containerType: container.containerType,
+      gridEnabled: true,
+      rowCount: nextRows,
+      columnCount: nextColumns,
+      rowStart: container.rowStart,
+      description: container.description,
+      archived: container.archived,
+    });
+    await refreshAfterMutation(result.message);
+  }
+
   async function deletePart(part: Part): Promise<void> {
     if (!part.archived) {
       announceStatus("Archive the part before deleting it permanently.");
@@ -614,6 +634,7 @@ export function TeLabComponentsView({
           onDeletePart={(part) => deletePart(part)}
           onDeletePlacement={(placement) => void deletePlacement(placement)}
           onEditPlacement={(placement) => setPlacementDialog({ partUuid: placement.partUuid, placementUuid: placement.placementUuid })}
+          onExpandGrid={(container, axis) => void expandGrid(container, axis)}
           onMovePlacement={(placement) => setMovePlacementUuid(placement.placementUuid)}
           onSaveAdvanced={(input) => savePart(activePart, input)}
           onSaveSimple={(input) => saveSimplePart(activePart, input)}
@@ -622,7 +643,7 @@ export function TeLabComponentsView({
         />
       ) : null}
 
-      {placementDialog && placementPart ? <PlacementDialog catalog={catalog} key={placementDialog.placementUuid ?? `new-${placementDialog.partUuid}`} onClose={() => setPlacementDialog(null)} onSave={savePlacement} part={placementPart} placement={editedPlacement} /> : null}
+      {placementDialog && placementPart ? <PlacementDialog catalog={catalog} key={placementDialog.placementUuid ?? `new-${placementDialog.partUuid}`} onClose={() => setPlacementDialog(null)} onExpandGrid={(container, axis) => void expandGrid(container, axis)} onSave={savePlacement} part={placementPart} placement={editedPlacement} /> : null}
       {movePlacement ? <MoveStockDialog catalog={catalog} key={movePlacement.placementUuid} onClose={() => setMovePlacementUuid(null)} onMove={moveStock} source={movePlacement} /> : null}
       {countPlacement ? <CountStockDialog catalog={catalog} key={countPlacement.placementUuid} onClose={() => setCountPlacementUuid(null)} onCount={(input) => countStock(countPlacement, input)} placement={countPlacement} /> : null}
       {locationsOpen ? (

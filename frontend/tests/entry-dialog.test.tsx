@@ -377,6 +377,7 @@ describe("EntryDialog", () => {
     expect(onClose).not.toHaveBeenCalled();
     const prompt = screen.getByRole("alertdialog");
     expect(within(prompt).getByRole("heading", { name: "Unsaved changes" })).toBeInTheDocument();
+    expect(within(prompt).getByRole("button", { name: "Discard" })).toHaveClass("bg-destructive");
 
     await user.click(within(prompt).getByRole("button", { name: "Cancel" }));
     expect(onClose).not.toHaveBeenCalled();

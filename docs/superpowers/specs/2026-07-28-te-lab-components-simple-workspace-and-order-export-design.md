@@ -1,14 +1,23 @@
 # TE Lab Components Simple Workspace and Order Export Design
 
 **Date:** 2026-07-28  
-**Status:** Approved in conversation; written specification awaiting owner review  
+**Re-approved:** 2026-08-17  
+**Status:** Approved  
 **Scope:** TE Lab Components only
+
+## Confirmed decisions (2026-08-17)
+
+- Approach: simple workspace projected over the existing Lab catalog. Do not add a competing component table or change Lab sync schema v2.
+- Scope: everyday table, focused add/edit, and select-for-order Excel. Advanced catalog remains behind More Details.
+- Everyday table columns: Stock Status, Component Type, Value, Quantity, Location.
+- Extra catalog columns stay available as opt-in View settings, hidden by default.
+- Implementation has not started. This spec is the authority before any plan or code work.
 
 ## Context
 
 The generalized Lab catalog released in Inventory Management 0.1.1 supports flexible catalog fields, multiple stock placements, storage areas, storage containers, and grid coordinates. The team currently needs a much simpler through-hole-parts workflow:
 
-- one row per component type;
+- one row per component;
 - one active shelf location per component;
 - stock counted in pieces;
 - short location codes such as `A1`, `B3`, and `M15`;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseGridCoordinate } from "@/modules/te-lab-components/catalog/catalogUtils";
 import {
   applySimpleIdentity,
   categoryForComponentType,
@@ -161,16 +162,24 @@ describe("simple Lab component projection", () => {
     expect(formatComponentValue("BJT", "2N3904", "")).toBe("2N3904");
   });
 
-  it("normalizes and validates one-letter shelf locations", () => {
+  it("normalizes and validates shelf and grid locations", () => {
     expect(normalizeShelfLocation(" b3 ")).toBe("B3");
     expect(shelfLocationError("m15", 40)).toBeNull();
-    expect(shelfLocationError("AA1", 40)).toBe(
+    expect(shelfLocationError("AA1", 40)).toBeNull();
+    expect(shelfLocationError("A-1", 40)).toBe(
       "Use a shelf code such as A1, B3, or M15.",
     );
     expect(shelfLocationError("", 1)).toBe(
       "Location is required when quantity is greater than zero.",
     );
     expect(shelfLocationError("", 0)).toBeNull();
+  });
+
+  it("parses Excel-style grid coordinates", () => {
+    expect(parseGridCoordinate("B3")).toEqual({ columnIndex: 1, rowIndex: 2 });
+    expect(parseGridCoordinate("A1")).toEqual({ columnIndex: 0, rowIndex: 0 });
+    expect(parseGridCoordinate("AA1")).toEqual({ columnIndex: 26, rowIndex: 0 });
+    expect(parseGridCoordinate("12A")).toBeNull();
   });
 
   it("projects one pcs placement but flags advanced placement sets", () => {
