@@ -43,6 +43,7 @@ import type {
   CatalogSharedCutoverPreview,
   Part,
   PartInput,
+  SimpleComponentInput,
   StockCountInput,
   StockMoveInput,
   StockPlacement,
@@ -55,12 +56,12 @@ import type {
 import type { DesktopModuleViewProps } from "@/platform/modules/types";
 import { Button } from "@/shared/components/ui/button";
 
-// v4: category and subcategory are separate default-visible columns (no stacked category cell).
-const COLUMN_VISIBILITY_KEY = "teLabComponents.catalog.v4.columnVisibility";
+// v5: five-column simple workspace defaults (Component Type, Value, Quantity, Location).
+const COLUMN_VISIBILITY_KEY = "teLabComponents.catalog.v5.columnVisibility";
 const COLOR_ROWS_KEY = "teLabComponents.catalog.v1.colorRows";
 const FILTER_PREFERENCES_KEY = "teLabComponents.catalog.v2.filters";
 const SORT_PREFERENCES_KEY = "teLabComponents.catalog.v2.sort";
-const DEFAULT_SORT_STATE: CatalogSortState = { column: "category", direction: "asc" };
+const DEFAULT_SORT_STATE: CatalogSortState = { column: "subcategory", direction: "asc" };
 
 interface PlacementDialogState {
   partUuid: string;
@@ -70,6 +71,8 @@ interface PlacementDialogState {
 type LabCatalogBridgeMethod =
   | "createLabPart"
   | "updateLabPart"
+  | "createLabSimpleComponent"
+  | "updateLabSimpleComponent"
   | "deleteLabPart"
   | "createLabStockPlacement"
   | "updateLabStockPlacement"
@@ -112,6 +115,8 @@ const LAB_SHARED_CUTOVER_BRIDGE_METHODS: LabSharedCutoverBridgeMethod[] = [
 const LAB_CATALOG_BRIDGE_METHODS: LabCatalogBridgeMethod[] = [
   "createLabPart",
   "updateLabPart",
+  "createLabSimpleComponent",
+  "updateLabSimpleComponent",
   "deleteLabPart",
   "createLabStockPlacement",
   "updateLabStockPlacement",
@@ -319,6 +324,15 @@ export function TeLabComponentsView({
     setPartDialogId(null);
   }
 
+  async function saveSimplePart(part: Part | null, input: SimpleComponentInput): Promise<void> {
+    const bridge = requireBridge();
+    const result = part
+      ? await bridge.updateLabSimpleComponent(part.entryUuid, input)
+      : await bridge.createLabSimpleComponent(input);
+    await refreshAfterMutation(result.message);
+    setPartDialogId(null);
+  }
+
   async function deletePart(part: Part): Promise<void> {
     if (!part.archived) {
       announceStatus("Archive the part before deleting it permanently.");
@@ -497,7 +511,7 @@ export function TeLabComponentsView({
                 visibleColumns={columnVisibility}
               />
             ) : (
-              <section className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 p-8 text-center"><h2 className="font-semibold">No catalog parts found</h2><p className="mt-1 text-sm text-muted-foreground">Adjust the search and filters, or add a generalized electronic part.</p>{canModify ? <Button className="mt-4" onClick={() => setPartDialogId("new")}>Add Part</Button> : null}</section>
+              <section className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 p-8 text-center"><h2 className="font-semibold">No catalog parts found</h2><p className="mt-1 text-sm text-muted-foreground">Adjust the search and filters, or add a component.</p>{canModify ? <Button className="mt-4" onClick={() => setPartDialogId("new")}>Add Part</Button> : null}</section>
             )}
           </div>
         </div>
@@ -524,7 +538,8 @@ export function TeLabComponentsView({
           onDeletePlacement={(placement) => void deletePlacement(placement)}
           onEditPlacement={(placement) => setPlacementDialog({ partUuid: placement.partUuid, placementUuid: placement.placementUuid })}
           onMovePlacement={(placement) => setMovePlacementUuid(placement.placementUuid)}
-          onSave={(input) => savePart(activePart, input)}
+          onSaveAdvanced={(input) => savePart(activePart, input)}
+          onSaveSimple={(input) => saveSimplePart(activePart, input)}
           part={partDialogId === "new" ? null : activePart}
           readOnly={!canModify}
         />

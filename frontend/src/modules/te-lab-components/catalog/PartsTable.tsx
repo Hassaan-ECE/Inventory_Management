@@ -2,16 +2,15 @@ import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactM
 
 import {
   createCatalogLookups,
-  formatQuantity,
   formatTotals,
   partPlacements,
-  placementPath,
 } from "@/modules/te-lab-components/catalog/catalogUtils";
 import {
   CATALOG_COLUMNS,
   type CatalogColumnKey,
 } from "@/modules/te-lab-components/catalog/catalogColumns";
 import type { CatalogSortState } from "@/modules/te-lab-components/catalog/catalogSorting";
+import { projectSimpleStock } from "@/modules/te-lab-components/catalog/simpleComponent";
 import type { CatalogSyncResult, Part, StockStatus } from "@/modules/te-lab-components/types";
 import { Badge } from "@/shared/components/ui/badge";
 import { DropdownPanel } from "@/shared/components/ui/DropdownMenu";
@@ -297,20 +296,21 @@ function CatalogCell({ catalog, column, onOpenExternal, part, placements, status
     case "totals":
       return <span className="whitespace-nowrap font-semibold tabular-nums">{totals}</span>;
     case "locations": {
-      if (placements.length === 0) {
-        return <span className="text-muted-foreground">No placements</span>;
+      const projection = projectSimpleStock(placements, lookups.containersById);
+      if (projection.kind === "simple") {
+        return projection.location ? (
+          <span className="font-medium tabular-nums">{projection.location}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
       }
-      const first = placements[0];
+      const reviewLabel = projection.reasons.includes("multiple_placements")
+        ? `Review · ${placements.length} locations`
+        : "Review units";
       return (
-        <div className="space-y-1" title={placements.map((placement) => placementPath(placement, lookups)).join("\n")}>
-          <span className="inline-flex max-w-[22rem] items-center rounded-full border border-border bg-muted/50 px-2 py-0.5">
-            <span className="truncate">{placementPath(first, lookups)}</span>
-            <span className="ml-1 whitespace-nowrap text-muted-foreground">
-              ({formatQuantity(first.quantity)} {first.unitOfMeasure})
-            </span>
-          </span>
-          {placements.length > 1 ? <div className="text-[11px] text-muted-foreground">+{placements.length - 1} more</div> : null}
-        </div>
+        <span className="text-amber-800 dark:text-amber-200" title={projection.locationLabel}>
+          {reviewLabel}
+        </span>
       );
     }
     case "manufacturer":

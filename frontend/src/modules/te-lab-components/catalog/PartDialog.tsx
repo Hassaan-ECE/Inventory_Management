@@ -14,11 +14,21 @@ import {
 } from "@/modules/te-lab-components/catalog/categoryTemplates";
 import { CatalogDialog } from "@/modules/te-lab-components/catalog/CatalogDialog";
 import { StockStatusBadge } from "@/modules/te-lab-components/catalog/PartsTable";
+import { SimplePartFields } from "@/modules/te-lab-components/catalog/SimplePartFields";
+import {
+  applySimpleIdentity,
+  engineeringUnitsFor,
+  normalizeShelfLocation,
+  projectSimpleStock,
+  readComponentValue,
+  shelfLocationError,
+} from "@/modules/te-lab-components/catalog/simpleComponent";
 import type {
   CatalogSyncResult,
   ComponentAttributes,
   Part,
   PartInput,
+  SimpleComponentInput,
   StockPlacement,
 } from "@/modules/te-lab-components/types";
 import { Badge } from "@/shared/components/ui/badge";
@@ -46,7 +56,8 @@ interface PartDialogProps {
   onDeletePart: (part: Part) => Promise<void> | void;
   onEditPlacement: (placement: StockPlacement) => void;
   onMovePlacement: (placement: StockPlacement) => void;
-  onSave: (input: PartInput) => Promise<void>;
+  onSaveAdvanced: (input: PartInput) => Promise<void>;
+  onSaveSimple: (input: SimpleComponentInput) => Promise<void>;
   part: Part | null;
   readOnly: boolean;
 }
@@ -60,31 +71,81 @@ export function PartDialog({
   onDeletePart,
   onEditPlacement,
   onMovePlacement,
-  onSave,
+  onSaveAdvanced,
+  onSaveSimple,
   part,
   readOnly,
 }: PartDialogProps) {
+  const lookups = useMemo(() => createCatalogLookups(catalog), [catalog]);
+  const placements = useMemo(
+    () => catalog.stockPlacements.filter((placement) => placement.partUuid === part?.entryUuid && !placement.archived),
+    [catalog.stockPlacements, part?.entryUuid],
+  );
+  const initialProjection = useMemo(
+    () => projectSimpleStock(placements, lookups.containersById),
+    [lookups.containersById, placements],
+  );
+  const initialComponentValue = useMemo(
+    () => (part ? readComponentValue(part) : { value: "", unit: "" }),
+    [part],
+  );
+
   const [initialForm] = useState<PartInput>(() => inputFromPart(part));
   const [initialAttributes] = useState<AttributeRow[]>(() => attributeRows(part?.attributes ?? {}));
+  const [initialComponentType] = useState(() => part?.subcategory ?? "");
+  const [initialValue] = useState(() => initialComponentValue.value);
+  const [initialUnit] = useState(() => initialComponentValue.unit);
+  const [initialQuantity] = useState(() =>
+    initialProjection.kind === "simple" ? initialProjection.quantity : 0,
+  );
+  const [initialLocation] = useState(() =>
+    initialProjection.kind === "simple" ? initialProjection.location : "",
+  );
+
   const [form, setForm] = useState<PartInput>(initialForm);
   const [attributes, setAttributes] = useState<AttributeRow[]>(initialAttributes);
+  const [componentType, setComponentType] = useState(initialComponentType);
+  const [value, setValue] = useState(initialValue);
+  const [unit, setUnit] = useState(initialUnit);
+  const [quantity, setQuantity] = useState(initialQuantity);
+  const [location, setLocation] = useState(initialLocation);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+
   const template = categoryTemplate(form.category);
   const isArchived = form.archived;
-  const subcategories = template?.subcategories ?? [];
-  const lookups = useMemo(() => createCatalogLookups(catalog), [catalog]);
-  const placements = useMemo(
-    () => catalog.stockPlacements.filter((placement) => placement.partUuid === part?.entryUuid),
-    [catalog.stockPlacements, part?.entryUuid],
-  );
   const summary = part ? lookups.summariesByPartId.get(part.entryUuid) : undefined;
+  const projection = initialProjection;
+  const reviewRequired = projection.kind === "review";
+  const stockDisabled = readOnly || reviewRequired;
 
   const isDirty = useMemo(
-    () => !partFormEquals(form, initialForm) || !attributeRowsEqual(attributes, initialAttributes),
-    [attributes, form, initialAttributes, initialForm],
+    () =>
+      !partFormEquals(form, initialForm) ||
+      !attributeRowsEqual(attributes, initialAttributes) ||
+      componentType !== initialComponentType ||
+      value !== initialValue ||
+      unit !== initialUnit ||
+      quantity !== initialQuantity ||
+      location !== initialLocation,
+    [
+      attributes,
+      componentType,
+      form,
+      initialAttributes,
+      initialComponentType,
+      initialForm,
+      initialLocation,
+      initialQuantity,
+      initialUnit,
+      initialValue,
+      location,
+      quantity,
+      unit,
+      value,
+    ],
   );
 
   const requestClose = useCallback((): void => {
@@ -104,6 +165,16 @@ export function PartDialog({
 
   function update<K extends keyof PartInput>(key: K, value: PartInput[K]): void {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleComponentTypeChange(nextType: string): void {
+    setComponentType(nextType);
+    const nextUnits = engineeringUnitsFor(nextType);
+    if (nextUnits.length === 0) {
+      setUnit("");
+    } else if (!nextUnits.includes(unit)) {
+      setUnit(nextUnits[0] ?? "");
+    }
   }
 
   function addSuggestedAttribute(key: string, unit = ""): void {
@@ -135,35 +206,97 @@ export function PartDialog({
     return normalizedAttributes;
   }
 
-  async function submit(nextForm: PartInput = form): Promise<boolean> {
+  async function submit(): Promise<boolean> {
     setError(null);
-    if (
-      !nextForm.internalPartNumber.trim() &&
-      !nextForm.manufacturerPartNumber.trim() &&
-      !nextForm.displayValue.trim() &&
-      !nextForm.description.trim()
-    ) {
-      setError("Provide an internal part number, manufacturer part number, value/label, or description.");
+
+    if (reviewRequired) {
+      if (
+        !form.internalPartNumber.trim() &&
+        !form.manufacturerPartNumber.trim() &&
+        !form.displayValue.trim() &&
+        !form.description.trim() &&
+        !value.trim()
+      ) {
+        setError("Provide an internal part number, manufacturer part number, value/label, or description.");
+        return false;
+      }
+      if (
+        form.reorderPoint !== null &&
+        form.targetQuantity !== null &&
+        form.targetQuantity < form.reorderPoint
+      ) {
+        setError("Target quantity must be greater than or equal to the reorder point.");
+        return false;
+      }
+      const normalizedAttributes = buildNormalizedAttributes();
+      if (!normalizedAttributes) {
+        return false;
+      }
+      setBusy(true);
+      try {
+        const advancedInput = applySimpleIdentity(
+          { ...form, attributes: normalizedAttributes },
+          componentType,
+          value.trim(),
+          unit,
+        );
+        await onSaveAdvanced(advancedInput);
+        return true;
+      } catch (saveError) {
+        setError(saveError instanceof Error ? saveError.message : "Could not save the part.");
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    if (!componentType.trim()) {
+      setError("Select a component type.");
+      return false;
+    }
+    if (!value.trim() && !form.manufacturerPartNumber.trim() && !form.internalPartNumber.trim() && !form.description.trim()) {
+      setError("Provide a value/part label or another identifier.");
       return false;
     }
     if (
-      nextForm.reorderPoint !== null &&
-      nextForm.targetQuantity !== null &&
-      nextForm.targetQuantity < nextForm.reorderPoint
+      form.reorderPoint !== null &&
+      form.targetQuantity !== null &&
+      form.targetQuantity < form.reorderPoint
     ) {
       setError("Target quantity must be greater than or equal to the reorder point.");
       return false;
     }
+
+    const normalizedLocation = normalizeShelfLocation(location);
+    const locationError = shelfLocationError(normalizedLocation, quantity);
+    if (locationError) {
+      setError(locationError);
+      return false;
+    }
+
     const normalizedAttributes = buildNormalizedAttributes();
     if (!normalizedAttributes) {
       return false;
     }
+
+    const baseInput: PartInput = {
+      ...form,
+      attributes: normalizedAttributes,
+      defaultUnitOfMeasure: "pcs",
+      mountingType: form.mountingType || "through_hole",
+    };
+    const partInput = applySimpleIdentity(baseInput, componentType, value.trim(), unit);
+
     setBusy(true);
     try {
-      await onSave({ ...nextForm, attributes: normalizedAttributes });
+      await onSaveSimple({
+        part: partInput,
+        quantity: Math.trunc(quantity),
+        location: normalizedLocation,
+      });
       return true;
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Could not save the part.");
+      setError(saveError instanceof Error ? saveError.message : "Could not save the component.");
       return false;
     } finally {
       setBusy(false);
@@ -181,7 +314,17 @@ export function PartDialog({
   async function toggleArchive(): Promise<void> {
     const next = { ...form, archived: !form.archived };
     setForm(next);
-    void submit(next);
+    setError(null);
+    setBusy(true);
+    try {
+      const normalizedAttributes = buildNormalizedAttributes() ?? form.attributes;
+      await onSaveAdvanced({ ...next, attributes: normalizedAttributes });
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Could not update archive state.");
+      setForm(form);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function requestDelete(): void {
@@ -208,9 +351,212 @@ export function PartDialog({
     }
   }
 
+  const advancedSections = (
+    <>
+      <FormSection description="Identifiers used by the lab, manufacturer, and catalog search." title="Identity">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="Internal part number">
+            <Input disabled={readOnly} value={form.internalPartNumber} onChange={(event) => update("internalPartNumber", event.target.value)} />
+          </Field>
+          <Field label="Category">
+            <Input
+              disabled={readOnly}
+              list="lab-component-categories"
+              value={form.category}
+              onChange={(event) => update("category", event.target.value)}
+            />
+            <datalist id="lab-component-categories">
+              {CATEGORY_TEMPLATES.map((category) => <option key={category.category} value={category.category} />)}
+            </datalist>
+          </Field>
+          <Field label="Manufacturer">
+            <Input disabled={readOnly} value={form.manufacturer} onChange={(event) => update("manufacturer", event.target.value)} />
+          </Field>
+          <Field label="Manufacturer part number">
+            <Input disabled={readOnly} value={form.manufacturerPartNumber} onChange={(event) => update("manufacturerPartNumber", event.target.value)} />
+          </Field>
+        </div>
+      </FormSection>
+
+      <FormSection description="Physical form and lifecycle of this component type." title="Form">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="Mounting type">
+            <select className={SELECT_CLASS} disabled={readOnly} value={form.mountingType} onChange={(event) => update("mountingType", event.target.value)}>
+              {['unknown', 'through_hole', 'surface_mount', 'panel_mount', 'chassis', 'wire', 'module', 'other'].map((option) => (
+                <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Package type">
+            <Input disabled={readOnly} placeholder="Axial, TO-92, DIP-8…" value={form.packageType} onChange={(event) => update("packageType", event.target.value)} />
+          </Field>
+          <Field label="Part status">
+            <select className={SELECT_CLASS} disabled={readOnly} value={form.partStatus} onChange={(event) => update("partStatus", event.target.value)}>
+              {['active', 'nrnd', 'obsolete', 'discontinued', 'unknown'].map((option) => <option key={option} value={option}>{option.toUpperCase()}</option>)}
+            </select>
+          </Field>
+          <div className="flex min-h-9 items-center self-end text-sm text-muted-foreground">
+            Status:{" "}
+            <span className={isArchived ? "ml-1 font-medium text-warning-foreground" : "ml-1 font-medium text-foreground"}>
+              {isArchived ? "Archived" : "Inventory"}
+            </span>
+          </div>
+          <Field className="md:col-span-2 xl:col-span-4" label="Description">
+            <Textarea disabled={readOnly} value={form.description} onChange={(event) => update("description", event.target.value)} />
+          </Field>
+        </div>
+      </FormSection>
+
+      <FormSection description="Template suggestions help consistency, but custom attributes remain allowed." title="Specifications">
+        {template?.attributes.length ? (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {template.attributes.map((attribute) => (
+              <Button
+                disabled={readOnly || attributes.some((row) => normalizeAttributeKey(row.key) === attribute.key)}
+                key={attribute.key}
+                onClick={() => addSuggestedAttribute(attribute.key, attribute.unit)}
+                size="xs"
+                variant="outline"
+              >
+                <PlusIcon className="size-3" />
+                {attribute.label}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+        <div className="space-y-2">
+          {attributes.map((attribute, index) => (
+            <div className="grid gap-2 md:grid-cols-[1fr_1.4fr_0.7fr_auto]" key={attribute.rowId}>
+              <Input
+                aria-label={`Attribute ${index + 1} key`}
+                disabled={readOnly}
+                placeholder="Attribute key"
+                value={attribute.key}
+                onChange={(event) => setAttributes((current) => current.map((row) => row.rowId === attribute.rowId ? { ...row, key: event.target.value } : row))}
+              />
+              <Input
+                aria-label={`Attribute ${index + 1} value`}
+                disabled={readOnly}
+                placeholder={humanizeAttributeKey(attribute.key || "value")}
+                value={attribute.value}
+                onChange={(event) => setAttributes((current) => current.map((row) => row.rowId === attribute.rowId ? { ...row, value: event.target.value } : row))}
+              />
+              <Input
+                aria-label={`Attribute ${index + 1} unit`}
+                disabled={readOnly}
+                placeholder="Unit"
+                value={attribute.unit}
+                onChange={(event) => setAttributes((current) => current.map((row) => row.rowId === attribute.rowId ? { ...row, unit: event.target.value } : row))}
+              />
+              <Button
+                aria-label={`Remove attribute ${index + 1}`}
+                disabled={readOnly}
+                onClick={() => setAttributes((current) => current.filter((row) => row.rowId !== attribute.rowId))}
+                size="icon"
+                variant="ghost"
+              >
+                <Trash2Icon className="size-4" />
+              </Button>
+            </div>
+          ))}
+          <Button disabled={readOnly} onClick={() => setAttributes((current) => [...current, { rowId: `custom-${Date.now()}`, key: "", value: "", unit: "" }])} size="sm" variant="outline">
+            <PlusIcon className="size-3.5" />
+            Add custom attribute
+          </Button>
+        </div>
+      </FormSection>
+
+      <FormSection description="Supplier identity and engineering documentation stay separate." title="Supplier and Documentation">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="Supplier"><Input disabled={readOnly} value={form.supplier} onChange={(event) => update("supplier", event.target.value)} /></Field>
+          <Field label="Supplier SKU"><Input disabled={readOnly} value={form.supplierSku} onChange={(event) => update("supplierSku", event.target.value)} /></Field>
+          <Field label="Supplier packaging"><Input disabled={readOnly} placeholder="Cut tape, reel, tube…" value={form.supplierPackaging} onChange={(event) => update("supplierPackaging", event.target.value)} /></Field>
+          <Field className="md:col-span-2" label="Product URL"><Input disabled={readOnly} placeholder="https://…" type="url" value={form.productUrl} onChange={(event) => update("productUrl", event.target.value)} /></Field>
+          <Field className="md:col-span-2" label="Datasheet URL"><Input disabled={readOnly} placeholder="https://…" type="url" value={form.datasheetUrl} onChange={(event) => update("datasheetUrl", event.target.value)} /></Field>
+          <Field className="md:col-span-2" label="Picture path"><Input disabled={readOnly} value={form.picturePath ?? ""} onChange={(event) => update("picturePath", event.target.value)} /></Field>
+        </div>
+      </FormSection>
+
+      <FormSection description="Low-stock status uses only the configured default unit." title="Replenishment">
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Default unit of measure">
+            <Input disabled={readOnly} list="lab-stock-units" value={form.defaultUnitOfMeasure} onChange={(event) => update("defaultUnitOfMeasure", event.target.value)} />
+            <datalist id="lab-stock-units">
+              {['unknown', 'pcs', 'm', 'ft', 'g', 'kg', 'reel', 'roll', 'tube', 'tray', 'bag', 'other'].map((option) => <option key={option} value={option} />)}
+            </datalist>
+          </Field>
+          <Field label="Reorder point"><Input disabled={readOnly} min="0" step="any" type="number" value={form.reorderPoint ?? ""} onChange={(event) => update("reorderPoint", numberOrNull(event.target.value))} /></Field>
+          <Field label="Target quantity"><Input disabled={readOnly} min="0" step="any" type="number" value={form.targetQuantity ?? ""} onChange={(event) => update("targetQuantity", numberOrNull(event.target.value))} /></Field>
+        </div>
+      </FormSection>
+
+      <FormSection description="Each placement owns its physical location and quantity." title="Stock Locations">
+        {part ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <StockStatusBadge status={summary?.stockStatus ?? (part.archived ? "archived" : "no_stock")} />
+              <span className="font-semibold">Total: {formatTotals(summary)}</span>
+              <Button className="ml-auto" disabled={readOnly || part.archived} onClick={() => onAddPlacement(part)} size="sm">
+                <MapPinIcon className="size-3.5" />
+                Add Placement
+              </Button>
+            </div>
+            {placements.length ? (
+              <div className="grid gap-2 lg:grid-cols-2">
+                {placements.map((placement) => (
+                  <div className="rounded-xl border border-border bg-muted/20 p-3" key={placement.placementUuid}>
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium">{placementPath(placement, lookups)}</div>
+                        <div className="mt-0.5 text-sm text-muted-foreground">
+                          {placement.quantity.toLocaleString()} {placement.unitOfMeasure}
+                          {placement.packaging ? ` · ${placement.packaging}` : ""}
+                        </div>
+                      </div>
+                      {placement.archived ? <Badge variant="outline">Archived</Badge> : null}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      <Button disabled={readOnly} onClick={() => onEditPlacement(placement)} size="xs" variant="outline">
+                        <BoxesIcon className="size-3" /> Adjust
+                      </Button>
+                      <Button disabled={readOnly || placement.archived} onClick={() => onMovePlacement(placement)} size="xs" variant="outline">
+                        <MoveRightIcon className="size-3" /> Move
+                      </Button>
+                      <Button disabled={readOnly || placement.archived} onClick={() => onCountPlacement(placement)} size="xs" variant="outline">
+                        <CalculatorIcon className="size-3" /> Count
+                      </Button>
+                      <Button disabled={readOnly} onClick={() => onEditPlacement(placement)} size="xs" variant="outline">
+                        <ArchiveRestoreIcon className="size-3" /> {placement.archived ? "Restore" : "Archive"}
+                      </Button>
+                      <Button disabled={readOnly} onClick={() => onDeletePlacement(placement)} size="xs" variant="destructive-outline">
+                        <Trash2Icon className="size-3" /> Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
+                This catalog part has no stock placements yet.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
+            Save the component first, then add advanced stock placements from More Details.
+          </div>
+        )}
+      </FormSection>
+
+      <FormSection description="Free-form information that does not belong in a structured field." title="Notes">
+        <Textarea disabled={readOnly} value={form.notes} onChange={(event) => update("notes", event.target.value)} />
+      </FormSection>
+    </>
+  );
+
   return (
     <CatalogDialog
-      description="Catalog identity is separate from stock placement and quantity."
+      description="Everyday fields stay short; open More Details for full catalog and placement controls."
       footer={
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
@@ -252,13 +598,13 @@ export function PartDialog({
               Cancel
             </Button>
             <Button disabled={busy || readOnly} onClick={() => void submit()}>
-              {busy ? "Saving…" : part ? "Save Part" : "Create Part"}
+              {busy ? "Saving…" : part ? "Save Component" : "Add Component"}
             </Button>
           </div>
         </div>
       }
       onClose={requestClose}
-      title={part ? "Edit Catalog Part" : "Add Catalog Part"}
+      title={part ? "Edit Component" : "Add Component"}
       wide
     >
       <UnsavedChangesDialog
@@ -322,218 +668,27 @@ export function PartDialog({
           </div>
         ) : null}
 
-        <FormSection description="Identifiers used by the lab, manufacturer, and catalog search." title="Identity">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Internal part number">
-              <Input disabled={readOnly} value={form.internalPartNumber} onChange={(event) => update("internalPartNumber", event.target.value)} />
-            </Field>
-            <Field label="Category">
-              <Input
-                disabled={readOnly}
-                list="lab-component-categories"
-                value={form.category}
-                onChange={(event) => update("category", event.target.value)}
-              />
-              <datalist id="lab-component-categories">
-                {CATEGORY_TEMPLATES.map((category) => <option key={category.category} value={category.category} />)}
-              </datalist>
-            </Field>
-            <Field label="Subcategory">
-              <Input
-                disabled={readOnly}
-                list="lab-component-subcategories"
-                value={form.subcategory}
-                onChange={(event) => update("subcategory", event.target.value)}
-              />
-              <datalist id="lab-component-subcategories">
-                {subcategories.map((subcategory) => <option key={subcategory} value={subcategory} />)}
-              </datalist>
-            </Field>
-            <Field label="Manufacturer">
-              <Input disabled={readOnly} value={form.manufacturer} onChange={(event) => update("manufacturer", event.target.value)} />
-            </Field>
-            <Field label="Manufacturer part number">
-              <Input disabled={readOnly} value={form.manufacturerPartNumber} onChange={(event) => update("manufacturerPartNumber", event.target.value)} />
-            </Field>
-            <Field label="Value / label">
-              <Input disabled={readOnly} placeholder="1 kΩ, 100 nF, 2N3904…" value={form.displayValue} onChange={(event) => update("displayValue", event.target.value)} />
-            </Field>
+        <SimplePartFields
+          componentType={componentType}
+          disabled={stockDisabled}
+          location={location}
+          onComponentTypeChange={handleComponentTypeChange}
+          onLocationChange={setLocation}
+          onQuantityChange={setQuantity}
+          onUnitChange={setUnit}
+          onValueChange={setValue}
+          projection={projection}
+          quantity={quantity}
+          unit={unit}
+          value={value}
+        />
+
+        <details className="rounded-xl border border-border">
+          <summary className="cursor-pointer px-4 py-3 font-semibold">More Details</summary>
+          <div className="space-y-4 border-t border-border p-4">
+            {advancedSections}
           </div>
-        </FormSection>
-
-        <FormSection description="Physical form and lifecycle of this component type." title="Form">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <Field label="Mounting type">
-              <select className={SELECT_CLASS} disabled={readOnly} value={form.mountingType} onChange={(event) => update("mountingType", event.target.value)}>
-                {['unknown', 'through_hole', 'surface_mount', 'panel_mount', 'chassis', 'wire', 'module', 'other'].map((value) => (
-                  <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Package type">
-              <Input disabled={readOnly} placeholder="Axial, TO-92, DIP-8…" value={form.packageType} onChange={(event) => update("packageType", event.target.value)} />
-            </Field>
-            <Field label="Part status">
-              <select className={SELECT_CLASS} disabled={readOnly} value={form.partStatus} onChange={(event) => update("partStatus", event.target.value)}>
-                {['active', 'nrnd', 'obsolete', 'discontinued', 'unknown'].map((value) => <option key={value} value={value}>{value.toUpperCase()}</option>)}
-              </select>
-            </Field>
-            <div className="flex min-h-9 items-center self-end text-sm text-muted-foreground">
-              Status:{" "}
-              <span className={isArchived ? "ml-1 font-medium text-warning-foreground" : "ml-1 font-medium text-foreground"}>
-                {isArchived ? "Archived" : "Inventory"}
-              </span>
-            </div>
-            <Field className="md:col-span-2 xl:col-span-4" label="Description">
-              <Textarea disabled={readOnly} value={form.description} onChange={(event) => update("description", event.target.value)} />
-            </Field>
-          </div>
-        </FormSection>
-
-        <FormSection description="Template suggestions help consistency, but custom attributes remain allowed." title="Specifications">
-          {template?.attributes.length ? (
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {template.attributes.map((attribute) => (
-                <Button
-                  disabled={readOnly || attributes.some((row) => normalizeAttributeKey(row.key) === attribute.key)}
-                  key={attribute.key}
-                  onClick={() => addSuggestedAttribute(attribute.key, attribute.unit)}
-                  size="xs"
-                  variant="outline"
-                >
-                  <PlusIcon className="size-3" />
-                  {attribute.label}
-                </Button>
-              ))}
-            </div>
-          ) : null}
-          <div className="space-y-2">
-            {attributes.map((attribute, index) => (
-              <div className="grid gap-2 md:grid-cols-[1fr_1.4fr_0.7fr_auto]" key={attribute.rowId}>
-                <Input
-                  aria-label={`Attribute ${index + 1} key`}
-                  disabled={readOnly}
-                  placeholder="Attribute key"
-                  value={attribute.key}
-                  onChange={(event) => setAttributes((current) => current.map((row) => row.rowId === attribute.rowId ? { ...row, key: event.target.value } : row))}
-                />
-                <Input
-                  aria-label={`Attribute ${index + 1} value`}
-                  disabled={readOnly}
-                  placeholder={humanizeAttributeKey(attribute.key || "value")}
-                  value={attribute.value}
-                  onChange={(event) => setAttributes((current) => current.map((row) => row.rowId === attribute.rowId ? { ...row, value: event.target.value } : row))}
-                />
-                <Input
-                  aria-label={`Attribute ${index + 1} unit`}
-                  disabled={readOnly}
-                  placeholder="Unit"
-                  value={attribute.unit}
-                  onChange={(event) => setAttributes((current) => current.map((row) => row.rowId === attribute.rowId ? { ...row, unit: event.target.value } : row))}
-                />
-                <Button
-                  aria-label={`Remove attribute ${index + 1}`}
-                  disabled={readOnly}
-                  onClick={() => setAttributes((current) => current.filter((row) => row.rowId !== attribute.rowId))}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <Trash2Icon className="size-4" />
-                </Button>
-              </div>
-            ))}
-            <Button disabled={readOnly} onClick={() => setAttributes((current) => [...current, { rowId: `custom-${Date.now()}`, key: "", value: "", unit: "" }])} size="sm" variant="outline">
-              <PlusIcon className="size-3.5" />
-              Add custom attribute
-            </Button>
-          </div>
-        </FormSection>
-
-        <FormSection description="Supplier identity and engineering documentation stay separate." title="Supplier and Documentation">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Supplier"><Input disabled={readOnly} value={form.supplier} onChange={(event) => update("supplier", event.target.value)} /></Field>
-            <Field label="Supplier SKU"><Input disabled={readOnly} value={form.supplierSku} onChange={(event) => update("supplierSku", event.target.value)} /></Field>
-            <Field label="Supplier packaging"><Input disabled={readOnly} placeholder="Cut tape, reel, tube…" value={form.supplierPackaging} onChange={(event) => update("supplierPackaging", event.target.value)} /></Field>
-            <Field className="md:col-span-2" label="Product URL"><Input disabled={readOnly} placeholder="https://…" type="url" value={form.productUrl} onChange={(event) => update("productUrl", event.target.value)} /></Field>
-            <Field className="md:col-span-2" label="Datasheet URL"><Input disabled={readOnly} placeholder="https://…" type="url" value={form.datasheetUrl} onChange={(event) => update("datasheetUrl", event.target.value)} /></Field>
-            <Field className="md:col-span-2" label="Picture path"><Input disabled={readOnly} value={form.picturePath ?? ""} onChange={(event) => update("picturePath", event.target.value)} /></Field>
-          </div>
-        </FormSection>
-
-        <FormSection description="Low-stock status uses only the configured default unit." title="Replenishment">
-          <div className="grid gap-3 md:grid-cols-3">
-            <Field label="Default unit of measure">
-              <Input disabled={readOnly} list="lab-stock-units" value={form.defaultUnitOfMeasure} onChange={(event) => update("defaultUnitOfMeasure", event.target.value)} />
-              <datalist id="lab-stock-units">
-                {['unknown', 'pcs', 'm', 'ft', 'g', 'kg', 'reel', 'roll', 'tube', 'tray', 'bag', 'other'].map((unit) => <option key={unit} value={unit} />)}
-              </datalist>
-            </Field>
-            <Field label="Reorder point"><Input disabled={readOnly} min="0" step="any" type="number" value={form.reorderPoint ?? ""} onChange={(event) => update("reorderPoint", numberOrNull(event.target.value))} /></Field>
-            <Field label="Target quantity"><Input disabled={readOnly} min="0" step="any" type="number" value={form.targetQuantity ?? ""} onChange={(event) => update("targetQuantity", numberOrNull(event.target.value))} /></Field>
-          </div>
-        </FormSection>
-
-        <FormSection description="Each placement owns its physical location and quantity." title="Stock Locations">
-          {part ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <StockStatusBadge status={summary?.stockStatus ?? (part.archived ? "archived" : "no_stock")} />
-                <span className="font-semibold">Total: {formatTotals(summary)}</span>
-                <Button className="ml-auto" disabled={readOnly || part.archived} onClick={() => onAddPlacement(part)} size="sm">
-                  <MapPinIcon className="size-3.5" />
-                  Add Placement
-                </Button>
-              </div>
-              {placements.length ? (
-                <div className="grid gap-2 lg:grid-cols-2">
-                  {placements.map((placement) => (
-                    <div className="rounded-xl border border-border bg-muted/20 p-3" key={placement.placementUuid}>
-                      <div className="flex items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium">{placementPath(placement, lookups)}</div>
-                          <div className="mt-0.5 text-sm text-muted-foreground">
-                            {placement.quantity.toLocaleString()} {placement.unitOfMeasure}
-                            {placement.packaging ? ` · ${placement.packaging}` : ""}
-                          </div>
-                        </div>
-                        {placement.archived ? <Badge variant="outline">Archived</Badge> : null}
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        <Button disabled={readOnly} onClick={() => onEditPlacement(placement)} size="xs" variant="outline">
-                          <BoxesIcon className="size-3" /> Adjust
-                        </Button>
-                        <Button disabled={readOnly || placement.archived} onClick={() => onMovePlacement(placement)} size="xs" variant="outline">
-                          <MoveRightIcon className="size-3" /> Move
-                        </Button>
-                        <Button disabled={readOnly || placement.archived} onClick={() => onCountPlacement(placement)} size="xs" variant="outline">
-                          <CalculatorIcon className="size-3" /> Count
-                        </Button>
-                        <Button disabled={readOnly} onClick={() => onEditPlacement(placement)} size="xs" variant="outline">
-                          <ArchiveRestoreIcon className="size-3" /> {placement.archived ? "Restore" : "Archive"}
-                        </Button>
-                        <Button disabled={readOnly} onClick={() => onDeletePlacement(placement)} size="xs" variant="destructive-outline">
-                          <Trash2Icon className="size-3" /> Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-                  This catalog part has no stock placements yet.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-              Save the part first, then add one or more stock placements.
-            </div>
-          )}
-        </FormSection>
-
-        <FormSection description="Free-form information that does not belong in a structured field." title="Notes">
-          <Textarea disabled={readOnly} value={form.notes} onChange={(event) => update("notes", event.target.value)} />
-        </FormSection>
+        </details>
       </div>
     </CatalogDialog>
   );

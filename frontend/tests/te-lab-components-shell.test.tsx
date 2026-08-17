@@ -9,9 +9,11 @@ import type {
 } from "@/integrations/tauri/desktop-bridge";
 import type {
   CatalogMigrationPreview,
+  CatalogMutationResult,
   CatalogSyncResult,
   InventorySharedStatus as LabInventorySharedStatus,
   Part,
+  SimpleComponentValue,
   StockPlacement,
 } from "@/modules/te-lab-components/types";
 import { InventoryShell } from "@/shell/InventoryShell";
@@ -49,6 +51,7 @@ describe("TE Lab Components catalog shell integration", () => {
     const user = userEvent.setup();
     const labPart = buildLabPart({
       description: "Cached Lab catalog part",
+      displayValue: "Cached Lab catalog part",
       manufacturerPartNumber: "CACHED-LAB-701",
     });
     const teEntry = buildTestEntry({ description: "Cached TE row" });
@@ -97,7 +100,7 @@ describe("TE Lab Components catalog shell integration", () => {
 
     render(<InventoryShell />);
 
-    expect(await screen.findByText("CACHED-LAB-701")).toBeInTheDocument();
+    expect(await screen.findByText("Cached Lab catalog part")).toBeInTheDocument();
     await waitFor(() => expect(syncInventory).toHaveBeenCalledWith("te-lab-components", "lab-session-1"));
     expect(activateInventorySync).toHaveBeenNthCalledWith(1, "te-lab-components");
     expect(document.title).toBe(`Inventory Management — TE Lab Components v${APP_VERSION}`);
@@ -119,7 +122,7 @@ describe("TE Lab Components catalog shell integration", () => {
 
     await switchInventory(user, "TE Lab Components");
 
-    expect(screen.getByText("CACHED-LAB-701")).toBeInTheDocument();
+    expect(screen.getByText("Cached Lab catalog part")).toBeInTheDocument();
     await waitFor(() => expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "te-session-1"));
     expect(loadInventory.mock.calls.filter(([moduleId]) => moduleId === "te-lab-components")).toHaveLength(2);
     expect(unsubscribeCallbacks[1]).toHaveBeenCalledTimes(1);
@@ -134,37 +137,85 @@ describe("TE Lab Components catalog shell integration", () => {
     expect(document.title).toBe(`Inventory Management — TE Lab Components v${APP_VERSION}`);
   });
 
-  it("shows generalized part columns and editor fields without equipment calibration controls", async () => {
+  it("shows the five-column simple table without a selection column", async () => {
     localStorage.setItem("inventory.activeSystem", "te-lab-components");
-    const user = userEvent.setup();
 
     render(<InventoryShell />);
 
     expect(screen.getByRole("columnheader", { name: "Stock Status" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Category" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Subcategory" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Manufacturer Part #" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Total Quantity" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Locations" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Verified/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Component Type" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Value" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Quantity" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Location" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Select" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Category" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Manufacturer Part #" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
+  });
 
-    await user.click(screen.getByRole("button", { name: "Add Part" }));
+  it("creates a simple capacitor with a unit and normalized shelf code", async () => {
+    const user = userEvent.setup();
+    const emptyCatalog = buildLabCatalog([]);
+    const createLabSimpleComponent = vi.fn().mockResolvedValue(validSimpleComponentMutation());
+    window.inventoryDesktop = createDesktopBridge({
+      createLabSimpleComponent,
+      loadInventory: vi.fn().mockResolvedValue(emptyCatalog),
+      syncInventory: vi.fn().mockResolvedValue({ ...emptyCatalog, entriesChanged: false }),
+    });
+    localStorage.setItem("inventory.activeSystem", "te-lab-components");
+    render(<InventoryShell />);
 
+    await user.click(await screen.findByRole("button", { name: "Add Part" }));
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("heading", { name: "Add Catalog Part" })).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Manufacturer part number")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Value / label")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Package type")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Default unit of measure")).toBeInTheDocument();
-    expect(within(dialog).queryByText(/Calibration requirement/i)).not.toBeInTheDocument();
+    await user.selectOptions(within(dialog).getByLabelText("Component Type"), "Capacitor");
+    await user.type(within(dialog).getByLabelText("Value / Part Label"), "100");
+    await user.selectOptions(within(dialog).getByLabelText("Unit"), "nF");
+    await user.clear(within(dialog).getByLabelText("Quantity"));
+    await user.type(within(dialog).getByLabelText("Quantity"), "40");
+    await user.type(within(dialog).getByLabelText("Location"), "b3");
+    await user.click(within(dialog).getByRole("button", { name: "Add Component" }));
 
-    const category = within(dialog).getByLabelText("Category");
-    await user.clear(category);
-    await user.type(category, "Optoelectronics");
-    expect(category).toHaveValue("Optoelectronics");
-    await user.click(within(dialog).getByRole("button", { name: "Add custom attribute" }));
-    expect(within(dialog).getByLabelText("Attribute 1 key")).toBeInTheDocument();
+    expect(createLabSimpleComponent).toHaveBeenCalledWith(expect.objectContaining({
+      quantity: 40,
+      location: "B3",
+      part: expect.objectContaining({
+        category: "Passive",
+        subcategory: "Capacitor",
+        displayValue: "100 nF",
+        defaultUnitOfMeasure: "pcs",
+        mountingType: "through_hole",
+      }),
+    }));
+  });
+
+  it("shows review-required placements without rewriting them", async () => {
+    const user = userEvent.setup();
+    const part = buildLabPart({ displayValue: "Review part", manufacturerPartNumber: "REV-1" });
+    const catalog = buildLabCatalog([part], undefined, {
+      stockPlacements: [
+        placementFor(part.entryUuid, "p1", { freeformPosition: "A1", quantity: 10 }),
+        placementFor(part.entryUuid, "p2", { freeformPosition: "B2", quantity: 5 }),
+      ],
+      summaries: [{
+        partUuid: part.entryUuid,
+        totals: [{ unitOfMeasure: "pcs", quantity: 15 }],
+        stockStatus: "in_stock",
+      }],
+    });
+    const updateLabPart = vi.fn().mockResolvedValue(validPartMutation(part));
+    window.inventoryDesktop = createDesktopBridge({
+      loadInventory: vi.fn().mockResolvedValue(catalog),
+      syncInventory: vi.fn().mockResolvedValue({ ...catalog, entriesChanged: false }),
+      updateLabPart,
+    });
+    localStorage.setItem("inventory.activeSystem", "te-lab-components");
+    render(<InventoryShell />);
+
+    await user.dblClick(await screen.findByText("Review part"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/advanced location review/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Quantity")).toBeDisabled();
+    expect(within(dialog).getByLabelText("Location")).toBeDisabled();
   });
 
   it("opens Lab storage management from the catalog header", async () => {
@@ -214,8 +265,9 @@ describe("TE Lab Components catalog shell integration", () => {
 
     render(<InventoryShell />);
 
-    await user.dblClick(screen.getByText("CF14JT1K00"));
+    await user.dblClick(screen.getByText("1 kΩ"));
     const partDialog = screen.getByRole("dialog");
+    await user.click(within(partDialog).getByText("More Details"));
     await user.click(within(partDialog).getByRole("button", { name: "Add Placement" }));
 
     const dialogs = screen.getAllByRole("dialog");
@@ -239,25 +291,26 @@ describe("TE Lab Components catalog shell integration", () => {
     await user.click(screen.getByLabelText("Filter subcategory"));
     await user.click(screen.getByRole("option", { name: "BJT" }));
 
-    expect(screen.getByText("2N3904BU")).toBeInTheDocument();
-    expect(screen.queryByText("CF14JT1K00")).not.toBeInTheDocument();
+    expect(screen.getByText("2N3904")).toBeInTheDocument();
+    expect(screen.queryByText("1 kΩ")).not.toBeInTheDocument();
 
     await user.click(screen.getByLabelText("Filter subcategory"));
     await user.click(screen.getByRole("option", { name: "All subcategories" }));
     await user.type(screen.getByLabelText("Filter bin coordinate"), "C7");
 
-    expect(screen.getByText("CF14JT1K00")).toBeInTheDocument();
-    expect(screen.getByText("C315C104M5U5TA")).toBeInTheDocument();
-    expect(screen.queryByText("2N3904BU")).not.toBeInTheDocument();
+    expect(screen.getByText("1 kΩ")).toBeInTheDocument();
+    expect(screen.getByText("100 nF")).toBeInTheDocument();
+    expect(screen.queryByText("2N3904")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Sort by Manufacturer" }));
+    // Default sort is already Component Type (subcategory) asc; one click cycles to desc.
+    await user.click(screen.getByRole("button", { name: /Sort by Component Type/i }));
     await waitFor(() => {
       expect(JSON.parse(localStorage.getItem("teLabComponents.catalog.v2.filters") ?? "{}")).toMatchObject({
         coordinate: "C7",
       });
       expect(JSON.parse(localStorage.getItem("teLabComponents.catalog.v2.sort") ?? "null")).toMatchObject({
-        column: "manufacturer",
-        direction: "asc",
+        column: "subcategory",
+        direction: "desc",
       });
     });
   });
@@ -268,6 +321,7 @@ describe("TE Lab Components catalog shell integration", () => {
     const part = buildLabPart({
       entryUuid: "lab-part-merge",
       manufacturerPartNumber: "MERGE-1",
+      displayValue: "Merge part",
     });
     const existingPlacement: StockPlacement = {
       placementUuid: "lab-placement-merge",
@@ -322,8 +376,10 @@ describe("TE Lab Components catalog shell integration", () => {
 
     render(<InventoryShell />);
 
-    await user.dblClick(await screen.findByText("MERGE-1"));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add Placement" }));
+    await user.dblClick(await screen.findByText("Merge part"));
+    const mergeDialog = screen.getByRole("dialog");
+    await user.click(within(mergeDialog).getByText("More Details"));
+    await user.click(within(mergeDialog).getByRole("button", { name: "Add Placement" }));
     const dialogs = screen.getAllByRole("dialog");
     const placementDialog = dialogs[dialogs.length - 1];
     await user.click(within(placementDialog).getByRole("button", { name: /Main Lab \/ Cabinet A \/ C7;/i }));
@@ -510,6 +566,66 @@ function buildMigrationPreview(): CatalogMigrationPreview {
     invalidRows: [],
     warnings: ["Every migrated quantity uses unit unknown."],
     blocking: false,
+  };
+}
+
+function placementFor(
+  partUuid: string,
+  placementUuid: string,
+  overrides: Partial<StockPlacement> = {},
+): StockPlacement {
+  return {
+    placementUuid,
+    partUuid,
+    containerUuid: "lab-container-main",
+    columnIndex: null,
+    rowIndex: null,
+    freeformPosition: "A1",
+    quantity: 10,
+    unitOfMeasure: "pcs",
+    packaging: "bag",
+    lotCode: "",
+    dateCode: "",
+    condition: "new",
+    countState: "counted",
+    lastCountedAt: "2026-07-20T10:00:00.000Z",
+    lastCountedBy: "Alex",
+    notes: "",
+    archived: false,
+    createdAt: "2026-07-20T10:00:00.000Z",
+    updatedAt: "2026-07-20T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function validSimpleComponentMutation(): CatalogMutationResult<SimpleComponentValue> {
+  const part = buildLabPart({
+    subcategory: "Capacitor",
+    category: "Passive",
+    displayValue: "100 nF",
+    manufacturerPartNumber: "",
+    attributes: { value: { value: "100", unit: "nF" } },
+  });
+  return {
+    value: {
+      part,
+      placement: placementFor(part.entryUuid, "lab-placement-simple", {
+        freeformPosition: "B3",
+        quantity: 40,
+      }),
+    },
+    message: "Simple component saved.",
+    mutationMode: "shared",
+    shared: LAB_SHARED_STATUS,
+  };
+}
+
+function validPartMutation(part: Part): CatalogMutationResult<Part> {
+  return {
+    value: part,
+    message: "Part updated.",
+    mutationMode: "shared",
+    shared: LAB_SHARED_STATUS,
   };
 }
 
