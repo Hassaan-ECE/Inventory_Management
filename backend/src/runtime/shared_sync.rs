@@ -25,6 +25,7 @@ impl Default for SharedSyncCoordinator {
             gates: Arc::new(HashMap::from([
                 (ModuleId::TeTestEquipment, Arc::new(Mutex::new(()))),
                 (ModuleId::TeLabComponents, Arc::new(Mutex::new(()))),
+                (ModuleId::TeStorage, Arc::new(Mutex::new(()))),
             ])),
             last_background_statuses: Arc::new(Mutex::new(HashMap::new())),
         }

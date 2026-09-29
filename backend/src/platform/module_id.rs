@@ -1,7 +1,10 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+// Department prefixes are part of the product's inventory identities.
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum ModuleId {
     TeTestEquipment,
     TeLabComponents,
+    TeStorage,
 }
 
 impl ModuleId {
@@ -12,6 +15,7 @@ impl ModuleId {
         match self {
             Self::TeTestEquipment => Self::TE_SYSTEM_ID_STR,
             Self::TeLabComponents => Self::LAB_COMPONENTS_SYSTEM_ID_STR,
+            Self::TeStorage => "te-storage",
         }
     }
 
@@ -20,6 +24,7 @@ impl ModuleId {
         match value {
             Self::TE_SYSTEM_ID_STR => Some(Self::TeTestEquipment),
             Self::LAB_COMPONENTS_SYSTEM_ID_STR => Some(Self::TeLabComponents),
+            "te-storage" => Some(Self::TeStorage),
             _ => None,
         }
     }

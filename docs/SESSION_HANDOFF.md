@@ -1,5 +1,30 @@
 # Session handoff — Inventory Management
 
+## Release 0.1.3 preparation - 2026-09-29
+
+- User authorized the next release including current Storage work. Display name is now **TE Storage**; its manual sync button is removed. Automatic sync/status and the right-click column picker remain.
+- Version is 0.1.3 in package.json, Cargo.toml/Cargo.lock, Tauri config/window title. Stable module ID `te-storage`, `te-storage-room.feox`, shared `modules/TE_Storage_Room`, signing key and updater endpoint are unchanged. Location values remain as imported.
+- Signed installer built at `backend/target/release/bundle/nsis/Inventory Management_0.1.3_x64-setup.exe`; SHA-256 `c0ec0f20cae9dc380d3649d76cd3c0607d06771c84d980f97ad70d45d1ca3182`. Installer signature independently verified against the embedded updater public key. Release files and checksums prepared in `.tmp/release-0.1.3/`.
+- Live S: is accessible in the normal user session (sandbox drive mappings differ). The 71 imported rows have reached its operation stream. A fresh release executable against an isolated copy loaded 71 rows: 62 TE Storage Room, 6 Eng Lab, 3 Eng Lab/E8. Verified exact default headers, hidden PR/Description, right-click picker and absent manual sync button. The live app/database were not stopped or edited.
+- Frontend lint and all 216 tests passed (1 skipped); production frontend/NSIS build passed. Rust library tests: 161 passed/5 ignored. Seven integration test executables freshly compiled during this release check: 310 passed/9 ignored. They were run directly because the default cargo test invocation tried replacing the running development executable and hit Windows file locking. The binary target has zero tests and passed separately. Clippy passed with all targets/features and warnings denied. Existing Vite chunk-size advisory remains.
+- S: installer and signature staged at the product root, with all five release-support files checksum-verified under `release-support/v0.1.3/`. Team download README updated; previous releases preserved. GitHub updater publication is the remaining release step. Notes: `docs/releases/0.1.3.md`. No installed-machine upgrade has been performed during verification.
+- The unrelated untracked July 28 Lab planning document is preserved outside this release commit.
+
+## Working checkout update — 2026-09-28
+
+TE Storage Room is now implemented in source, ahead of the published 0.1.2 installer. On 2026-09-28 the local database was seeded from `Shin_EVCS_Inventory\EVCS_Inventory.xlsx` (sheet Spare Parts(2023)). No, Remarks, and the end-of-line marker were not imported. Repeated rows were then combined: Warning Light qty 2, EVMA253-S `230071240403000990` qty 4, and EVMA253-S `230071232403000000` qty 2. Every location `10031` is now `TE Storage Room`. Eng Lab and Eng Lab/E8 were left as written. 71 rows remain, still queued for team sync and not yet published to the shared folder. Columns: PN #, PR # (hidden), PO #, Manufacturer, Model, Description (hidden), Qty, Location, Notes. Includes add/edit/confirmed delete, search, sorting, persisted column visibility and adaptive team sync.
+
+Column visibility is available by right-clicking any Storage Room table header, matching the other inventories. Keyboard users can focus a header and press Shift+F10. The separate Columns toolbar button has been removed.
+
+- Module ID `te-storage`; independent local DB `te-storage-room.feox` under the existing app data root.
+- Shared default: product `modules/TE_Storage_Room`; override `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT`. Creates only the module directory beneath an already available product modules directory. Missing roots remain offline; local edits stay queued.
+- Shares the module coordinator/watcher lifecycle. Module-local domain and operation engine are adapted from the prior inventory implementation, with per-field versions, merged-entry recovery and coordinated row/outbox rollback. Existing TE/Lab streams are unchanged.
+- Rehearsals must also redirect the Storage Room shared root, as well as TE/Lab roots, and disable shared sync.
+- Design: `docs/superpowers/specs/2026-09-28-te-storage-room-design.md`; execution/verification: `docs/superpowers/plans/2026-09-28-te-storage-room.md`.
+- The EVCS spare-part import above is local until the next Storage Room sync. No version bump, installer staging, or live shared-data cutover performed. Coworkers will need an updated installer to use the new module.
+
+The release and earlier worktree notes below are historical context.
+
 **Last updated:** 2026-08-17  
 **State:** Product source and signed team installer are **0.1.2**. Simple Lab workspace + bin picker + order export are on `main` and staged on S:. Live IM-014 Lab catalog cutover and IM-015 calibration roster cutover remain owner ops. In-app updater still needs a GitHub Release of 0.1.2.
 

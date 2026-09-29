@@ -5,13 +5,15 @@ Windows desktop app that unifies multiple inventory systems in **one install**, 
 - **TE Test Equipment** (implemented)
 - **TE Lab Components** (implemented)
 - **ME Storage** (placeholder)
-- **TE Storage Room** (placeholder)
+- **TE Storage** (implemented)
 
 Stack: Tauri 2, React 19, TypeScript, Vite, Tailwind v4, Bun, Rust, FeOxDB.
 
+TE Storage starts empty and supports adding, editing, deleting, searching and sorting items. Columns are PN #, PR #, PO #, Manufacturer, Model, Description, Qty, Location and Notes; PR # and Description are hidden by default. It uses its own `te-storage-room.feox` database and `modules/TE_Storage_Room` shared folder. Override that folder with `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT`. Right-click any column header to show or hide columns. Team sync runs automatically; local edits queue while the share is unavailable. As with the other inventories, synchronization is not a backup.
+
 TE Lab Components is a generalized electronic-parts catalog: flexible specifications, separate stock placements, area/desk → container → Excel-style bin locations, multiple locations per part, shared-bin warnings, physical counts/moves, reviewed legacy migration, Lab-only sync schema v2, and a six-sheet audit workbook. Live Lab migration remains an owner-coordinated cutover; see `docs/runbooks/te-lab-components-catalog-v2-migration.md`.
 
-**Package version: `0.1.0`** (scaffold / pre-team ship).
+**Package version: `0.1.3`**.
 
 ## Product share (S:)
 
@@ -23,7 +25,7 @@ TE Lab Components is a generalized electronic-parts catalog: flexible specificat
 | TE Test Equipment module sync | `modules\TE_Test_Equipment\shared\inventory\` |
 | TE Lab Components module | `modules\TE_Lab_Components\shared\inventory\` |
 | ME Storage module | `modules\ME_Storage\shared\inventory\` |
-| TE Storage Room module | `modules\TE_Storage_Room\shared\inventory\` |
+| TE Storage module | `modules\TE_Storage_Room\shared\inventory\` |
 | Legacy standalone pointers | `legacy-pointers\README.md` |
 
 Share README: that folder’s `README.md`.

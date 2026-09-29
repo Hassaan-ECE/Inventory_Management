@@ -19,10 +19,14 @@ pub(crate) const PILOT_TE_SHARED_ROOT: &str =
 pub(crate) const PILOT_LAB_COMPONENTS_SHARED_ROOT: &str =
     r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE";
 
+pub(crate) const DEFAULT_TE_STORAGE_SHARED_ROOT: &str =
+    r"S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Storage_Room";
+
 pub(crate) fn default_shared_root(module: ModuleId) -> PathBuf {
     match module {
         ModuleId::TeTestEquipment => PathBuf::from(DEFAULT_SHARED_ROOT),
         ModuleId::TeLabComponents => PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT),
+        ModuleId::TeStorage => PathBuf::from(DEFAULT_TE_STORAGE_SHARED_ROOT),
     }
 }
 

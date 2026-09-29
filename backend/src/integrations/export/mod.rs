@@ -56,6 +56,7 @@ pub(crate) async fn export_excel(
     let module = ModuleId::parse(&module_id)
         .ok_or_else(|| format!("Unknown inventory module id: {module_id}"))?;
     let default_filename = match module {
+        ModuleId::TeStorage => return Err("Storage Room export is not available yet.".into()),
         ModuleId::TeTestEquipment => DEFAULT_EXCEL_EXPORT_FILENAME,
         ModuleId::TeLabComponents => LAB_COMPONENTS_EXCEL_EXPORT_FILENAME,
     };
@@ -64,6 +65,7 @@ pub(crate) async fn export_excel(
     };
 
     let export_result = match module {
+        ModuleId::TeStorage => return Err("Storage Room export is not available yet.".into()),
         ModuleId::TeTestEquipment => export_excel_to_path(stores.te_test_equipment(), &output_path),
         ModuleId::TeLabComponents => {
             export_lab_excel_to_path(stores.te_lab_components(), &output_path)

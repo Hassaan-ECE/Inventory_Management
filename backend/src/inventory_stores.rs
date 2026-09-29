@@ -6,6 +6,7 @@ use crate::{
 pub(crate) struct InventoryStores {
     te_test_equipment: InventoryDb,
     te_lab_components: LabComponentsDb,
+    te_storage: crate::modules::te_storage::store::InventoryDb,
 }
 
 impl InventoryStores {
@@ -13,6 +14,9 @@ impl InventoryStores {
         Ok(Self {
             te_test_equipment: InventoryDb::open(paths.local_data_dir(), paths.roaming_data_dir())?,
             te_lab_components: LabComponentsDb::open(paths.local_data_dir())?,
+            te_storage: crate::modules::te_storage::store::InventoryDb::open(
+                paths.local_data_dir(),
+            )?,
         })
     }
 
@@ -20,6 +24,9 @@ impl InventoryStores {
     pub(crate) fn open_at(root: std::path::PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             te_test_equipment: InventoryDb::open_at(root.join("inventory.feox"))?,
+            te_storage: crate::modules::te_storage::store::InventoryDb::open_at(
+                root.join("te-storage-room.feox"),
+            )?,
             te_lab_components: LabComponentsDb::open_at(
                 root.join(crate::modules::te_lab_components::storage::DB_FILE_NAME),
             )?,
@@ -34,7 +41,12 @@ impl InventoryStores {
         &self.te_lab_components
     }
 
+    pub(crate) fn te_storage(&self) -> &crate::modules::te_storage::store::InventoryDb {
+        &self.te_storage
+    }
+
     pub(crate) fn flush(&self) {
+        self.te_storage.flush();
         self.te_test_equipment.flush();
         self.te_lab_components.flush();
     }

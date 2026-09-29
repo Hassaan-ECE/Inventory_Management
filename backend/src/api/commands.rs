@@ -1,3 +1,6 @@
+use crate::modules::te_storage::{
+    commands as room_commands, model as room_model, mutations as room_mutations,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, State};
@@ -46,6 +49,13 @@ pub(crate) fn load_inventory(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
+        ModuleId::TeStorage => coordinator.run_exclusive(module, "Storage Room load", || {
+            command_value(room_commands::load(
+                stores.te_storage(),
+                coordinator.background_status(module)?,
+            )?)
+        }),
+
         ModuleId::TeTestEquipment => command_value(load_inventory_from_store_with_status(
             stores.te_test_equipment(),
             coordinator.background_status::<InventorySharedStatus>(module)?,
@@ -66,6 +76,8 @@ pub(crate) fn query_inventory(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
+        ModuleId::TeStorage => Err("This operation is not supported for TE Storage.".into()),
+
         ModuleId::TeTestEquipment => {
             let input = parse_command_input::<InventoryQueryInput>(input, "TE inventory query")?;
             command_value(query_inventory_from_store_with_status(
@@ -112,6 +124,13 @@ pub(crate) async fn sync_inventory(
     }
 
     match module {
+        ModuleId::TeStorage => {
+            room_commands::synchronize(app, session_id, &coordinator, &watcher, stores.te_storage())
+                .await?
+                .map(command_value)
+                .transpose()
+        }
+
         ModuleId::TeTestEquipment => {
             let coordinator = coordinator.inner().clone();
             let task_coordinator = coordinator.clone();
@@ -220,6 +239,20 @@ pub(crate) fn create_entry(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
+        ModuleId::TeStorage => {
+            let input = parse_command_input::<room_model::InventoryEntryInput>(
+                input,
+                "Storage Room entry",
+            )?;
+            let coordinator = coordinator.inner().clone();
+            let db = stores.te_storage();
+            let result = coordinator.run_exclusive(module, "Storage Room create", || {
+                room_mutations::create_entry_in_store(input, db)
+            })?;
+            room_commands::schedule_publish(app, db.clone(), coordinator);
+            command_value(result)
+        }
+
         ModuleId::TeTestEquipment => {
             let input = parse_command_input::<InventoryEntryInput>(input, "TE entry")?;
             let coordinator = coordinator.inner().clone();
@@ -256,6 +289,24 @@ pub(crate) fn update_entry(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
+        ModuleId::TeStorage => {
+            let input = parse_command_input::<room_model::InventoryEntryInput>(
+                input,
+                "Storage Room entry",
+            )?;
+            let edit_context = parse_optional_command_input::<room_model::InventoryEntryEditContext>(
+                edit_context,
+                "Storage Room edit context",
+            )?;
+            let coordinator = coordinator.inner().clone();
+            let db = stores.te_storage();
+            let result = coordinator.run_exclusive(module, "Storage Room update", || {
+                room_mutations::update_entry_in_store(&entry_id, input, edit_context, db)
+            })?;
+            room_commands::schedule_publish(app, db.clone(), coordinator);
+            command_value(result)
+        }
+
         ModuleId::TeTestEquipment => {
             let input = parse_command_input::<InventoryEntryInput>(input, "TE entry")?;
             let edit_context = parse_optional_command_input::<InventoryEntryEditContext>(
@@ -299,6 +350,8 @@ pub(crate) fn toggle_verified_entry(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
+        ModuleId::TeStorage => Err("This operation is not supported for TE Storage.".into()),
+
         ModuleId::TeTestEquipment => {
             let coordinator = coordinator.inner().clone();
             let db = stores.te_test_equipment();
@@ -332,6 +385,8 @@ pub(crate) fn set_archived_entry(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
+        ModuleId::TeStorage => Err("This operation is not supported for TE Storage.".into()),
+
         ModuleId::TeTestEquipment => {
             let coordinator = coordinator.inner().clone();
             let db = stores.te_test_equipment();
@@ -364,6 +419,16 @@ pub(crate) fn delete_entry(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
+        ModuleId::TeStorage => {
+            let coordinator = coordinator.inner().clone();
+            let db = stores.te_storage();
+            let result = coordinator.run_exclusive(module, "Storage Room delete", || {
+                room_mutations::delete_entry_in_store(&entry_id, db)
+            })?;
+            room_commands::schedule_publish(app, db.clone(), coordinator);
+            command_value(result)
+        }
+
         ModuleId::TeTestEquipment => {
             let coordinator = coordinator.inner().clone();
             let db = stores.te_test_equipment();

@@ -17,10 +17,11 @@ New chat: owner pastes `docs/SESSION_START_PROMPT.md`. See also `docs/CHAT_HANDO
 | Item | Value |
 |------|--------|
 | Name | Inventory Management |
-| Package | `inventory-management` `0.1.0` |
+| Package | `inventory-management` `0.1.3` |
 | Tauri id | `com.inventory.management` |
 | Local DB — TE Test Equipment | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | Local DB — TE Lab Components | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
+| Local DB - TE Storage | `%LOCALAPPDATA%\com.inventory.management\te-storage-room.feox` |
 | Product share (installers + modules) | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
 | Default TE shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
 | Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
@@ -37,7 +38,7 @@ One installer; in-app switcher between inventories:
 1. TE Test Equipment (implemented)
 2. TE Lab Components (implemented)
 3. ME Storage (placeholder)
-4. TE Storage Room (placeholder)
+4. TE Storage (implemented)
 
 Modules stay **separate** under the hood (own DBs, shared roots, domain types, and sync streams). Do not merge row types.
 
@@ -47,8 +48,9 @@ Modules stay **separate** under the hood (own DBs, shared roots, domain types, a
 - `frontend/src/platform/` owns module registry/persistence and the reusable adaptive sync controller.
 - `frontend/src/modules/te-test-equipment/` owns the implemented TE UI, hooks, types, and desktop lifecycle.
 - `frontend/src/modules/te-lab-components/` owns the implemented Lab UI, hooks, types, and desktop lifecycle.
-- `frontend/src/modules/{me-storage,te-storage}/` remain placeholder hosts.
-- `backend/src/inventory_stores.rs` owns the isolated TE/Lab FeOx handles; `backend/src/platform/` resolves module IDs and roots; runtime sync/watcher state is keyed by module.
+- `frontend/src/modules/te-storage/` owns the implemented TE Storage inventory, with independent persistence and team sync.
+- `frontend/src/modules/me-storage/` remains a placeholder host.
+- `backend/src/inventory_stores.rs` owns the isolated TE/Lab/Storage FeOx handles; `backend/src/platform/` resolves module IDs and roots; runtime sync/watcher state is keyed by module.
 
 ## Priorities
 
@@ -56,7 +58,7 @@ Modules stay **separate** under the hood (own DBs, shared roots, domain types, a
 2. ~~IM-011 adaptive TE sync~~ **done 2026-07-20** — plan under `docs/superpowers/plans/`  
 3. Shared roots: **product modules** (TE + Lab); InventoryApps is legacy-only after 2026-07-20 copy  
 
-4. ~~Port TE Lab Components~~ **Phase C1 done 2026-07-20** — plan `docs/superpowers/plans/2026-07-20-te-lab-components-port.md`; ME/Storage Room remain deferred
+4. ~~Port TE Lab Components~~ **Phase C1 done 2026-07-20** — plan `docs/superpowers/plans/2026-07-20-te-lab-components-port.md`; ME remains deferred; TE Storage implemented 2026-09-28
 5. **Phase D first team release** — plan: `docs/superpowers/plans/2026-07-20-first-team-release.md` (copy → product roots → installer; new updater keys only if enabling auto-update)
 6. ~~IM-014 Lab Components catalog + grid storage redesign~~ **implemented 2026-07-25** — authority: `docs/superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md`. Copied-data owner acceptance and the coordinated live Lab cutover remain pending.
 7. ~~IM-015 TE Test Equipment calibration workspace + roster tooling~~ **implemented 2026-07-25** — authority: `docs/superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md`. Equipment and Calibration use the same TE records; the backed-up live workbook cutover remains pending.
@@ -67,6 +69,7 @@ Modules stay **separate** under the hood (own DBs, shared roots, domain types, a
 |-----|---------|
 | `INVENTORY_MANAGEMENT_SHARED_ROOT` | Override default TE module shared root |
 | `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT` | Override default Lab module shared root |
+| `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT` | Override default Storage module root (`modules/TE_Storage_Room`) |
 | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` | `0`/`false`/`no`/`off` to disable |
 | `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` | Optional HMAC (≥16 bytes) |
 | `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` | Absolute copied-data DB root for diagnostics/rehearsals only |
