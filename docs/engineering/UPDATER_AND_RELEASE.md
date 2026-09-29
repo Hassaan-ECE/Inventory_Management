@@ -57,7 +57,7 @@ Example `latest.json` shape (fill version, url, signature text from `.sig` file 
   "platforms": {
     "windows-x86_64": {
       "signature": "<paste full contents of the .sig file>",
-      "url": "https://github.com/Hassaan-ECE/Inventory_Management/releases/download/v0.1.0/Inventory%20Management_0.1.0_x64-setup.exe"
+      "url": "https://github.com/Hassaan-ECE/Inventory_Management/releases/download/v0.1.0/Inventory.Management_0.1.0_x64-setup.exe"
     }
   }
 }
@@ -100,3 +100,9 @@ Frontend already uses `@tauri-apps/plugin-updater` via `check` / download / inst
 4. Create GitHub Release `vX.Y.Z` with setup exe, `.sig`, and updated `latest.json`.
 5. Copy setup to product share root + `release-support\vX.Y.Z\`.
 6. From a machine on the previous version: open app → Update should see the new version.
+
+## Verified asset names and publication
+
+GitHub converts spaces in uploaded asset names to dots. Local NSIS output can be named `Inventory Management_0.1.3_x64-setup.exe` while the published asset is `Inventory.Management_0.1.3_x64-setup.exe`. Use the actual asset download URL in latest.json, not a guessed URL with encoded spaces.
+
+Create the release as a draft, attach all files, inspect `gh release view <tag> --json assets`, and verify downloaded checksums before publishing. After publication, fetch the configured public latest.json endpoint without authentication and verify its version, signature, installer URL and downloaded installer hash.
