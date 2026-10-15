@@ -1,15 +1,18 @@
 # Agent Runbook
 
-Last updated: 2026-05-11
+Last updated: 2026-10-15
 
-Use this file before release, cleanup, or bug-fix work in this repo. It records project-specific traps, pivots that worked, and fixes still worth doing. Current release state lives in `README.md`; old release/audit evidence lives in `docs/engineering/archive/`.
+Use this file before release, cleanup, or bug-fix work in this repo. It records project-specific traps, pivots that worked, and fixes still worth doing. Current release state lives in `docs/SESSION_HANDOFF.md`; release mechanics live in `UPDATER_AND_RELEASE.md`; old release/audit evidence lives in `docs/engineering/archive/`.
+
+This runbook was inherited from the ME Inventory standalone app. Sections below were reconciled to Inventory Management on 2026-10-15; the dated troubleshooting log at the end is kept as history and still mentions ME paths and key names.
 
 ## Agent Rules
 
 - Run `git status --short` before editing.
-- Treat `README.md` as the current entry point and use dated engineering docs as historical evidence unless they explicitly say they are active.
+- Treat `docs/SESSION_HANDOFF.md` and `README.md` as the current entry points and use dated engineering docs as historical evidence unless they explicitly say they are active.
 - Preserve user-authored changes. Do not revert files outside your assigned scope.
-- Keep importing files and extracted folders together. If `InventoryShell.tsx` imports `frontend/src/features/inventory/components/shell/*`, that folder must be included when staging or committing.
+- Keep importing files and extracted folders together. New module folders under `frontend/src/modules/<module>/` or `backend/src/modules/<module>/` must be staged with the files that import them.
+- Sync code is copied per module (`backend/src/sync/`, `modules/te_lab_components/sync/`, `modules/te_storage/sync/`). When fixing a sync bug, check whether the other copies need the same fix.
 - Use GPT-5.5 xhigh workers for independent cleanup slices when the user asks for worker support.
 - Give each worker strict file ownership before it starts.
 - The manager owns checklist updates, integration, validation, and final review.
@@ -19,6 +22,7 @@ Use this file before release, cleanup, or bug-fix work in this repo. It records 
 
 ### Broken Bun PowerShell Shim
 
+- Status 2026-10-15: resolved on this workstation. `bun` resolves to `C:\Users\Syed.h.Shah\.bun\bin\bun.exe` (1.4.0). `package.json` declares `bun@1.3.14`. Keep the notes below in case the shim returns.
 - Symptom: `bun run ...` calls `C:\Users\Syed.H.Shah\AppData\Roaming\npm\node_modules\bun\bin\bun.exe`, and that file does not exist.
 - `bun --version` can print this missing-executable error while still returning exit code `0`, so do not treat plain `bun` as validated just because `$LASTEXITCODE` is zero.
 - Diagnose with:
@@ -34,7 +38,7 @@ where.exe bun
 node scripts\run-bun.mjs run <script>
 ```
 
-- Known good version from this workspace: `1.3.13`.
+- Known good versions from this workspace: `1.3.13`, `1.4.0`.
 - Proper fix later: repair PATH, remove the stale npm shim, or reinstall Bun so `bun` resolves to `C:\Users\Syed.H.Shah\.bun\bin\bun.exe`.
 - Until fixed, use `scripts\run-bun.mjs`; it resolves the real Bun binary or `BUN_EXE`.
 
@@ -67,16 +71,15 @@ rustup component add rustfmt
 
 - Symptom: `bun tauri build --bundles nsis` compiles the release executable, then fails during the NSIS bundle step with `The requested operation cannot be performed on a file with a user-mapped section open. (os error 1224)`.
 - Pivot: confirm no app/build processes are running, remove only the generated installer for the target version under `backend\target\release\bundle\nsis\`, then rerun the bundle command.
-- Historical cases are recorded under `docs/engineering/archive/`. The `1.0.4` NSIS build completed cleanly, but keep this pivot available if the file-lock error returns.
+- Historical cases are recorded under `docs/engineering/archive/`. The `0.1.3` NSIS build completed cleanly, but keep this pivot available if the file-lock error returns.
 - Treat the installer from a failed bundle command as untrusted even if an `.exe` file exists.
 
 ### Signed Tauri Updater Key
 
-- Current updater migration uses the official Tauri updater plugin with GitHub Releases static metadata.
+- The app uses the official Tauri updater plugin with GitHub Releases static metadata (`https://github.com/Hassaan-ECE/Inventory_Management/releases/latest/download/latest.json`).
 - Public updater config lives in `backend\tauri.conf.json`.
-- Private updater signing key was generated outside the repo at `%USERPROFILE%\.tauri\me-inventory-updater.key`.
-- Public key sidecar was generated at `%USERPROFILE%\.tauri\me-inventory-updater.key.pub`.
-- Release-smoke work rotated the updater key on 2026-04-30 because the previously documented key files were missing locally.
+- Private updater signing key: `%USERPROFILE%\.tauri\inventory-management.key` (public sidecar `.key.pub`). Full procedure: `UPDATER_AND_RELEASE.md`.
+- **Never** sign with the ME or TE standalone keys (for example `me-inventory-updater.key`); installs of this product would reject the update.
 - Do not commit private key material, passwords, generated `.sig` files, release bundles, or `latest.json` drafts unless the user explicitly asks for release asset staging.
 - The current key was generated without a password after the CLI rejected the empty-password flag form. Rotate the key before broad distribution if policy requires password-protected signing keys.
 - For the current Tauri CLI, signing expects `TAURI_SIGNING_PRIVATE_KEY` to contain the private key text. `TAURI_SIGNING_PRIVATE_KEY_PATH` was not accepted during earlier package builds.
@@ -84,18 +87,20 @@ rustup component add rustfmt
 
 ### GitHub Release Upload
 
-- `gh` is installed and authenticated on this workstation as of the `1.0.4` release.
-- Stage installer, `.sig`, SHA-256 sums, and `latest.json` locally under an ignored `release\vX.Y.Z\` folder.
-- Upload those assets to a non-draft, non-prerelease GitHub Release tagged `vX.Y.Z`, then validate the app updater against the real GitHub metadata URL.
+- `gh` is installed and authenticated on this workstation as of the `0.1.3` release.
+- Stage installer, `.sig`, SHA-256 sums, release notes, and `latest.json` locally under the ignored `.tmp\release-X.Y.Z\` folder.
+- Create the GitHub Release `vX.Y.Z` as a draft, attach the assets, verify, then publish. Validate the app updater against the real public `latest.json` URL.
+- GitHub turns spaces in asset names into dots (`Inventory.Management_X.Y.Z_x64-setup.exe`); use the real asset URL in `latest.json`.
 - Use `gh release view vX.Y.Z --json tagName,isDraft,isPrerelease,url,targetCommitish,assets` after upload to verify asset names, hashes, and target commit.
 
 ### Shared Drive Staging
 
-- Current shared root: `S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\ME`.
-- Keep the shared root obvious for installers: put only the current NSIS installer `.exe` at the root.
-- Put updater metadata, `.sig` files, SHA-256 sums, previous installers, and other support material under folders such as `release-support\vX.Y.Z\` or `archive\`.
-- Shared sync state belongs under `shared\inventory\`, with manifest, operation logs, snapshots, locks, and backups below that folder.
-- The app fallback shared root is hardcoded in `backend/src/sync/types.rs`; update that constant if the shared root moves again.
+- Product root: `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App`.
+- Keep the root obvious for installers: only the current NSIS installer `.exe` and `README.md` live at the root (cleaned 2026-10-15).
+- Put the `.sig`, `latest.json`, SHA-256 sums, and release notes under `release-support\vX.Y.Z\`. When a new release lands, move the previous root installer into `archive\` and update the root `README.md`.
+- Source workbooks for one-time imports go under `source-data\` (for example `source-data\calibration\`).
+- Module sync state lives under `modules\<Module>\shared\...` (see `FEOXDB_SYNC_MIGRATION_PLAN.md`). Never put release files there.
+- Default shared roots are hardcoded in `backend/src/platform/shared_root.rs`; update those constants if the product share moves.
 
 ### Untracked Source Files
 
@@ -112,7 +117,7 @@ rustup component add rustfmt
 
 ### Frontend
 
-Use the repo launcher until the shim is fixed:
+`bun run lint|test|build` works directly now. If the stale shim returns, use the repo launcher:
 
 ```powershell
 node scripts\run-bun.mjs run lint
@@ -130,7 +135,9 @@ git status --short
 
 ### Rust
 
-`rustfmt` is installed. Clippy and `cargo-audit` still need local installation before they can be release gates on this workstation.
+`rustfmt` and Clippy are installed and are release gates. `cargo-audit` is **not** installed as of 2026-10-15, so `cargo audit` / `bun run audit:backend` fail until it is (`cargo install cargo-audit`).
+
+If `cargo test` fails because Windows will not let it replace a running development executable, close the dev app or run the compiled test executables directly (the 0.1.3 release check did this).
 
 Run:
 
@@ -150,7 +157,7 @@ Pop-Location
 - Worker B style: another independent subsystem with a disjoint write set.
 - Reviewer worker: read-only unless the manager assigns a specific fix.
 - Each worker final response must list changed files and commands run.
-- The manager updates `README.md` for current handoff state. Historical evidence can be appended under `docs/engineering/archive/` when it is useful for audit trail, but do not make archived docs the source of current instructions.
+- The manager updates `docs/SESSION_HANDOFF.md` for current handoff state. Historical evidence can be appended under `docs/engineering/archive/` when it is useful for audit trail, but do not make archived docs the source of current instructions.
 
 ## Troubleshooting Log Template
 
@@ -166,6 +173,8 @@ Status: resolved/deferred/blocked
 ```
 
 ## Troubleshooting Log
+
+Historical entries from the ME Inventory lineage. Key names and paths in them are not current for this product.
 
 ```text
 Date: 2026-04-28

@@ -1,5 +1,23 @@
 # Session handoff — Inventory Management
 
+## TE divergence incident and 0.1.4 - 2026-10-15
+
+**What happened.** Randy's PC (client `4deef17d`, on 0.1.1 until recently) stopped receiving one of the owner PC's ops (`5c2023b5` #202, written 2026-07-27 by a dev build). Watermarks only advance by +1, so Randy's watermark for `5c2023b5` froze at 201. Every snapshot Randy published therefore "did not cover" the other clients' watermarks, and the old `manifest_covers_local_watermarks` rule made every other client skip them, while Randy's publish compacted his op files. From 2026-08-03 his 403 changes (ops 245-812) never reached anyone, silently. On 2026-10-15 15:46 a 0.1.3 client `c7e1327b` (owner unknown; never authored an op) published its stale state over the manifest. Not a database-location problem: DB paths have not changed since 0.1.0.
+
+**Data restore (done, verified).** Backup of the TE shared folder and Randy's export: `.tmp/te-share-backup-2026-10-15/`. Published `snapshot-3bc82f95b0da43149410e8cab61ba9fb` (574 entries) built from Randy's 2026-10-13 snapshot plus his op #813, with watermarks raised so 0.1.3 clients accept it. Matches `C:\Randy_Inventory\TE_Test_Equipment_Inventory_Export.xlsx` on every field for all 574 rows. Rehearsed first on a copy of the share and a copy of the owner DB using the unchanged 0.1.3 sync loop (569 → 574). Net effect for the team: +6 records, 28 newer edits, -1 test record ("abcd" / 123456789, created 2026-08-17). Previous manifest saved under `shared\inventory\backups\manifest-before-restore-*.json`. Tool: `backend/src/sync/snapshot/restore.rs` (ignored tests, dry run unless `RESTORE_TE_CONFIRM=publish`).
+
+**Fix (0.1.4).** Snapshot merge instead of skip, immediate republish when a client holds work missing from the share, no publishing below the current manifest's watermarks, version gate with "Click Update" message. Applied to TE (`backend/src/sync`) and EVCS Storage (`modules/te_storage/sync`); Lab v1 copy left unchanged (legacy stream is blocked; Lab catalog v2 never compacts). Regression tests: `backend/tests/sync_divergence_flow.rs` (4) and the Storage test; all fail on the old code and pass on the new. TE Storage display name is now **EVCS Storage** (id, DB file, and S: folder unchanged).
+
+**Follow-ups.** Everyone should update to 0.1.4. Clients that had unsent edits at restore time, or that edit before updating, may still need 0.1.4's merge to converge. Identify who `c7e1327b` is.
+
+## Docs reconciled to code - 2026-10-15
+
+- No behavior changes. Docs-only pass plus five comment corrections (`sync/shared_paths.rs`, `platform/shared_root.rs`, `shell/InventoryShell.tsx`, `shell/ShellHeader.tsx`, `platform/modules/types.ts`).
+- Rewritten: `engineering/PROJECT_FOLDER_BREAKDOWN.md` (was the pre-module `features/inventory` layout), `engineering/FEOXDB_SYNC_MIGRATION_PLAN.md` (was the ME 1.0.4 note), `SESSION_START_PROMPT.md` (was 0.1.2, Storage placeholder, dead `.grok` worktree).
+- Updated: `engineering/AGENT_RUNBOOK.md` (correct signing key `inventory-management.key`, product share, `.tmp/release-X.Y.Z`, Bun shim resolved, `cargo-audit` not installed), `planning/DECISIONS.md` IM-005/006/011/012 (TE Storage implemented), `README.md`, `AGENTS.md`, `docs/README.md`.
+- Recorded facts: sync engine is copied per module; Lab catalog v2 uses whole-entity newest-wins; TE Import UI, HTML export, and window-geometry restore are intentionally off; about 3,250 lines of old Lab v1 frontend UI are no longer loaded (deletion candidate).
+- Sections below the 0.1.3 release entry are historical and still say "TE Storage Room remain placeholders"; that was true at the time.
+
 ## Published release 0.1.3 - 2026-09-29
 
 - User authorized the next release including current Storage work. Display name is now **TE Storage**; its manual sync button is removed. Automatic sync/status and the right-click column picker remain.

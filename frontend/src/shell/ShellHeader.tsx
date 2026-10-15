@@ -25,7 +25,7 @@ export function ShellHeader({ activeViewId, onThemeToggle, onViewChange, theme }
         systemMenuOpen ? "z-50" : "z-40",
       )}
     >
-      {/* Single top bar for placeholder modules (TE renders its own unified bar). */}
+      {/* Single top bar for placeholder modules (implemented modules render their own bar). */}
       <div className="flex flex-wrap items-center gap-3">
         <InventorySystemSwitcher
           value={activeViewId}

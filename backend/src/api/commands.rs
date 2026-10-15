@@ -49,7 +49,7 @@ pub(crate) fn load_inventory(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
-        ModuleId::TeStorage => coordinator.run_exclusive(module, "Storage Room load", || {
+        ModuleId::TeStorage => coordinator.run_exclusive(module, "EVCS Storage load", || {
             command_value(room_commands::load(
                 stores.te_storage(),
                 coordinator.background_status(module)?,
@@ -76,7 +76,7 @@ pub(crate) fn query_inventory(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
-        ModuleId::TeStorage => Err("This operation is not supported for TE Storage.".into()),
+        ModuleId::TeStorage => Err("This operation is not supported for EVCS Storage.".into()),
 
         ModuleId::TeTestEquipment => {
             let input = parse_command_input::<InventoryQueryInput>(input, "TE inventory query")?;
@@ -242,11 +242,11 @@ pub(crate) fn create_entry(
         ModuleId::TeStorage => {
             let input = parse_command_input::<room_model::InventoryEntryInput>(
                 input,
-                "Storage Room entry",
+                "EVCS Storage entry",
             )?;
             let coordinator = coordinator.inner().clone();
             let db = stores.te_storage();
-            let result = coordinator.run_exclusive(module, "Storage Room create", || {
+            let result = coordinator.run_exclusive(module, "EVCS Storage create", || {
                 room_mutations::create_entry_in_store(input, db)
             })?;
             room_commands::schedule_publish(app, db.clone(), coordinator);
@@ -292,15 +292,15 @@ pub(crate) fn update_entry(
         ModuleId::TeStorage => {
             let input = parse_command_input::<room_model::InventoryEntryInput>(
                 input,
-                "Storage Room entry",
+                "EVCS Storage entry",
             )?;
             let edit_context = parse_optional_command_input::<room_model::InventoryEntryEditContext>(
                 edit_context,
-                "Storage Room edit context",
+                "EVCS Storage edit context",
             )?;
             let coordinator = coordinator.inner().clone();
             let db = stores.te_storage();
-            let result = coordinator.run_exclusive(module, "Storage Room update", || {
+            let result = coordinator.run_exclusive(module, "EVCS Storage update", || {
                 room_mutations::update_entry_in_store(&entry_id, input, edit_context, db)
             })?;
             room_commands::schedule_publish(app, db.clone(), coordinator);
@@ -350,7 +350,7 @@ pub(crate) fn toggle_verified_entry(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
-        ModuleId::TeStorage => Err("This operation is not supported for TE Storage.".into()),
+        ModuleId::TeStorage => Err("This operation is not supported for EVCS Storage.".into()),
 
         ModuleId::TeTestEquipment => {
             let coordinator = coordinator.inner().clone();
@@ -385,7 +385,7 @@ pub(crate) fn set_archived_entry(
 ) -> CommandResult<Value> {
     let module = parse_module_id(&module_id)?;
     match module {
-        ModuleId::TeStorage => Err("This operation is not supported for TE Storage.".into()),
+        ModuleId::TeStorage => Err("This operation is not supported for EVCS Storage.".into()),
 
         ModuleId::TeTestEquipment => {
             let coordinator = coordinator.inner().clone();
@@ -422,7 +422,7 @@ pub(crate) fn delete_entry(
         ModuleId::TeStorage => {
             let coordinator = coordinator.inner().clone();
             let db = stores.te_storage();
-            let result = coordinator.run_exclusive(module, "Storage Room delete", || {
+            let result = coordinator.run_exclusive(module, "EVCS Storage delete", || {
                 room_mutations::delete_entry_in_store(&entry_id, db)
             })?;
             room_commands::schedule_publish(app, db.clone(), coordinator);

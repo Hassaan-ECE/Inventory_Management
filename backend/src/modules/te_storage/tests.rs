@@ -293,3 +293,57 @@ fn failed_mutations_cannot_reappear_through_recovery_or_sync() {
     assert_eq!(b.load_entries().unwrap().len(), 1);
     assert_eq!(b.load_entries().unwrap()[0].location, "A1");
 }
+
+/// 2026-10-15 regression: a snapshot that missed another client's newest operation was
+/// refused forever by that client, while its publisher's own op files were compacted.
+#[test]
+fn snapshot_missing_a_newer_op_is_merged_instead_of_stranding_its_publisher() {
+    let root = root();
+    let shared = root.join("shared-room");
+    fs::create_dir_all(&shared).unwrap();
+    let inventory = shared.join("shared").join("inventory");
+    let b = InventoryDb::open_at(root.join("b.feox")).unwrap();
+    let r = InventoryDb::open_at(root.join("r.feox")).unwrap();
+    run_shared_sync_with_root(&b, &shared).unwrap();
+    run_shared_sync_with_root(&r, &shared).unwrap();
+
+    let mut from_b = input();
+    from_b.pn = "B-1".into();
+    create_entry_in_store(from_b, &b).unwrap();
+    run_shared_sync_with_root(&b, &shared).unwrap();
+
+    let mut from_r = input();
+    from_r.pn = "R-1".into();
+    create_entry_in_store(from_r, &r).unwrap();
+
+    // R cannot see B's op, then publishes (aged manifest) and compacts its own op.
+    let b_ops = inventory
+        .join("ops")
+        .join(b.get_or_create_client_id().unwrap());
+    let parked = b_ops.with_extension("parked");
+    fs::rename(&b_ops, &parked).unwrap();
+    run_shared_sync_with_root(&r, &shared).unwrap();
+    let manifest_path = inventory.join("manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["createdAtUtc"] = "2020-01-01T00:00:00.000Z".into();
+    fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    run_shared_sync_with_root(&r, &shared).unwrap();
+    fs::rename(&parked, &b_ops).unwrap();
+
+    run_shared_sync_with_root(&b, &shared).unwrap();
+    let pns: Vec<String> = b
+        .load_entries()
+        .unwrap()
+        .into_iter()
+        .map(|e| e.pn)
+        .collect();
+    assert!(
+        pns.contains(&"R-1".to_string()),
+        "B must receive R's work: {pns:?}"
+    );
+    assert!(
+        pns.contains(&"B-1".to_string()),
+        "B must keep its own work: {pns:?}"
+    );
+}

@@ -18,8 +18,8 @@ pub(crate) fn shared_sync_enabled() -> bool {
     shared_sync_enabled_from_env_value(env::var_os(SHARED_SYNC_ENABLED_ENV))
 }
 
-/// Production default is ON for the TE Test Equipment module. Explicitly set
-/// `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` to `0` / `false` / `no` / `off` to opt out.
+/// Production default is ON. Explicitly set `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED`
+/// to `0` / `false` / `no` / `off` to opt out; the same variable controls every module.
 fn shared_sync_enabled_from_env_value(value: Option<OsString>) -> bool {
     match value {
         None => true,

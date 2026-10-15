@@ -58,7 +58,7 @@ export function TeStorageView({ active, activeViewId, onViewChange, theme, onThe
   }, [inventory.entries, query, sort]);
   if (!active) return null;
   const mode = !bridge ? "Preview" : !inventory.loaded ? "Loading" : inventory.shared?.enabled && inventory.shared.hasLocalOnlyChanges ? "Pending sync" : inventory.shared?.available ? "Shared" : "Local";
-  const message = inventory.error || (!bridge ? "Open the desktop app to add and save items." : inventory.shared?.message ?? "Loading TE Storage inventory…");
+  const message = inventory.error || (!bridge ? "Open the desktop app to add and save items." : inventory.shared?.message ?? "Loading EVCS Storage inventory…");
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
@@ -76,12 +76,12 @@ export function TeStorageView({ active, activeViewId, onViewChange, theme, onThe
         <div className="relative z-30 flex shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-card p-2">
           <div className="relative min-w-0 flex-1">
             <SearchIcon aria-hidden className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input aria-label="Search TE Storage" className="pl-9" placeholder="Search by PN, PR, PO, manufacturer, model, description, location, or notes" value={query} onChange={event => setQuery(event.target.value)} />
+            <Input aria-label="Search EVCS Storage" className="pl-9" placeholder="Search by PN, PR, PO, manufacturer, model, description, location, or notes" value={query} onChange={event => setQuery(event.target.value)} />
           </div>
         </div>
         {inventory.error ? <p role="alert" className="px-2 text-sm text-destructive-foreground">{inventory.error}</p> : null}
         <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border/70 bg-card/80">
-          <table aria-label="TE Storage inventory" className="w-full table-fixed border-collapse text-sm" style={{ minWidth: columns.reduce((width, column) => width + column.width, 0) }}>
+          <table aria-label="EVCS Storage inventory" className="w-full table-fixed border-collapse text-sm" style={{ minWidth: columns.reduce((width, column) => width + column.width, 0) }}>
             <colgroup>{columns.map(column => <col key={column.key} style={{ width: column.width }} />)}</colgroup>
             <thead className="sticky top-0 z-20 bg-card" onContextMenu={event => {
               event.preventDefault();
@@ -114,7 +114,7 @@ export function TeStorageView({ active, activeViewId, onViewChange, theme, onThe
               {rows.length === 0 ? <tr><td colSpan={columns.length} className="px-4 py-20 text-center">
                 <BoxesIcon aria-hidden className="mx-auto mb-3 size-8 text-muted-foreground/60" />
                 <p className="font-medium">{bridge && !inventory.loaded ? inventory.error ? "Could not load inventory" : "Loading storage items…" : query ? "No matching items" : "No storage items yet"}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{query ? "Try another search or clear the search field." : inventory.canModify ? "Use Add Entry to record your first item." : !bridge ? "Your TE Storage inventory will appear here." : ""}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{query ? "Try another search or clear the search field." : inventory.canModify ? "Use Add Entry to record your first item." : !bridge ? "Your EVCS Storage inventory will appear here." : ""}</p>
               </td></tr> : null}
             </tbody>
           </table>

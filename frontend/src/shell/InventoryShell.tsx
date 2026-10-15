@@ -31,7 +31,7 @@ export function InventoryShell() {
   return (
     <div className="h-screen overflow-hidden bg-background text-foreground">
       <main className="flex h-full min-h-0 flex-col overflow-hidden">
-        {/* Placeholder modules: shell-only chrome (switcher + theme). TE owns a unified top bar. */}
+        {/* Placeholder modules: shell-only chrome (switcher + theme). Implemented modules render their own top bar. */}
         {activeHost.kind === "placeholder" ? (
           <ShellHeader
             activeViewId={activeViewId}

@@ -26,15 +26,15 @@ function testBridge(initial: StorageEntry[] = []): StorageBridge {
   };
 }
 
-describe("TE Storage", () => {
+describe("EVCS Storage", () => {
   beforeEach(() => { localStorage.clear(); delete window.inventoryDesktop; });
 
   it("opens an empty inventory with optional columns hidden and remembers visibility", async () => {
     const user = userEvent.setup();
     const view = render(<InventoryShell />);
     await user.click(screen.getByRole("button", { name: "Switch inventory system" }));
-    await user.click(screen.getByRole("option", { name: "TE Storage" }));
-    expect(screen.getByRole("table", { name: "TE Storage inventory" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "EVCS Storage" }));
+    expect(screen.getByRole("table", { name: "EVCS Storage inventory" })).toBeInTheDocument();
     expect(screen.getAllByRole("columnheader").map(cell => cell.textContent)).toEqual([
       "PN #", "PO #", "Manufacturer", "Model", "Qty", "Location", "Notes",
     ]);
@@ -109,7 +109,7 @@ describe("TE Storage", () => {
     await user.click(screen.getByRole("button", { name: "Qty" }));
     const table = screen.getByRole("table");
     expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Two");
-    await user.type(screen.getByRole("textbox", { name: "Search TE Storage" }), "SECRET-PR");
+    await user.type(screen.getByRole("textbox", { name: "Search EVCS Storage" }), "SECRET-PR");
     expect(screen.getByText("Two")).toBeInTheDocument();
     expect(screen.queryByText("Ten")).not.toBeInTheDocument();
   });

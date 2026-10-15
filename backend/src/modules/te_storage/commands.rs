@@ -16,7 +16,7 @@ pub(crate) fn load(
         entries: db.load_entries()?,
         entries_changed: None,
         shared: status
-            .unwrap_or_else(|| sync::shared_inventory_status(db, "Storage Room inventory ready.")),
+            .unwrap_or_else(|| sync::shared_inventory_status(db, "EVCS Storage inventory ready.")),
     })
 }
 
@@ -31,7 +31,7 @@ pub(crate) async fn synchronize(
     let task_coordinator = coordinator.clone();
     let db = db.clone();
     let mut result = tauri::async_runtime::spawn_blocking(move || {
-        task_coordinator.run_exclusive(module, "Storage Room sync", || {
+        task_coordinator.run_exclusive(module, "EVCS Storage sync", || {
             let synced = sync::run_shared_sync(&db)?;
             let mut result = load(&db, Some(synced.shared))?;
             result.entries_changed = Some(synced.entries_changed);
@@ -39,7 +39,7 @@ pub(crate) async fn synchronize(
         })
     })
     .await
-    .map_err(|error| format!("Storage Room sync task failed: {error}"))??;
+    .map_err(|error| format!("EVCS Storage sync task failed: {error}"))??;
     let completion = if result.shared.enabled && result.shared.available {
         watcher.complete_sync_for(
             app,
@@ -68,7 +68,7 @@ pub(crate) fn schedule_publish(
 ) {
     let module = ModuleId::TeStorage;
     drop(tauri::async_runtime::spawn_blocking(move || {
-        let status = match coordinator.run_exclusive(module, "Storage Room publish", || {
+        let status = match coordinator.run_exclusive(module, "EVCS Storage publish", || {
             sync::publish_pending_local_changes(&db)
         }) {
             Ok(result) => result.shared,

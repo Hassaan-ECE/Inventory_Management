@@ -8,7 +8,7 @@
 
 ## Trust rule
 
-**Verify or do not trust.** Current version, sync defaults, share layout, and release files come from code + live systems (`package.json` / `Cargo.toml` / `tauri.conf.json`, `backend/src/sync`, `S:\...\TE_Test_Equipment_Inventory`, `gh release list`). Markdown is only as good as its last verification date.
+**Verify or do not trust.** Current version, sync defaults, share layout, and release files come from code + live systems (`package.json` / `Cargo.toml` / `tauri.conf.json`, `backend/src/platform/shared_root.rs`, `backend/src/sync` and the per-module sync copies, `S:\...\Inventory_Management_App`, `gh release list`). Markdown is only as good as its last verification date.
 
 ## Live (use these)
 
@@ -20,6 +20,11 @@
 | [SESSION_START_PROMPT.md](SESSION_START_PROMPT.md) | Paste block for new chats |
 | [../AGENTS.md](../AGENTS.md) | Agent workspace rules |
 | [planning/IMPORT_PROFILE.md](planning/IMPORT_PROFILE.md) | Excel import profile (re-run dry-run before cutover claims) |
+| [engineering/PROJECT_FOLDER_BREAKDOWN.md](engineering/PROJECT_FOLDER_BREAKDOWN.md) | File-by-file map of the code (regenerated 2026-10-15) |
+| [engineering/FEOXDB_SYNC_MIGRATION_PLAN.md](engineering/FEOXDB_SYNC_MIGRATION_PLAN.md) | Sync design, shared layout per module, thresholds |
+| [engineering/SYNC_RECOVERY_INVARIANTS.md](engineering/SYNC_RECOVERY_INVARIANTS.md) | Startup recovery rules |
+| [engineering/UPDATER_AND_RELEASE.md](engineering/UPDATER_AND_RELEASE.md) | Signing keys and release checklist |
+| [engineering/AGENT_RUNBOOK.md](engineering/AGENT_RUNBOOK.md) | Build/release traps and pivots |
 
 ## Historical / advisory (not runtime authority)
 
@@ -27,7 +32,7 @@ Bannered or archive material. Do **not** use for current version, sync default, 
 
 - `planning/PROJECT_DISCUSSION.md`, `SECOND_OPINION_REVIEW.md`, `ENGINEERING_SUGGESTIONS.md`
 - `superpowers/specs/2026-07-13-te-test-equipment-v0.1-design.md` and other TE-scaffold lineage plans unless still cited by DECISIONS
-- `engineering/archive/*`, ME-shaped notes under `engineering/` until rewritten for this product
+- `engineering/archive/*` (ME-lineage evidence; the active `engineering/` docs were reconciled to this product on 2026-10-15)
 
 ## Implemented plans (behavior authority; not “open work”)
 

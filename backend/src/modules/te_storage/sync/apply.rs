@@ -21,7 +21,7 @@ use super::{
         build_shared_status, disabled_shared_status, ensure_operation_log_layout,
         prepare_shared_root, shared_sync_enabled,
     },
-    snapshot::{apply_latest_snapshot_if_safe, maybe_publish_snapshot},
+    snapshot::{apply_latest_snapshot_if_safe, maybe_publish_snapshot, newer_team_app_version},
     timestamps::max_timestamp_text,
     CorruptRemoteFile, CorruptRemoteReason, SharedSyncPaths, SharedSyncRunResult,
     SyncAppliedMarker, SyncOperationEnvelope, SyncOperationType, SyncTombstoneRecord,
@@ -159,6 +159,11 @@ pub(crate) fn run_shared_sync_with_root(
     };
     if publish_report.snapshot_published {
         message.push_str(" Snapshot refreshed.");
+    }
+    if let Some(version) = newer_team_app_version(&paths) {
+        message = format!(
+            "Inventory Management {version} is in use on the team. Click Update to install it; until then this computer keeps syncing changes but will not publish shared snapshots."
+        );
     }
 
     Ok(SharedSyncRunResult {

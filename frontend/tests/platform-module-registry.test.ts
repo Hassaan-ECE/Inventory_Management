@@ -26,7 +26,7 @@ describe("platform module registry", () => {
     ]);
   });
 
-  it("returns desktop hosts for TE, Lab and Storage Room", () => {
+  it("returns desktop hosts for TE, Lab and EVCS Storage", () => {
     expect(getModuleHost("me-storage").kind).toBe("placeholder");
     expect(getModuleHost("te-storage").kind).toBe("desktop");
     expect(getModuleHost("te-test-equipment").kind).toBe("desktop");

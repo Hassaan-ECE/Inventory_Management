@@ -3,7 +3,7 @@ import { TeStorageView } from "./TeStorageView";
 
 export const teStorageDefinition: InventoryModuleDefinition = {
   id: "te-storage",
-  label: "TE Storage",
+  label: "EVCS Storage",
   implemented: true,
   sharedFolderName: "TE_Storage_Room",
 };

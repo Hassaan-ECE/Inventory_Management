@@ -1,3 +1,8 @@
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+};
+
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -7,8 +12,8 @@ use crate::{
 };
 
 use super::super::{
-    queue::count_pending_local_operations, SharedSyncPaths, SyncEntryState, SyncTombstoneRecord,
-    SYNC_SCHEMA_VERSION,
+    operation_file::parse_operation_file_name, queue::count_pending_local_operations,
+    SharedSyncPaths, SyncEntryState, SyncTombstoneRecord, SYNC_SCHEMA_VERSION,
 };
 use super::{
     io::{
@@ -42,11 +47,22 @@ pub(crate) fn maybe_publish_snapshot(
         }
     };
 
+    if let Some(manifest) = manifest.as_ref() {
+        // Never overwrite a newer client's snapshot, and never publish a snapshot that
+        // knows less than the current one (that is how stale data replaced newer work).
+        if is_newer_app_version(&manifest.app_version)
+            || !local_watermarks_cover(db, &watermarks_to_map(&manifest.watermarks))?
+        {
+            return Ok(SnapshotPublishReport::default());
+        }
+    }
+
     let should_publish = manifest
         .as_ref()
         .map(|manifest| {
             op_count >= SNAPSHOT_OP_COMPACTION_THRESHOLD
                 || (op_count > 0 && manifest_is_old(manifest))
+                || holds_changes_missing_from_share(db, paths, manifest).unwrap_or(false)
         })
         .unwrap_or(true);
     if !should_publish {
@@ -82,7 +98,7 @@ pub(crate) fn maybe_publish_snapshot(
         snapshot_published: true,
     })
 }
-fn build_snapshot(db: &InventoryDb) -> CommandResult<SharedInventorySnapshot> {
+pub(super) fn build_snapshot(db: &InventoryDb) -> CommandResult<SharedInventorySnapshot> {
     let mut entries = db.load_entries()?;
     entries.sort_by(|left, right| left.entry_uuid.cmp(&right.entry_uuid));
 
@@ -133,7 +149,7 @@ fn collect_watermarks(db: &InventoryDb) -> CommandResult<Vec<SnapshotWatermark>>
     })?;
     Ok(watermarks)
 }
-fn manifest_for_snapshot(
+pub(super) fn manifest_for_snapshot(
     snapshot: &SharedInventorySnapshot,
     snapshot_file: String,
 ) -> SharedInventoryManifest {
@@ -152,6 +168,86 @@ fn manifest_for_snapshot(
         auth: None,
     }
 }
+fn local_watermarks_cover(
+    db: &InventoryDb,
+    required: &HashMap<String, u64>,
+) -> CommandResult<bool> {
+    for (client_id, local_seq) in required {
+        if db.sync_watermark(client_id)?.unwrap_or(0) < *local_seq {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// True when this client has applied operations beyond the manifest whose files are no
+/// longer on the share. Nobody else can receive that work except through a snapshot
+/// from this client, so it must publish now instead of waiting for the usual triggers.
+fn holds_changes_missing_from_share(
+    db: &InventoryDb,
+    paths: &SharedSyncPaths,
+    manifest: &SharedInventoryManifest,
+) -> CommandResult<bool> {
+    let manifest_watermarks = watermarks_to_map(&manifest.watermarks);
+    let mut ahead = Vec::new();
+    db.scan_sync_watermarks(usize::MAX, |client_id, local_seq| {
+        let covered = manifest_watermarks.get(&client_id).copied().unwrap_or(0);
+        if local_seq > covered {
+            ahead.push((client_id, covered, local_seq));
+        }
+        Ok(true)
+    })?;
+
+    for (client_id, covered, local_seq) in ahead {
+        let present = present_operation_sequences(paths, &client_id)?;
+        if ((covered + 1)..=local_seq).any(|seq| !present.contains(&seq)) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn present_operation_sequences(
+    paths: &SharedSyncPaths,
+    client_id: &str,
+) -> CommandResult<HashSet<u64>> {
+    let mut present = HashSet::new();
+    let Ok(dir) = fs::read_dir(paths.ops_dir.join(client_id)) else {
+        return Ok(present);
+    };
+    for file in dir.flatten() {
+        if let Ok(seq) = parse_operation_file_name(&file.file_name().to_string_lossy()) {
+            present.insert(seq);
+        }
+    }
+    Ok(present)
+}
+
+/// The app version that published the current shared snapshot, when it is newer than
+/// this build. Older builds stop publishing snapshots and ask the user to update.
+pub(crate) fn newer_team_app_version(paths: &SharedSyncPaths) -> Option<String> {
+    read_manifest(paths)
+        .ok()
+        .flatten()
+        .map(|manifest| manifest.app_version)
+        .filter(|version| is_newer_app_version(version))
+}
+
+fn is_newer_app_version(other: &str) -> bool {
+    match (
+        parse_version(other),
+        parse_version(env!("CARGO_PKG_VERSION")),
+    ) {
+        (Some(other), Some(this)) => other > this,
+        _ => false,
+    }
+}
+
+fn parse_version(value: &str) -> Option<(u64, u64, u64)> {
+    let mut parts = value.trim().split('.').map(|part| part.parse::<u64>().ok());
+    Some((parts.next()??, parts.next()??, parts.next()??))
+}
+
 fn manifest_is_old(manifest: &SharedInventoryManifest) -> bool {
     let Ok(created_at) = DateTime::parse_from_rfc3339(&manifest.created_at_utc) else {
         return true;

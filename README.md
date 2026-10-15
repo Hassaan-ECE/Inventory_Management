@@ -5,15 +5,15 @@ Windows desktop app that unifies multiple inventory systems in **one install**, 
 - **TE Test Equipment** (implemented)
 - **TE Lab Components** (implemented)
 - **ME Storage** (placeholder)
-- **TE Storage** (implemented)
+- **EVCS Storage** (implemented; internal id `te-storage`)
 
 Stack: Tauri 2, React 19, TypeScript, Vite, Tailwind v4, Bun, Rust, FeOxDB.
 
-TE Storage starts empty and supports adding, editing, deleting, searching and sorting items. Columns are PN #, PR #, PO #, Manufacturer, Model, Description, Qty, Location and Notes; PR # and Description are hidden by default. It uses its own `te-storage-room.feox` database and `modules/TE_Storage_Room` shared folder. Override that folder with `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT`. Right-click any column header to show or hide columns. Team sync runs automatically; local edits queue while the share is unavailable. As with the other inventories, synchronization is not a backup.
+EVCS Storage (formerly TE Storage) starts empty and supports adding, editing, deleting, searching and sorting items. Columns are PN #, PR #, PO #, Manufacturer, Model, Description, Qty, Location and Notes; PR # and Description are hidden by default. It uses its own `te-storage-room.feox` database and `modules/TE_Storage_Room` shared folder. Override that folder with `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT`. Right-click any column header to show or hide columns. Team sync runs automatically; local edits queue while the share is unavailable. As with the other inventories, synchronization is not a backup.
 
 TE Lab Components is a generalized electronic-parts catalog: flexible specifications, separate stock placements, area/desk → container → Excel-style bin locations, multiple locations per part, shared-bin warnings, physical counts/moves, reviewed legacy migration, Lab-only sync schema v2, and a six-sheet audit workbook. Live Lab migration remains an owner-coordinated cutover; see `docs/runbooks/te-lab-components-catalog-v2-migration.md`.
 
-**Package version: `0.1.3`**.
+**Package version: `0.1.4`**.
 
 ## Product share (S:)
 
@@ -21,11 +21,13 @@ TE Lab Components is a generalized electronic-parts catalog: flexible specificat
 |------|------|
 | Product root | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
 | Current installer (when shipped) | place NSIS `.exe` at product root |
-| Release archive | `release-support\vX.Y.Z\` |
+| Release files per version | `release-support\vX.Y.Z\` (installer, `.sig`, `latest.json`, checksums, notes) |
+| Superseded installers | `archive\` |
+| Import source workbooks | `source-data\` (calibration roster: `source-data\calibration\`) |
 | TE Test Equipment module sync | `modules\TE_Test_Equipment\shared\inventory\` |
-| TE Lab Components module | `modules\TE_Lab_Components\shared\inventory\` |
+| TE Lab Components module | `modules\TE_Lab_Components\shared\catalog-v2\` (active catalog stream; the older `shared\inventory\` v1 stream is blocked after cutover) |
 | ME Storage module | `modules\ME_Storage\shared\inventory\` |
-| TE Storage module | `modules\TE_Storage_Room\shared\inventory\` |
+| EVCS Storage module | `modules\TE_Storage_Room\shared\inventory\` |
 | Legacy standalone pointers | `legacy-pointers\README.md` |
 
 Share README: that folder’s `README.md`.
@@ -48,10 +50,14 @@ Do **not** run old + new clients against the same live shared root at once.
 | Tauri id | `com.inventory.management` |
 | TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
 | TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
+| EVCS Storage DB | `%LOCALAPPDATA%\com.inventory.management\te-storage-room.feox` |
 | TE shared-root env | `INVENTORY_MANAGEMENT_SHARED_ROOT` |
 | Lab shared-root env | `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT` |
-| Env sync enable | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` (`0`/`false`/`no`/`off` off) |
+| Storage shared-root env | `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT` |
+| Env sync enable | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` (`0`/`false`/`no`/`off` off; applies to all modules) |
+| Sync signing env | `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` (optional, ≥16 bytes; set on every client or none) |
 | Copied-data DB root env | `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` (absolute path; diagnostics/rehearsals only) |
+| Lab demo seed env | `INVENTORY_MANAGEMENT_LAB_DEMO_SEED=1` seeds demo parts into an **empty** Lab catalog (layout review only; never on live data) |
 
 Updater is **configured for this product** (public key + GitHub `latest.json` endpoint). Sign builds with the private key on the release machine — see `docs/engineering/UPDATER_AND_RELEASE.md`. Do not reuse TE/ME updater keys.
 
@@ -75,7 +81,7 @@ cargo test --manifest-path backend/Cargo.toml --no-fail-fast
 bun run desktop
 ```
 
-Normal `bun run desktop` uses the product's real Local AppData databases. Copied-data testing must set the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` override and disable shared sync; changing `LOCALAPPDATA` alone is not sufficient on Windows. See `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
+Normal `bun run desktop` uses the product's real Local AppData databases. Copied-data testing must set the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` override, redirect the TE, Lab, and Storage shared roots, and disable shared sync; changing `LOCALAPPDATA` alone is not sufficient on Windows. See `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
 
 ### Shared data (product modules)
 
@@ -83,8 +89,18 @@ Normal `bun run desktop` uses the product's real Local AppData databases. Copied
 
 - TE Test Equipment: `S:\...\Inventory_Management_App\modules\TE_Test_Equipment`
 - TE Lab Components: `S:\...\Inventory_Management_App\modules\TE_Lab_Components`
+- EVCS Storage: `S:\...\Inventory_Management_App\modules\TE_Storage_Room` (created automatically only if the product `modules\` folder is reachable)
 
 **One writer per root** — do not run standalone TE/Lab apps against the same product module share.
+
+Sync design and folder layout: `docs/engineering/FEOXDB_SYNC_MIGRATION_PLAN.md`. Where code lives: `docs/engineering/PROJECT_FOLDER_BREAKDOWN.md`.
+
+## Intentional limits in 0.1.4
+
+- **TE Import:** the Excel import backend exists, but the Import button is deliberately not shown (cutover is operator-driven).
+- **TE Export → HTML:** placeholder only; it reports "HTML export is not implemented yet." Excel export works.
+- **Window size/position:** not restored between launches; restore was disabled because it broke layout on some monitors.
+- **ME Storage:** placeholder module.
 
 ## Cutover (ops sketch)
 

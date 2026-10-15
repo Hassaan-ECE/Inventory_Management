@@ -41,7 +41,7 @@ Use the current calibration workbook as the one-time baseline for calibration me
 
 Source workbook:
 
-`S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\TE Lab Equip Calibration Data for New List.xlsx`
+`S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\source-data\calibration\TE Lab Equip Calibration Data for New List.xlsx` (moved from the share root on 2026-10-15; contents unchanged)
 
 - Workbook last modified: **July 22, 2026**.
 - `MAY 2026 Calibration Equip`: 69 parsed nonblank source rows.

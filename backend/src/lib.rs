@@ -49,7 +49,7 @@ pub fn run() {
             if let Err(error) =
                 modules::te_storage::sync::recover_local_sync_state(stores.te_storage())
             {
-                eprintln!("Storage Room local sync recovery failed (continuing startup): {error}");
+                eprintln!("EVCS Storage local sync recovery failed (continuing startup): {error}");
             }
             app.manage(stores);
             app.manage(shared_sync::SharedSyncCoordinator::new());

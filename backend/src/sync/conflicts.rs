@@ -86,6 +86,14 @@ pub(super) fn operation_wins_state(
         || (timestamp_order.is_eq() && operation.op_id.as_str() > state.last_op_id.as_str())
 }
 
+/// Same ordering as [`operation_wins_state`], for comparing two recorded states.
+pub(super) fn state_wins_state(incoming: &SyncEntryState, current: &SyncEntryState) -> bool {
+    let timestamp_order =
+        compare_timestamp_text(&incoming.mutation_ts_utc, &current.mutation_ts_utc);
+    timestamp_order.is_gt()
+        || (timestamp_order.is_eq() && incoming.last_op_id.as_str() > current.last_op_id.as_str())
+}
+
 pub(super) fn record_entry_state_for_operation(
     db: &InventoryDb,
     operation: &SyncOperationEnvelope,

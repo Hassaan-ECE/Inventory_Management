@@ -79,7 +79,7 @@ Copy the setup exe to:
 S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\
 ```
 
-and archive under `release-support\vX.Y.Z\` for history. First install is still from S: or GitHub; later installs use **Update** when a newer GitHub Release + `latest.json` exist.
+and archive under `release-support\vX.Y.Z\` for history. Only the current installer and `README.md` stay at the root: move the previous root installer into `archive\`, keep `.sig` / `latest.json` / checksums in `release-support\vX.Y.Z\`, and update the root `README.md`. First install is still from S: or GitHub; later installs use **Update** when a newer GitHub Release + `latest.json` exist.
 
 ## Config source of truth
 

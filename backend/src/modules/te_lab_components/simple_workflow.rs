@@ -371,7 +371,9 @@ fn column_index_from_label(label: &str) -> Option<u32> {
     }
     let mut index: u32 = 0;
     for byte in label.bytes() {
-        index = index.saturating_mul(26).saturating_add(u32::from(byte - b'A' + 1));
+        index = index
+            .saturating_mul(26)
+            .saturating_add(u32::from(byte - b'A' + 1));
     }
     index.checked_sub(1)
 }

@@ -43,7 +43,7 @@ fn create_entry_in_store_inner(
 
     Ok(InventoryEntryMutationResult {
         entry,
-        message: "Entry added to the TE Storage database.".to_string(),
+        message: "Entry added to the EVCS Storage database.".to_string(),
         mutation_mode: sync_state.mutation_mode,
         shared: sync_state.shared,
     })
@@ -103,7 +103,7 @@ fn update_entry_in_store_inner(
 
     Ok(InventoryEntryMutationResult {
         entry,
-        message: "Entry updated in the TE Storage database.".to_string(),
+        message: "Entry updated in the EVCS Storage database.".to_string(),
         mutation_mode: sync_state.mutation_mode,
         shared: sync_state.shared,
     })

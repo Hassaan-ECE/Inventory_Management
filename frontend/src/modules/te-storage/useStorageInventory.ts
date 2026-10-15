@@ -59,7 +59,7 @@ export function useStorageInventory(active: boolean, bridge: StorageBridge | nul
         if (disposed) { unsubscribe?.(); return; }
         await controller.finishInitialization();
       } catch (cause) {
-        if (!disposed) setError(`Could not initialize TE Storage: ${String(cause)}`);
+        if (!disposed) setError(`Could not initialize EVCS Storage: ${String(cause)}`);
       }
     })();
     return () => {
@@ -72,7 +72,7 @@ export function useStorageInventory(active: boolean, bridge: StorageBridge | nul
   }, [active, bridge]);
 
   const save = useCallback(async (input: StorageInput, original: StorageEntry | null) => {
-    if (!bridge || !loaded || shared?.canModify === false) throw new Error("TE Storage is not ready to save.");
+    if (!bridge || !loaded || shared?.canModify === false) throw new Error("EVCS Storage is not ready to save.");
     mutationPending.current = true; mutationEpoch.current += 1;
     try {
       const result = await bridge.save(input, original);
@@ -85,7 +85,7 @@ export function useStorageInventory(active: boolean, bridge: StorageBridge | nul
   }, [bridge, loaded, shared?.canModify]);
 
   const remove = useCallback(async (entry: StorageEntry) => {
-    if (!bridge || !loaded || shared?.canModify === false) throw new Error("TE Storage is not ready to delete.");
+    if (!bridge || !loaded || shared?.canModify === false) throw new Error("EVCS Storage is not ready to delete.");
     mutationPending.current = true; mutationEpoch.current += 1;
     try {
       const result = await bridge.remove(entry);

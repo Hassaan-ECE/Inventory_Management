@@ -4,20 +4,20 @@ import { STORAGE_COLUMNS, type StorageBridge, type StorageEntry, type StorageMut
 
 const moduleId = "te-storage";
 function object(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid TE Storage response.");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid EVCS Storage response.");
   return value as Record<string, unknown>;
 }
 function entry(value: unknown): StorageEntry {
   const row = object(value);
   for (const column of STORAGE_COLUMNS) {
     if (column.key === "qty") {
-      if (row.qty !== null && (typeof row.qty !== "number" || !Number.isFinite(row.qty) || row.qty < 0 || row.qty > 1_000_000)) throw new Error("Invalid TE Storage quantity.");
-    } else if (typeof row[column.key] !== "string") throw new Error(`Invalid TE Storage ${column.label}.`);
+      if (row.qty !== null && (typeof row.qty !== "number" || !Number.isFinite(row.qty) || row.qty < 0 || row.qty > 1_000_000)) throw new Error("Invalid EVCS Storage quantity.");
+    } else if (typeof row[column.key] !== "string") throw new Error(`Invalid EVCS Storage ${column.label}.`);
   }
   for (const key of ["id", "entryUuid", "createdAt", "updatedAt"]) {
-    if (typeof row[key] !== "string" || !row[key]) throw new Error("Invalid TE Storage record identity.");
+    if (typeof row[key] !== "string" || !row[key]) throw new Error("Invalid EVCS Storage record identity.");
   }
-  if (typeof row.archived !== "boolean") throw new Error("Invalid TE Storage record state.");
+  if (typeof row.archived !== "boolean") throw new Error("Invalid EVCS Storage record state.");
   return row as unknown as StorageEntry;
 }
 function shared(value: unknown): StorageSharedStatus {
@@ -25,20 +25,20 @@ function shared(value: unknown): StorageSharedStatus {
   if (["available", "enabled", "canModify"].some(key => typeof status[key] !== "boolean") ||
       typeof status.message !== "string" || typeof status.mutationMode !== "string" ||
       (status.hasLocalOnlyChanges !== null && typeof status.hasLocalOnlyChanges !== "boolean")) {
-    throw new Error("Invalid TE Storage sync status.");
+    throw new Error("Invalid EVCS Storage sync status.");
   }
   return status as unknown as StorageSharedStatus;
 }
 export function parseStorageSnapshot(value: unknown): StorageSnapshot {
   const payload = object(value);
-  if (!Array.isArray(payload.entries)) throw new Error("Invalid TE Storage inventory.");
+  if (!Array.isArray(payload.entries)) throw new Error("Invalid EVCS Storage inventory.");
   return { entries: payload.entries.map(entry), shared: shared(payload.shared) };
 }
 const desktopBridge: StorageBridge = {
   load: () => invoke("load_inventory", { moduleId }).then(parseStorageSnapshot),
   activate: async () => {
     const token = await invoke<unknown>("activate_inventory_sync", { moduleId });
-    if (typeof token !== "string" || !token) throw new Error("Could not start TE Storage sync.");
+    if (typeof token !== "string" || !token) throw new Error("Could not start EVCS Storage sync.");
     return token;
   },
   deactivate: sessionId => invoke("deactivate_inventory_sync", { moduleId, sessionId }),

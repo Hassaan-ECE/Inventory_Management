@@ -25,7 +25,7 @@ export interface InventoryViewDefinition {
   moduleId: ModuleId;
 }
 
-/** Shell chrome passed into implemented modules so they can render one unified top bar. */
+/** Shell chrome passed into implemented modules so each can render its own top bar with the shared switcher and theme toggle. */
 export interface DesktopModuleViewProps {
   active: boolean;
   activeViewId: InventoryViewId;

@@ -10,7 +10,8 @@ pub(crate) const DEFAULT_SHARED_ROOT: &str =
 pub(crate) const DEFAULT_LAB_COMPONENTS_SHARED_ROOT: &str =
     r"S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Lab_Components";
 
-/// Pre-cutover InventoryApps pilots (diagnostic / env override only).
+/// Pre-cutover InventoryApps pilot roots. Not referenced by code; reach them by
+/// pointing the shared-root env overrides at these paths.
 #[allow(dead_code)]
 pub(crate) const PILOT_TE_SHARED_ROOT: &str =
     r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE_Test_Equipment_Inventory";
@@ -19,6 +20,7 @@ pub(crate) const PILOT_TE_SHARED_ROOT: &str =
 pub(crate) const PILOT_LAB_COMPONENTS_SHARED_ROOT: &str =
     r"S:\Engineering\Public\Syed_Hassaan_Shah\InventoryApps\TE";
 
+/// Product module shared root for EVCS Storage (module id `te-storage`; folder name kept stable).
 pub(crate) const DEFAULT_TE_STORAGE_SHARED_ROOT: &str =
     r"S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Storage_Room";
 
