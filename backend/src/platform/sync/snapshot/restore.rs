@@ -14,7 +14,7 @@
 //! Rehearse what an installed client does with the result (uses the unchanged sync loop):
 //!
 //!   $env:RESTORE_TE_SHARED_ROOT = '<rehearsal module root>'
-//!   $env:RESTORE_TE_CLIENT_DB = '<copy of a client inventory.feox>'
+//!   $env:RESTORE_TE_CLIENT_DB = '<copy of a client inventory-management.feox (0.2 or later)>'
 //!   cargo test --manifest-path backend/Cargo.toml --lib rehearse_client_sync_after_restore -- --ignored --nocapture
 
 use std::{collections::HashMap, env, fs, path::PathBuf};
@@ -160,7 +160,7 @@ fn rehearse_client_sync_after_restore() {
     let root = required_env("RESTORE_TE_SHARED_ROOT");
     let client_db = PathBuf::from(required_env("RESTORE_TE_CLIENT_DB"));
     let work = temp_dir("client");
-    let copy = work.join("inventory.feox");
+    let copy = work.join("inventory-management.feox");
     fs::copy(&client_db, &copy).expect("copy client db");
     let size = fs::metadata(&copy)
         .expect("metadata")
