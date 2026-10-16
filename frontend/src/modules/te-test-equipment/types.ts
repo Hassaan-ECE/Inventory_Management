@@ -103,17 +103,9 @@ export interface InventoryEntryEditContext {
   changedFields: string[];
 }
 
-export interface InventorySharedStatus {
-  available: boolean;
-  canModify: boolean;
-  enabled: boolean;
-  hasLocalOnlyChanges?: boolean;
-  message: string;
-  mutationMode?: "shared" | "local";
-  revision?: string;
-  lastSnapshotId?: string;
-  sharedRootPath?: string;
-}
+import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
+
+export type { InventorySharedStatus };
 
 export interface InventoryCounts {
   archive: number;

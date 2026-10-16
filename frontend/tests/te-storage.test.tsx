@@ -3,10 +3,11 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { InventoryShell } from "@/shell/InventoryShell";
 import { TeStorageView } from "@/modules/te-storage/TeStorageView";
-import { entryInput, type StorageBridge, type StorageEntry, type StorageSharedStatus, type StorageSnapshot } from "@/modules/te-storage/types";
+import { entryInput, type StorageBridge, type StorageEntry, type StorageSnapshot } from "@/modules/te-storage/types";
+import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
 import { parseStorageSnapshot } from "@/modules/te-storage/storageBridge";
 
-const shared: StorageSharedStatus = { available: true, enabled: true, canModify: true, hasLocalOnlyChanges: false, message: "Shared sync ready.", mutationMode: "shared" };
+const shared: InventorySharedStatus = { available: true, enabled: true, canModify: true, hasLocalOnlyChanges: false, message: "Shared sync ready.", mutationMode: "shared" };
 const props = { active: true, activeViewId: "te-storage" as const, theme: "light" as const, onThemeToggle: vi.fn(), onViewChange: vi.fn() };
 function testEntry(overrides: Partial<StorageEntry> = {}): StorageEntry {
   return { ...entryInput(), id: "1", entryUuid: "storage-1", pn: "00123", pr: "00045", po: "00987", qty: 2, location: "A1", createdAt: "2026-09-28T12:00:00Z", updatedAt: "2026-09-28T12:00:00Z", archived: false, ...overrides };

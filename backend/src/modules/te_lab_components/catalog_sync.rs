@@ -24,7 +24,10 @@ use crate::{
     platform::{
         common::{now_timestamp, CommandResult, InventorySharedStatus},
         default_shared_root,
-        sync::{sign_canonical_bytes, verify_canonical_bytes},
+        sync::{
+            record_sync_findings, sign_canonical_bytes, sync_warning, verify_canonical_bytes,
+            SyncFindings,
+        },
         ModuleId,
     },
 };
@@ -373,6 +376,7 @@ pub(crate) fn startup_catalog_status(message: impl Into<String>) -> InventorySha
         revision: None,
         last_snapshot_id: None,
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
+        warning: None,
     }
 }
 
@@ -724,6 +728,13 @@ fn run_shared_sync_with_root(
         pushed_count > 0 || snapshot_changed || pull_report.entries_changed,
     )?;
     let pending_count = count_pending_local_operations(db, Some(&paths))?;
+    record_sync_findings(
+        db,
+        &SyncFindings {
+            skipped_files: pull_report.corrupt_count,
+            ..SyncFindings::default()
+        },
+    )?;
     let mut message = if pull_report.corrupt_count > 0 {
         format!(
             "Lab catalog shared sync ready. Ignored {} corrupt remote file(s).",
@@ -1832,6 +1843,7 @@ fn build_status(
         revision: db.sync_revision().ok().map(|value| value.to_string()),
         last_snapshot_id: db.last_snapshot_id().ok().flatten(),
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
+        warning: sync_warning(db),
     }
 }
 
@@ -1847,6 +1859,7 @@ fn disabled_status(db: Option<&InventoryDb>, message: impl Into<String>) -> Inve
         revision: db.and_then(|db| db.sync_revision().ok().map(|value| value.to_string())),
         last_snapshot_id: db.and_then(|db| db.last_snapshot_id().ok().flatten()),
         shared_root_path: None,
+        warning: db.and_then(sync_warning),
     }
 }
 

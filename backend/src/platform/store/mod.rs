@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 use serde::{de::DeserializeOwned, Serialize};
 
-use super::{LocalDatabase, ModuleId, Namespace};
+use super::{DatabaseHealth, LocalDatabase, ModuleId, Namespace};
 
 mod codec;
 mod entries;
@@ -86,5 +86,9 @@ impl<R> ModuleStore<R> {
 
     pub(crate) fn db_path_string(&self) -> String {
         self.store.path().to_string_lossy().into_owned()
+    }
+
+    pub(crate) fn database_health(&self) -> DatabaseHealth {
+        self.store.database_health()
     }
 }

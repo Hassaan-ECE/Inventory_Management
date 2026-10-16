@@ -1,4 +1,5 @@
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
+import { parseSharedStatus } from "@/platform/sync/sharedStatus";
 import {
   LIFECYCLE_OPTIONS,
   WORKING_STATUS_OPTIONS,
@@ -11,7 +12,6 @@ import {
   type InventoryEntry,
   type InventoryEntryMutationResult,
   type InventoryQueryResult,
-  type InventorySharedStatus,
   type LifecycleStatus,
   type Part,
   type PartStockSummary,
@@ -343,21 +343,6 @@ function parseInventoryEntry(value: unknown): InventoryEntry {
     updatedAt: optionalString(record.updatedAt) ?? "",
     verifiedInSurvey: record.verifiedInSurvey === true,
     workingStatus: parseWorkingStatus(record.workingStatus),
-  };
-}
-
-function parseSharedStatus(value: unknown): InventorySharedStatus {
-  const record = isRecord(value) ? value : {};
-  return {
-    available: record.available === true,
-    canModify: record.canModify !== false,
-    enabled: record.enabled === true,
-    hasLocalOnlyChanges: optionalBoolean(record.hasLocalOnlyChanges),
-    lastSnapshotId: optionalString(record.lastSnapshotId),
-    message: optionalString(record.message) ?? "Shared sync status unavailable.",
-    mutationMode: record.mutationMode === "shared" ? "shared" : "local",
-    revision: optionalString(record.revision),
-    sharedRootPath: optionalString(record.sharedRootPath),
   };
 }
 

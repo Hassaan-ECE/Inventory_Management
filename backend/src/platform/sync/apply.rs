@@ -25,6 +25,7 @@ use super::{
     snapshot::{apply_latest_snapshot_if_safe, maybe_publish_snapshot, newer_team_app_version},
     timestamps::{compare_timestamp_text, max_timestamp_text},
     types::SyncFieldVersion,
+    warning::{record_sync_findings, SyncFindings},
     CorruptRemoteFile, CorruptRemoteReason, MergeRule, SharedSyncPaths, SharedSyncRunResult,
     SyncAppliedMarker, SyncEntryState, SyncOperationEnvelope, SyncOperationType,
     SyncTombstoneRecord,
@@ -165,7 +166,16 @@ pub(crate) fn run_shared_sync_with_root<R: SyncRecord>(
     if publish_report.snapshot_published {
         message.push_str(" Snapshot refreshed.");
     }
-    if let Some(version) = newer_team_app_version::<R>(&paths) {
+    let newer_team_version = newer_team_app_version::<R>(&paths);
+    record_sync_findings(
+        db,
+        &SyncFindings {
+            skipped_files: corrupt_count,
+            newer_schema_files: pull_report.newer_schema_count,
+            newer_team_version: newer_team_version.clone(),
+        },
+    )?;
+    if let Some(version) = newer_team_version {
         message = format!(
             "Inventory Management {version} is in use on the team. Click Update to install it; until then this computer keeps syncing changes but will not publish shared snapshots."
         );
@@ -181,6 +191,7 @@ pub(crate) fn run_shared_sync_with_root<R: SyncRecord>(
 pub(super) struct PullReport {
     pub(super) entries_changed: bool,
     pub(super) corrupt_count: usize,
+    pub(super) newer_schema_count: usize,
 }
 
 pub(super) fn pull_remote_operations<R: SyncRecord>(
@@ -190,6 +201,11 @@ pub(super) fn pull_remote_operations<R: SyncRecord>(
     let watermarks = sync_watermarks(db)?;
     let scan_report =
         scan_operation_files_after_watermarks(paths, &watermarks).map_err(sync_core_error)?;
+    let newer_schema_count = scan_report
+        .corrupt
+        .iter()
+        .filter(|corrupt| corrupt.reason == CorruptRemoteReason::UnsupportedSchemaVersion)
+        .count();
     let mut corrupt_count = record_corrupt_remote_files(db, &scan_report.corrupt)?;
     let mut entries_changed = false;
     let mut applied_count = 0usize;
@@ -237,6 +253,7 @@ pub(super) fn pull_remote_operations<R: SyncRecord>(
     Ok(PullReport {
         entries_changed,
         corrupt_count,
+        newer_schema_count,
     })
 }
 

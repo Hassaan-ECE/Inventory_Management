@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdaptiveSyncController } from "@/platform/sync/adaptiveSyncController";
-import type { StorageBridge, StorageEntry, StorageInput, StorageSharedStatus } from "./types";
+import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
+import type { StorageBridge, StorageEntry, StorageInput } from "./types";
 
 export function useStorageInventory(active: boolean, bridge: StorageBridge | null) {
   const [entries, setEntries] = useState<StorageEntry[]>([]);
-  const [shared, setShared] = useState<StorageSharedStatus | null>(null);
+  const [shared, setShared] = useState<InventorySharedStatus | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const controllerRef = useRef<AdaptiveSyncController | null>(null);

@@ -12,7 +12,9 @@ use std::{
 use feoxdb::FeoxStore;
 
 use super::{
-    database::{LocalDatabase, Namespace, DATABASE_FILE_NAME, DATABASE_FILE_SIZE},
+    database::{
+        count_keys, for_each_key, LocalDatabase, Namespace, DATABASE_FILE_NAME, DATABASE_FILE_SIZE,
+    },
     ModuleId,
 };
 
@@ -23,9 +25,6 @@ const LEGACY_FILES: [(ModuleId, &str); 3] = [
 ];
 pub(crate) const LEGACY_BACKUP_DIR: &str = "pre-0.2-databases";
 const STAGING_SUFFIX: &str = ".merging";
-const COPY_BATCH: usize = 512;
-/// Keys are UTF-8, which never contains the byte 0xFF, so this sorts after every key.
-const KEY_SPACE_END: &[u8] = &[0xFF];
 
 pub(super) fn merge_legacy_databases_once(local_data_dir: &Path) -> Result<(), Box<dyn Error>> {
     let target = local_data_dir.join(DATABASE_FILE_NAME);
@@ -104,16 +103,7 @@ fn verify_copy(source: &FeoxStore, target: &Namespace, path: &Path) -> Result<()
         Ok(())
     })?;
 
-    let mut target_count = 0usize;
-    let mut start = Vec::new();
-    loop {
-        let batch = target.range_query(&start, KEY_SPACE_END, COPY_BATCH)?;
-        target_count += batch.len();
-        match batch.last() {
-            Some((key, _)) if batch.len() == COPY_BATCH => start = next_key(key),
-            _ => break,
-        }
-    }
+    let target_count = count_keys(target)?;
     if source_count != target_count {
         return Err(format!(
             "{}: copied {target_count} of {source_count} keys",
@@ -122,30 +112,6 @@ fn verify_copy(source: &FeoxStore, target: &Namespace, path: &Path) -> Result<()
         .into());
     }
     Ok(())
-}
-
-fn for_each_key(
-    source: &FeoxStore,
-    mut visit: impl FnMut(&[u8], &[u8]) -> Result<(), Box<dyn Error>>,
-) -> Result<(), Box<dyn Error>> {
-    let mut start = Vec::new();
-    loop {
-        let batch = source.range_query(&start, KEY_SPACE_END, COPY_BATCH)?;
-        for (key, value) in &batch {
-            visit(key, value)?;
-        }
-        match batch.last() {
-            Some((key, _)) if batch.len() == COPY_BATCH => start = next_key(key),
-            _ => return Ok(()),
-        }
-    }
-}
-
-/// Smallest key strictly after `key` (range queries are inclusive).
-fn next_key(key: &[u8]) -> Vec<u8> {
-    let mut next = key.to_vec();
-    next.push(0);
-    next
 }
 
 #[cfg(test)]

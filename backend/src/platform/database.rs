@@ -6,7 +6,8 @@ use std::{
     error::Error,
     fs,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 use feoxdb::{FeoxError, FeoxStore};
@@ -19,9 +20,30 @@ pub(crate) const DATABASE_FILE_NAME: &str = "inventory-management.feox";
 /// file is sized well above the three 64 MiB files it replaces.
 pub(super) const DATABASE_FILE_SIZE: u64 = 256 * 1024 * 1024;
 
+/// FeOx writes each record as a 30-byte header plus key and value, rounded up to whole
+/// 4 KiB blocks, after 16 blocks reserved for its own metadata.
+const BLOCK_SIZE: u64 = 4096;
+const RECORD_OVERHEAD: u64 = 30;
+const RESERVED_BLOCKS: u64 = 16;
+/// Measuring usage reads every record, so it is refreshed at most this often.
+const USAGE_REFRESH: Duration = Duration::from_secs(5 * 60);
+
+const SCAN_BATCH: usize = 512;
+/// Keys are UTF-8, which never contains the byte 0xFF, so this sorts after every key.
+const KEY_SPACE_END: &[u8] = &[0xFF];
+
+/// How full the database file is, and whether FeOx has failed to write any record to disk
+/// since the app started (FeOx keeps such records in memory only, so they are lost on exit).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DatabaseHealth {
+    pub percent_used: u8,
+    pub write_failures: u64,
+}
+
 pub(crate) struct LocalDatabase {
     store: Arc<FeoxStore>,
     path: Arc<PathBuf>,
+    usage: Arc<UsageCache>,
 }
 
 impl LocalDatabase {
@@ -44,6 +66,10 @@ impl LocalDatabase {
         Ok(Self {
             store: Arc::new(store),
             path: Arc::new(path),
+            usage: Arc::new(UsageCache {
+                file_size,
+                measured: Mutex::new(None),
+            }),
         })
     }
 
@@ -52,6 +78,7 @@ impl LocalDatabase {
             store: Arc::clone(&self.store),
             prefix: format!("{}/", module.as_system_id_str()).into_bytes(),
             path: Arc::clone(&self.path),
+            usage: Arc::clone(&self.usage),
         }
     }
 
@@ -70,6 +97,7 @@ pub(crate) struct Namespace {
     store: Arc<FeoxStore>,
     prefix: Vec<u8>,
     path: Arc<PathBuf>,
+    usage: Arc<UsageCache>,
 }
 
 impl Namespace {
@@ -116,9 +144,91 @@ impl Namespace {
         &self.path
     }
 
+    /// Health of the whole database file, which every inventory shares.
+    pub(crate) fn database_health(&self) -> DatabaseHealth {
+        DatabaseHealth {
+            percent_used: self.usage.percent_used(&self.store),
+            write_failures: self.store.stats().write_failures,
+        }
+    }
+
     fn full_key(&self, key: &[u8]) -> Vec<u8> {
         [self.prefix.as_slice(), key].concat()
     }
+}
+
+struct UsageCache {
+    file_size: u64,
+    measured: Mutex<Option<(Instant, u8)>>,
+}
+
+impl UsageCache {
+    fn percent_used(&self, store: &FeoxStore) -> u8 {
+        let Ok(mut measured) = self.measured.lock() else {
+            return 0;
+        };
+        if let Some((at, percent)) = *measured {
+            if at.elapsed() < USAGE_REFRESH {
+                return percent;
+            }
+        }
+        let percent = measure_percent_used(store, self.file_size);
+        *measured = Some((Instant::now(), percent));
+        percent
+    }
+}
+
+fn measure_percent_used(store: &FeoxStore, file_size: u64) -> u8 {
+    let total_blocks = (file_size / BLOCK_SIZE).max(1);
+    let mut used_blocks = RESERVED_BLOCKS;
+    let scanned = for_each_key(store, |key, value| {
+        let record_bytes = RECORD_OVERHEAD + key.len() as u64 + value.len() as u64;
+        used_blocks += record_bytes.div_ceil(BLOCK_SIZE);
+        Ok(())
+    });
+    if scanned.is_err() {
+        return 0;
+    }
+    (used_blocks * 100 / total_blocks).min(100) as u8
+}
+
+/// Visits every key in the store in order.
+pub(super) fn for_each_key(
+    store: &FeoxStore,
+    mut visit: impl FnMut(&[u8], &[u8]) -> Result<(), Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
+    let mut start = Vec::new();
+    loop {
+        let batch = store.range_query(&start, KEY_SPACE_END, SCAN_BATCH)?;
+        for (key, value) in &batch {
+            visit(key, value)?;
+        }
+        match batch.last() {
+            Some((key, _)) if batch.len() == SCAN_BATCH => start = next_key(key),
+            _ => return Ok(()),
+        }
+    }
+}
+
+/// Counts every key in a namespace.
+pub(super) fn count_keys(namespace: &Namespace) -> Result<usize, Box<dyn Error>> {
+    let mut count = 0usize;
+    let mut start = Vec::new();
+    loop {
+        let batch = namespace.range_query(&start, KEY_SPACE_END, SCAN_BATCH)?;
+        count += batch.len();
+        match batch.last() {
+            Some((key, _)) if batch.len() == SCAN_BATCH => start = next_key(key),
+            _ => return Ok(count),
+        }
+    }
+}
+
+/// Smallest key strictly after `key` (range queries are inclusive).
+fn next_key(key: &[u8]) -> Vec<u8> {
+    let mut next = key.to_vec();
+    next.push(0);
+    next
 }
 
 #[cfg(test)]
@@ -160,5 +270,26 @@ mod tests {
         storage.delete(b"entry:1").unwrap();
         assert!(!storage.contains_key(b"entry:1"));
         assert!(te.contains_key(b"entry:1"));
+    }
+
+    #[test]
+    fn usage_counts_whole_blocks_per_record_across_every_namespace() {
+        let database = temp_database();
+        let te = database.namespace(ModuleId::TeTestEquipment);
+        let storage = database.namespace(ModuleId::TeStorage);
+        // 2 MiB holds 512 blocks; 16 are reserved.
+        assert_eq!(te.database_health().percent_used, 3);
+
+        for n in 0..100 {
+            te.insert(format!("entry:{n}").as_bytes(), b"small")
+                .unwrap();
+        }
+        // One record spanning two blocks.
+        storage.insert(b"entry:big", &vec![b'x'; 5000]).unwrap();
+        *database.usage.measured.lock().unwrap() = None;
+
+        let health = storage.database_health();
+        assert_eq!(health.percent_used, ((16 + 100 + 2) * 100 / 512) as u8);
+        assert_eq!(health.write_failures, 0);
     }
 }

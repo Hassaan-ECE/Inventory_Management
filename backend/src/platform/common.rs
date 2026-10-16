@@ -20,6 +20,26 @@ pub(crate) struct InventorySharedStatus {
     pub revision: Option<String>,
     pub last_snapshot_id: Option<String>,
     pub shared_root_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<SyncWarning>,
+}
+
+/// A problem the footer flags beside the status message, most serious first.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub(crate) enum SyncWarning {
+    /// The local database is failing to write, so recent changes may be lost on restart.
+    LocalSaveFailing,
+    /// The local database file is nearly full.
+    DatabaseNearlyFull { percent_used: u8 },
+    /// A teammate runs a newer version, or wrote shared files this version cannot read.
+    UpdateAvailable { version: Option<String> },
+    /// Shared files that could not be read were skipped.
+    SkippedFiles { count: usize },
 }
 
 pub(crate) fn db_error(error: impl std::fmt::Display) -> String {

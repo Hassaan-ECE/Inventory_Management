@@ -9,6 +9,7 @@ use super::fixtures::{
     outbox_count, read_outbox_operation, remote_upsert_operation, remove_json_field, sample_entry,
     snapshot_file_count, test_db, unique_test_dir, write_remote_operation,
 };
+use crate::platform::common::SyncWarning;
 use crate::platform::sync::test_support::{
     run_shared_sync_with_root, set_test_hmac_key, SyncTombstoneRecord,
 };
@@ -545,4 +546,29 @@ fn tamper_first_snapshot_description(shared_root: &Path) {
     let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     value["entries"][0]["description"] = serde_json::Value::String("Tampered snapshot".to_string());
     fs::write(&path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+}
+
+#[test]
+fn skipped_shared_files_raise_a_footer_warning_until_they_are_gone() {
+    let db = test_db("sync-warning-skipped");
+    let shared_root = existing_shared_root("sync-warning-skipped-root");
+    run_shared_sync_with_root(&db, &shared_root).unwrap();
+    let unreadable = shared_root
+        .join("shared")
+        .join("inventory")
+        .join("ops")
+        .join("other-client")
+        .join("000000000001.op.json");
+    fs::create_dir_all(unreadable.parent().unwrap()).unwrap();
+    fs::write(&unreadable, b"not json").unwrap();
+
+    let result = run_shared_sync_with_root(&db, &shared_root).unwrap();
+    assert_eq!(
+        result.shared.warning,
+        Some(SyncWarning::SkippedFiles { count: 1 })
+    );
+
+    fs::remove_file(&unreadable).unwrap();
+    let result = run_shared_sync_with_root(&db, &shared_root).unwrap();
+    assert_eq!(result.shared.warning, None);
 }

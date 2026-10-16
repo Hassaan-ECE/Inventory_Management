@@ -219,6 +219,7 @@ mod tests {
             mutation_mode: "local".to_string(),
             revision: Some("3".to_string()),
             shared_root_path: Some("S:\\TE\\Test_Equipment".to_string()),
+            warning: None,
         };
 
         coordinator

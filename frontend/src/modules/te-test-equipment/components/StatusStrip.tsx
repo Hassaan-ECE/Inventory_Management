@@ -1,16 +1,18 @@
 import type { InventoryCounts, TeTestEquipmentWorkspace } from "@/modules/te-test-equipment/types";
+import type { SyncWarning } from "@/platform/sync/sharedStatus";
 import { CountPill, StatusFooter } from "@/platform/ui/StatusFooter";
 
 interface StatusStripProps {
   counts?: InventoryCounts;
   message?: string;
   resultsLabel?: string;
+  warning?: SyncWarning;
   workspace?: TeTestEquipmentWorkspace;
 }
 
-export function StatusStrip({ message, counts, resultsLabel, workspace = "equipment" }: StatusStripProps) {
+export function StatusStrip({ message, counts, resultsLabel, warning, workspace = "equipment" }: StatusStripProps) {
   return (
-    <StatusFooter message={message} resultsLabel={resultsLabel}>
+    <StatusFooter message={message} resultsLabel={resultsLabel} warning={warning}>
       {counts ? (
         <div
           aria-label={workspace === "calibration" ? "Calibration status counts" : "Inventory status counts"}

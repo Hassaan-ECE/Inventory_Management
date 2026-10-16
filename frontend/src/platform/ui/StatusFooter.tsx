@@ -1,22 +1,27 @@
+import { TriangleAlertIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { APP_FOOTER_TAG, IS_DEV_BUILD } from "@/app/branding";
+import { describeSyncWarning, type SyncWarning } from "@/platform/sync/sharedStatus";
 import { cn } from "@/shared/lib/utils";
 
 interface StatusFooterProps {
   resultsLabel?: string;
   message?: string;
+  /** A sync or local-database problem, shown as an amber chip. */
+  warning?: SyncWarning;
   /** Module-specific count pills, rendered after the message. */
   children?: ReactNode;
 }
 
 /** Footer shared by every inventory: results, status message, counts, and the build tag. */
-export function StatusFooter({ resultsLabel, message, children }: StatusFooterProps) {
+export function StatusFooter({ resultsLabel, message, warning, children }: StatusFooterProps) {
   return (
     <footer className="relative shrink-0 border-t border-border bg-card/80 px-3 text-xs text-muted-foreground sm:px-5">
       <div className="flex items-center gap-3 overflow-hidden py-0 pr-40">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           {resultsLabel ? <span className="shrink-0">{resultsLabel}</span> : null}
+          {warning ? <SyncWarningChip warning={warning} /> : null}
           {message ? <span className="min-w-0 truncate">{message}</span> : null}
           {children}
         </div>
@@ -32,6 +37,20 @@ export function StatusFooter({ resultsLabel, message, children }: StatusFooterPr
         {APP_FOOTER_TAG}
       </span>
     </footer>
+  );
+}
+
+function SyncWarningChip({ warning }: { warning: SyncWarning }) {
+  const { label, detail } = describeSyncWarning(warning);
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 border border-warning/40 bg-warning/15 px-2 py-0.5 font-medium text-warning-foreground"
+      role="status"
+      title={detail}
+    >
+      <TriangleAlertIcon aria-hidden className="size-3" />
+      {label}
+    </span>
   );
 }
 

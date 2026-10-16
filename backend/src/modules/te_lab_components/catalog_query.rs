@@ -85,6 +85,7 @@ mod tests {
             revision: None,
             last_snapshot_id: None,
             shared_root_path: None,
+            warning: None,
         }
     }
 

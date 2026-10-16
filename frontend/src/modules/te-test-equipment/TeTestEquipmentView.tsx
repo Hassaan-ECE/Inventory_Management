@@ -372,6 +372,7 @@ export function TeTestEquipmentView({
         counts={statusCounts}
         message={statusMessage}
         resultsLabel={resultsLabel}
+        warning={dataSource === "desktop" ? sharedStatus.warning : undefined}
         workspace={workspace}
       />
 

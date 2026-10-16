@@ -890,6 +890,7 @@ mod tests {
             mutation_mode: "local".to_string(),
             revision: Some("7".to_string()),
             shared_root_path: Some("S:\\TE\\Test_Equipment".to_string()),
+            warning: None,
         };
 
         let loaded = load_inventory_from_store_with_status(&db, Some(status.clone())).unwrap();

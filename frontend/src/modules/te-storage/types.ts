@@ -12,6 +12,8 @@ export const STORAGE_COLUMNS = [
 
 export type StorageColumn = typeof STORAGE_COLUMNS[number]["key"];
 export type StorageInput = Record<Exclude<StorageColumn, "qty">, string> & { qty: number | null };
+import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
+
 export interface StorageEntry extends StorageInput {
   id: string;
   entryUuid: string;
@@ -19,19 +21,11 @@ export interface StorageEntry extends StorageInput {
   updatedAt: string;
   archived: boolean;
 }
-export interface StorageSharedStatus {
-  available: boolean;
-  enabled: boolean;
-  canModify: boolean;
-  hasLocalOnlyChanges: boolean | null;
-  message: string;
-  mutationMode: string;
-}
 export interface StorageSnapshot {
   entries: StorageEntry[];
-  shared: StorageSharedStatus;
+  shared: InventorySharedStatus;
 }
-export interface StorageMutation { entry: StorageEntry; shared: StorageSharedStatus; message: string }
+export interface StorageMutation { entry: StorageEntry; shared: InventorySharedStatus; message: string }
 export interface StorageBridge {
   load: () => Promise<StorageSnapshot>;
   activate: () => Promise<string>;
@@ -39,7 +33,7 @@ export interface StorageBridge {
   sync: (sessionId: string) => Promise<StorageSnapshot | null>;
   subscribe: (callback: () => void) => Promise<() => void>;
   save: (input: StorageInput, original: StorageEntry | null) => Promise<StorageMutation>;
-  remove: (entry: StorageEntry) => Promise<{ shared: StorageSharedStatus; message: string }>;
+  remove: (entry: StorageEntry) => Promise<{ shared: InventorySharedStatus; message: string }>;
 }
 export function entryInput(entry?: StorageEntry | null): StorageInput {
   return {

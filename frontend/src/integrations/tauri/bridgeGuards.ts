@@ -1,4 +1,5 @@
 import { APP_VERSION } from "@/app/branding";
+import { parseSharedStatus } from "@/platform/sync/sharedStatus";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 import {
   type CalibrationRosterAbsentEntry,
@@ -20,7 +21,6 @@ import {
   type InventoryEntryInput,
   type InventoryEntryMutationResult,
   type InventoryQueryResult,
-  type InventorySharedStatus,
   type ImportProvenance,
   type ExcelExportResult,
   type LifecycleStatus,
@@ -464,21 +464,6 @@ function parseCalibrationRosterEntryInput(value: unknown): InventoryEntryInput {
       "Invalid calibration roster proposed input: archived is invalid.",
     ),
     picturePath: parseOptionalString(record.picturePath, "picturePath"),
-  };
-}
-
-function parseSharedStatus(value: unknown): InventorySharedStatus {
-  const record = isRecord(value) ? value : {};
-  return {
-    available: record.available === true,
-    canModify: record.canModify !== false,
-    enabled: record.enabled === true,
-    hasLocalOnlyChanges: optionalBoolean(record.hasLocalOnlyChanges),
-    lastSnapshotId: optionalString(record.lastSnapshotId),
-    message: optionalString(record.message) ?? "Shared sync status unavailable.",
-    mutationMode: record.mutationMode === "shared" ? "shared" : "local",
-    revision: optionalString(record.revision),
-    sharedRootPath: optionalString(record.sharedRootPath),
   };
 }
 

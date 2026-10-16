@@ -566,6 +566,7 @@ export function TeLabComponentsView({
       <StatusStrip
         counts={{ lowStock: catalog.counts.lowStock, noStock: catalog.counts.noStock }}
         message={statusOverride ?? lastError ?? catalog.shared.message}
+        warning={catalog.shared.warning}
         resultsLabel={
           isLoading
             ? "Loading catalog…"

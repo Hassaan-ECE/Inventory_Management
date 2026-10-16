@@ -11,6 +11,7 @@ mod shared_paths;
 mod snapshot;
 mod timestamps;
 mod types;
+mod warning;
 
 pub(crate) use self::apply::{publish_pending_local_changes, run_shared_sync};
 pub(crate) use self::auth::{sign_canonical_bytes, verify_canonical_bytes};
@@ -22,6 +23,7 @@ pub(crate) use self::shared_paths::{
     startup_inventory_status,
 };
 pub(crate) use self::types::SyncOperationType;
+pub(crate) use self::warning::{record_sync_findings, sync_warning, SyncFindings};
 
 /// Engine internals the sync tests reach into; each test uses a different subset.
 #[cfg(test)]

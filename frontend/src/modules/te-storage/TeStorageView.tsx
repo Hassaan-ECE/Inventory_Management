@@ -120,7 +120,7 @@ export function TeStorageView({ active, activeViewId, onViewChange, theme, onThe
           </table>
         </div>
       </div>
-      <StatusFooter resultsLabel={`${rows.length} ${rows.length === 1 ? "item" : "items"}`} message={message} />
+      <StatusFooter resultsLabel={`${rows.length} ${rows.length === 1 ? "item" : "items"}`} message={message} warning={inventory.shared?.warning} />
       {columnMenu ? <StorageColumnMenu anchor={columnMenu} visibility={visibility}
         onToggle={key => setVisibility(current => ({ ...current, [key]: !current[key] }))}
         onClose={() => setColumnMenu(null)} /> : null}

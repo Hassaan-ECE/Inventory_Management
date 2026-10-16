@@ -3,6 +3,7 @@ import {
   getColumnsForWorkspace,
   mergeColumnVisibility,
 } from "@/modules/te-test-equipment/lib";
+import { syncWarningsMatch } from "@/platform/sync/sharedStatus";
 import type {
   ColumnKey,
   InventoryEntry,
@@ -42,7 +43,8 @@ export function sharedStatusesMatch(left: InventorySharedStatus, right: Inventor
     left.mutationMode === right.mutationMode &&
     left.revision === right.revision &&
     left.lastSnapshotId === right.lastSnapshotId &&
-    left.sharedRootPath === right.sharedRootPath
+    left.sharedRootPath === right.sharedRootPath &&
+    syncWarningsMatch(left.warning, right.warning)
   );
 }
 

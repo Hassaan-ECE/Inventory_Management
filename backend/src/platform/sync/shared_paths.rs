@@ -8,8 +8,8 @@ use std::{
 use crate::platform::{common::InventorySharedStatus, default_shared_root, store::ModuleStore};
 
 use super::{
-    queue::count_pending_local_operations, SharedSyncPaths, SyncCoreResult, SyncRecord,
-    SHARED_SYNC_ENABLED_ENV,
+    queue::count_pending_local_operations, warning::sync_warning, SharedSyncPaths, SyncCoreResult,
+    SyncRecord, SHARED_SYNC_ENABLED_ENV,
 };
 
 const SHARED_SYNC_DISABLED_MESSAGE: &str =
@@ -107,6 +107,7 @@ pub(crate) fn startup_inventory_status<R: SyncRecord>(
         revision: None,
         last_snapshot_id: None,
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
+        warning: None,
     }
 }
 
@@ -143,6 +144,7 @@ pub(crate) fn disabled_shared_status<R: SyncRecord>(
         revision: db.and_then(|db| db.sync_revision().ok().map(|revision| revision.to_string())),
         last_snapshot_id: db.and_then(|db| db.last_snapshot_id().ok().flatten()),
         shared_root_path: None,
+        warning: None,
     }
 }
 
@@ -177,6 +179,7 @@ pub(super) fn build_shared_status<R: SyncRecord>(
         revision: db.sync_revision().ok().map(|revision| revision.to_string()),
         last_snapshot_id: db.last_snapshot_id().ok().flatten(),
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
+        warning: sync_warning(db),
     }
 }
 
