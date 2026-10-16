@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::modules::te_lab_components::{
-    catalog_migration::ensure_catalog_initialized,
     catalog_model::{
         create_part, create_stock_placement, grid_coordinate_label, normalize_part_input,
         normalize_stock_placement_input, normalized_lookup, update_part, update_stock_placement,
@@ -14,9 +13,9 @@ use crate::modules::te_lab_components::{
         ensure_unique_part_number,
     },
     catalog_sync::{self, queued_local_status},
-    model::{CommandResult, InventorySharedStatus},
     store::InventoryDb,
 };
+use crate::platform::common::{CommandResult, InventorySharedStatus};
 
 pub(crate) const SIMPLE_AREA_NAME: &str = "TE Lab";
 pub(crate) const SIMPLE_CONTAINER_NAME: &str = "Shelf";
@@ -63,7 +62,7 @@ fn save_simple_component_with_failure(
     db: &InventoryDb,
     failure: Option<SimpleWorkflowFailurePoint>,
 ) -> CommandResult<CatalogMutationResult<SimpleComponentValue>> {
-    ensure_catalog_initialized(db)?;
+    db.ensure_catalog_schema()?;
 
     let location = normalize_location(&input.location, input.quantity)?;
     let quantity = input.quantity as f64;
@@ -162,7 +161,7 @@ fn save_simple_component_with_failure(
         }
     }
 
-    let next_entry_id_before = db.next_entry_id()?;
+    let next_part_id_before = db.next_part_id()?;
     let sync_backup = db.backup_sync_state()?;
     let part_before = existing_part.clone();
     let placements_before = prior_placements.clone();
@@ -189,12 +188,12 @@ fn save_simple_component_with_failure(
                 updated
             }
             None => {
-                let id = next_entry_id_before;
+                let id = next_part_id_before;
                 let part = create_part(id, part_input.clone());
                 db.put_part(&part)?;
                 wrote_part = true;
                 created_part = Some(part.clone());
-                db.set_next_entry_id(id + 1)?;
+                db.set_next_part_id(id + 1)?;
                 catalog_sync::queue_upsert_operation(db, part.clone().into(), Vec::new(), None)?;
                 part
             }
@@ -324,7 +323,7 @@ fn save_simple_component_with_failure(
                     let _ = db.delete_part(created);
                 }
             }
-            let _ = db.set_next_entry_id(next_entry_id_before);
+            let _ = db.set_next_part_id(next_part_id_before);
 
             // Restore all prior placements and remove any newly created ones.
             let prior_uuids: std::collections::HashSet<String> = placements_before
@@ -591,7 +590,6 @@ fn local_shared_status(db: &InventoryDb) -> InventorySharedStatus {
 mod tests {
     use super::*;
     use crate::modules::te_lab_components::{
-        catalog_migration::ensure_catalog_initialized,
         catalog_model::{StorageAreaInput, StorageContainerInput},
         catalog_mutations::{
             create_part_in_store, create_stock_placement_in_store, create_storage_area_in_store,
@@ -666,7 +664,7 @@ mod tests {
     #[test]
     fn restores_part_placement_next_id_and_sync_state_after_second_write_failure() {
         let db = ready_catalog_db();
-        let before_next_id = db.next_entry_id().unwrap();
+        let before_next_id = db.next_part_id().unwrap();
         let error = save_simple_component_with_failure(
             None,
             simple_input("Capacitor", "1 µF", 2, "A1"),
@@ -680,7 +678,7 @@ mod tests {
         // sync ops) are allowed when the shelf was resolved before the composite write.
         assert!(db.load_parts().unwrap().is_empty());
         assert!(db.load_stock_placements().unwrap().is_empty());
-        assert_eq!(db.next_entry_id().unwrap(), before_next_id);
+        assert_eq!(db.next_part_id().unwrap(), before_next_id);
     }
 
     #[test]
@@ -851,7 +849,7 @@ mod tests {
         let root = env::temp_dir().join(format!("simple-workflow-{}", Uuid::new_v4().simple()));
         fs::create_dir_all(&root).unwrap();
         let db = InventoryDb::open_at(root.join("te-lab-components.feox")).unwrap();
-        ensure_catalog_initialized(&db).unwrap();
+        db.ensure_catalog_schema().unwrap();
         db
     }
 
@@ -948,9 +946,9 @@ mod tests {
         let areas = db.load_storage_areas().unwrap();
         let containers = db.load_storage_containers().unwrap();
         let placements = db.load_stock_placements().unwrap();
-        let next_entry_id = db.next_entry_id().unwrap();
+        let next_part_id = db.next_part_id().unwrap();
         let shared = catalog_sync::queued_local_status(db);
-        serde_json::to_string(&(parts, areas, containers, placements, next_entry_id, shared))
+        serde_json::to_string(&(parts, areas, containers, placements, next_part_id, shared))
             .unwrap()
     }
 }

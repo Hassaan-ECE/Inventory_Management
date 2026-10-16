@@ -1,9 +1,13 @@
 use std::path::Path;
 
-use chrono::{DateTime, Days, NaiveDate, SecondsFormat, Utc};
+use chrono::{DateTime, Days, NaiveDate};
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 use uuid::Uuid;
+
+pub(crate) use crate::platform::common::{
+    db_error, now_timestamp, numeric_id, CommandResult, InventorySharedStatus,
+};
 
 pub(crate) const MAX_QUERY_LIMIT: usize = 10_000;
 const MAX_QUANTITY: f64 = 1_000_000.0;
@@ -15,7 +19,6 @@ const MAX_CALIBRATION_INTERVAL_MONTHS: u16 = 1_200;
 const IMAGE_PATH_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff"];
 const LINK_PROTOCOLS: &[&str] = &["http", "https", "mailto"];
 const PICTURE_URL_PROTOCOLS: &[&str] = &["http", "https"];
-pub(crate) type CommandResult<T> = Result<T, String>;
 pub(crate) const LEGACY_VERIFIED_APPROXIMATION_LABEL: &str =
     "Legacy verified flag — timestamp approximated from updatedAt";
 
@@ -331,20 +334,6 @@ pub(crate) struct InventoryCounts {
     pub verified: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct InventorySharedStatus {
-    pub available: bool,
-    pub can_modify: bool,
-    pub enabled: bool,
-    pub has_local_only_changes: Option<bool>,
-    pub message: String,
-    pub mutation_mode: String,
-    pub revision: Option<String>,
-    pub last_snapshot_id: Option<String>,
-    pub shared_root_path: Option<String>,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InventorySyncResult {
@@ -388,18 +377,6 @@ pub(crate) fn default_lifecycle_status() -> String {
 
 pub(crate) fn default_working_status() -> String {
     "unknown".to_string()
-}
-
-pub(crate) fn db_error(error: impl std::fmt::Display) -> String {
-    error.to_string()
-}
-
-pub(crate) fn numeric_id(id: &str) -> i64 {
-    id.parse::<i64>().unwrap_or(0)
-}
-
-pub(crate) fn now_timestamp() -> String {
-    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
 pub(crate) fn normalize_entry_input(input: InventoryEntryInput) -> InventoryEntryInput {

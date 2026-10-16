@@ -1,7 +1,7 @@
 use serde::{de::DeserializeOwned, Serialize};
 
 use super::{codec::decode_u64_value, keys, InventoryDb};
-use crate::modules::te_lab_components::model::{db_error, CommandResult};
+use crate::platform::common::{db_error, CommandResult};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 // Returned by metadata helpers and asserted in storage tests.
@@ -202,9 +202,7 @@ impl InventoryDb {
         F: FnMut(u64, &[u8]) -> CommandResult<bool>,
     {
         let start_key = match start_after_local_seq {
-            Some(local_seq) => {
-                keys::next_entry_range_start(keys::sync_outbox_key(local_seq)?.into_bytes())
-            }
+            Some(local_seq) => keys::next_key_after(keys::sync_outbox_key(local_seq)?.into_bytes()),
             None => keys::SYNC_OUTBOX_PREFIX.as_bytes().to_vec(),
         };
 

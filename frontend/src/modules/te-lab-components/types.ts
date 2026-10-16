@@ -272,14 +272,6 @@ export interface CatalogCounts {
   unitReview: number;
 }
 
-export interface CatalogMigrationStatus {
-  schemaVersion: number | null;
-  required: boolean;
-  legacyEntryCount: number;
-  catalogInitialized: boolean;
-  message: string;
-}
-
 export interface CatalogSyncResult {
   dbPath: string;
   parts: Part[];
@@ -288,7 +280,6 @@ export interface CatalogSyncResult {
   stockPlacements: StockPlacement[];
   summaries: PartStockSummary[];
   counts: CatalogCounts;
-  migration: CatalogMigrationStatus;
   entriesChanged?: boolean;
   shared: InventorySharedStatus;
 }
@@ -316,72 +307,6 @@ export interface CatalogDeleteResult {
   message: string;
   mutationMode: InventoryMutationMode;
   shared: InventorySharedStatus;
-}
-
-export interface MigrationDuplicateGroup {
-  key: string;
-  entryUuids: string[];
-  entryIds: string[];
-}
-
-export interface CatalogMigrationPreview {
-  mappingVersion: string;
-  sourceFingerprint: string;
-  sourceSchemaVersion: number | null;
-  targetSchemaVersion: number;
-  legacyRows: number;
-  proposedParts: number;
-  proposedPlacements: number;
-  archivedParts: number;
-  blankPositiveQuantityLocations: number;
-  generatedPartUuids: number;
-  duplicateInternalPartNumbers: MigrationDuplicateGroup[];
-  likelyMpnDuplicates: MigrationDuplicateGroup[];
-  invalidRows: string[];
-  warnings: string[];
-  blocking: boolean;
-}
-
-export interface CatalogMigrationCommitInput {
-  sourceFingerprint: string;
-  confirmed: boolean;
-}
-
-export interface CatalogMigrationCommitResult {
-  sourceFingerprint: string;
-  partsCreated: number;
-  placementsCreated: number;
-  areasCreated: number;
-  containersCreated: number;
-  noop: boolean;
-  message: string;
-}
-
-export interface CatalogSharedCutoverPreview {
-  localFingerprint: string;
-  sharedRootPath: string;
-  sharedRootAvailable: boolean;
-  catalogV2Initialized: boolean;
-  legacyStreamState: string;
-  partCount: number;
-  areaCount: number;
-  containerCount: number;
-  placementCount: number;
-  warnings: string[];
-  blocking: boolean;
-}
-
-export interface CatalogSharedCutoverCommitInput {
-  localFingerprint: string;
-  confirmed: boolean;
-}
-
-export interface CatalogSharedCutoverCommitResult {
-  localFingerprint: string;
-  legacyBackupPath: string | null;
-  catalogRootPath: string;
-  noop: boolean;
-  message: string;
 }
 
 export interface InventoryCounts {

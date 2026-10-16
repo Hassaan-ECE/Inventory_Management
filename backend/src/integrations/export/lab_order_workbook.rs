@@ -1,3 +1,4 @@
+use crate::platform::common::CommandResult;
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     path::Path,
@@ -12,7 +13,6 @@ use crate::modules::te_lab_components::{
         grid_coordinate_label, summarize_part_stock, Part, StockPlacement, StockStatus,
         StorageContainer,
     },
-    model::CommandResult,
     store::InventoryDb as LabInventoryDb,
 };
 
@@ -422,7 +422,6 @@ fn cell_format(background: &'static str, align: FormatAlign) -> Format {
 mod tests {
     use super::*;
     use crate::modules::te_lab_components::{
-        catalog_migration::ensure_catalog_initialized,
         catalog_model::{
             create_part, normalize_part_input, PartInput, StockPlacementInput, StorageAreaInput,
             StorageContainerInput,
@@ -569,7 +568,7 @@ mod tests {
         let root = env::temp_dir().join(format!("lab-order-{}", Uuid::new_v4().simple()));
         fs::create_dir_all(&root).unwrap();
         let db = LabInventoryDb::open_at(root.join("te-lab-components.feox")).unwrap();
-        ensure_catalog_initialized(&db).unwrap();
+        db.ensure_catalog_schema().unwrap();
 
         put_part(
             &db,
@@ -685,11 +684,11 @@ mod tests {
     }
 
     fn put_part(db: &LabInventoryDb, entry_uuid: &str, input: PartInput) {
-        let id = db.next_entry_id().unwrap();
+        let id = db.next_part_id().unwrap();
         let mut part = create_part(id, normalize_part_input(input));
         part.entry_uuid = entry_uuid.to_string();
         db.put_part(&part).unwrap();
-        db.set_next_entry_id(id + 1).unwrap();
+        db.set_next_part_id(id + 1).unwrap();
         db.flush();
     }
 
@@ -698,7 +697,7 @@ mod tests {
         let placements = db.load_stock_placements().unwrap();
         let areas = db.load_storage_areas().unwrap();
         let containers = db.load_storage_containers().unwrap();
-        let next_id = db.next_entry_id().unwrap();
+        let next_id = db.next_part_id().unwrap();
         format!("{next_id}|{parts:?}|{placements:?}|{areas:?}|{containers:?}")
     }
 

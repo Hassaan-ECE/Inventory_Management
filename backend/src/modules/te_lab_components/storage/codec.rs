@@ -1,7 +1,7 @@
 use serde::{de::DeserializeOwned, Serialize};
 
 use super::{keys, InventoryDb};
-use crate::modules::te_lab_components::model::{db_error, CommandResult, InventoryEntry};
+use crate::platform::common::{db_error, CommandResult};
 
 impl InventoryDb {
     pub(super) fn put_json<T: Serialize>(&self, key: &[u8], value: &T) -> CommandResult<bool> {
@@ -70,6 +70,18 @@ impl InventoryDb {
         Ok(())
     }
 
+    pub(super) fn delete_prefix(&self, prefix: &str) -> CommandResult<()> {
+        let mut keys = Vec::new();
+        self.scan_sync_prefix_from(prefix, prefix.as_bytes().to_vec(), usize::MAX, |key, _| {
+            keys.push(key.to_vec());
+            Ok(true)
+        })?;
+        for key in keys {
+            self.delete_key(&key)?;
+        }
+        Ok(())
+    }
+
     pub(super) fn scan_sync_prefix_from<F>(
         &self,
         prefix: &str,
@@ -121,14 +133,10 @@ impl InventoryDb {
             }
 
             if let Some(last_key) = last_key {
-                start_key = keys::next_entry_range_start(last_key);
+                start_key = keys::next_key_after(last_key);
             }
         }
     }
-}
-
-pub(super) fn decode_entry(value: &[u8]) -> CommandResult<InventoryEntry> {
-    serde_json::from_slice(value).map_err(db_error)
 }
 
 pub(super) fn decode_u64_value(value: &[u8], label: &str) -> CommandResult<u64> {

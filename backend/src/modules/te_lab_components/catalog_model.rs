@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use uuid::Uuid;
 
-use crate::modules::te_lab_components::model::{
-    now_timestamp, CommandResult, InventorySharedStatus,
-};
+use crate::platform::common::{now_timestamp, CommandResult, InventorySharedStatus};
 
 pub(crate) const CATALOG_SCHEMA_VERSION: u32 = 2;
 pub(crate) const MAX_CATALOG_QUANTITY: f64 = 1_000_000_000.0;
@@ -278,16 +276,6 @@ pub(crate) struct CatalogCounts {
     pub unit_review: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct CatalogMigrationStatus {
-    pub schema_version: Option<u32>,
-    pub required: bool,
-    pub legacy_entry_count: usize,
-    pub catalog_initialized: bool,
-    pub message: String,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CatalogSyncResult {
@@ -298,7 +286,6 @@ pub(crate) struct CatalogSyncResult {
     pub stock_placements: Vec<StockPlacement>,
     pub summaries: Vec<PartStockSummary>,
     pub counts: CatalogCounts,
-    pub migration: CatalogMigrationStatus,
     pub entries_changed: Option<bool>,
     pub shared: InventorySharedStatus,
 }

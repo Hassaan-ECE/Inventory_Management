@@ -30,13 +30,6 @@ const EMPTY_CATALOG: CatalogSyncResult = {
     lowStock: 0,
     unitReview: 0,
   },
-  migration: {
-    schemaVersion: null,
-    required: false,
-    legacyEntryCount: 0,
-    catalogInitialized: false,
-    message: "Loading Lab Components catalog...",
-  },
   shared: PENDING_SHARED_STATUS,
 };
 
@@ -133,11 +126,7 @@ export function useLabCatalog({ active, announceStatus }: UseLabCatalogOptions) 
         setCatalog((current) =>
           payload.entriesChanged === true
             ? payload
-            : {
-                ...current,
-                migration: payload.migration,
-                shared: payload.shared,
-              },
+            : { ...current, shared: payload.shared },
         );
         setLastError(null);
       } catch (error) {
@@ -309,7 +298,6 @@ export function useLabCatalog({ active, announceStatus }: UseLabCatalogOptions) 
     isLoading,
     lastError,
     refreshAfterMutation,
-    refreshCatalog,
     scheduleDesktopSync,
     setCatalog,
   };

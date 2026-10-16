@@ -21,11 +21,9 @@ use crate::{
         InventoryQueryResult, InventorySharedStatus, InventorySyncResult,
     },
     modules::te_lab_components::{
-        catalog_migration as lab_catalog_migration, catalog_model as lab_catalog_model,
-        catalog_mutations as lab_catalog_mutations, catalog_query as lab_catalog_query,
-        catalog_sync as lab_catalog_sync, model as lab_model, mutations as lab_mutations,
-        query as lab_query, simple_workflow as lab_simple_workflow,
-        store::InventoryDb as LabInventoryDb, sync as lab_sync,
+        catalog_model as lab_catalog_model, catalog_mutations as lab_catalog_mutations,
+        catalog_query as lab_catalog_query, catalog_sync as lab_catalog_sync,
+        simple_workflow as lab_simple_workflow, store::InventoryDb as LabInventoryDb,
     },
     platform::ModuleId,
     query::{get_inventory_counts, query_entries},
@@ -35,6 +33,8 @@ use crate::{
     sync,
 };
 
+const LAB_USES_CATALOG_COMMANDS: &str =
+    "TE Lab Components changes go through the Lab catalog commands.";
 const WATCHER_DEGRADED_MESSAGE: &str =
     "File watch unavailable; scheduled synchronization remains active.";
 
@@ -59,7 +59,7 @@ pub(crate) fn load_inventory(
         )?),
         ModuleId::TeLabComponents => command_value(load_lab_inventory_from_store_with_status(
             stores.te_lab_components(),
-            coordinator.background_status::<lab_model::InventorySharedStatus>(module)?,
+            coordinator.background_status::<InventorySharedStatus>(module)?,
         )?),
     }
 }
@@ -83,18 +83,7 @@ pub(crate) fn query_inventory(
                 coordinator.background_status::<InventorySharedStatus>(module)?,
             )?)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let input = parse_command_input::<lab_model::InventoryQueryInput>(
-                input,
-                "Lab inventory query",
-            )?;
-            command_value(query_lab_inventory_from_store_with_status(
-                input,
-                stores.te_lab_components(),
-                coordinator.background_status::<lab_model::InventorySharedStatus>(module)?,
-            )?)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -169,15 +158,6 @@ pub(crate) async fn sync_inventory(
             })?))
         }
         ModuleId::TeLabComponents => {
-            let migration =
-                lab_catalog_migration::catalog_migration_status(stores.te_lab_components())?;
-            if migration.required {
-                let value = command_value(load_lab_inventory_from_store_with_status(
-                    stores.te_lab_components(),
-                    coordinator.background_status::<lab_model::InventorySharedStatus>(module)?,
-                )?)?;
-                return Ok(Some(value));
-            }
             let coordinator = coordinator.inner().clone();
             let task_coordinator = coordinator.clone();
             let db = stores.te_lab_components().clone();
@@ -260,17 +240,7 @@ pub(crate) fn create_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let input = parse_command_input::<lab_model::InventoryEntryInput>(input, "Lab entry")?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory create", || {
-                lab_mutations::create_entry_in_store(input, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -318,21 +288,7 @@ pub(crate) fn update_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let input = parse_command_input::<lab_model::InventoryEntryInput>(input, "Lab entry")?;
-            let edit_context = parse_optional_command_input::<lab_model::InventoryEntryEditContext>(
-                edit_context,
-                "Lab edit context",
-            )?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory update", || {
-                lab_mutations::update_entry_in_store(&entry_id, input, edit_context, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -358,16 +314,7 @@ pub(crate) fn toggle_verified_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory verify", || {
-                lab_mutations::toggle_verified_entry_in_store(&entry_id, next_verified, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -393,16 +340,7 @@ pub(crate) fn set_archived_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory archive", || {
-                lab_mutations::set_archived_entry_in_store(&entry_id, archived, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -435,16 +373,7 @@ pub(crate) fn delete_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory delete", || {
-                lab_mutations::delete_entry_in_store(&entry_id, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -729,56 +658,6 @@ pub(crate) fn count_lab_stock(
 }
 
 #[tauri::command]
-pub(crate) fn preview_lab_catalog_migration(
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    command_value(coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "catalog migration preview",
-        || lab_catalog_migration::preview_catalog_migration(stores.te_lab_components()),
-    )?)
-}
-
-#[tauri::command]
-pub(crate) fn commit_lab_catalog_migration(
-    input: lab_catalog_migration::CatalogMigrationCommitInput,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    command_value(coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "catalog migration commit",
-        || lab_catalog_migration::commit_catalog_migration(input, stores.te_lab_components()),
-    )?)
-}
-
-#[tauri::command]
-pub(crate) fn preview_lab_shared_cutover(
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    command_value(coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "shared catalog cutover preview",
-        || lab_catalog_sync::preview_shared_cutover(stores.te_lab_components()),
-    )?)
-}
-
-#[tauri::command]
-pub(crate) fn commit_lab_shared_cutover(
-    input: lab_catalog_sync::CatalogSharedCutoverCommitInput,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    command_value(coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "shared catalog cutover commit",
-        || lab_catalog_sync::commit_shared_cutover(input, stores.te_lab_components()),
-    )?)
-}
-
-#[tauri::command]
 pub(crate) async fn pick_calibration_roster_file(
     app: AppHandle,
     module_id: String,
@@ -852,17 +731,6 @@ fn require_te_module(module: ModuleId) -> CommandResult<()> {
     }
 }
 
-fn require_legacy_lab_projection(db: &LabInventoryDb) -> CommandResult<()> {
-    if db.schema_version()? == Some(lab_catalog_model::CATALOG_SCHEMA_VERSION) {
-        Err(
-            "This Lab Components database uses catalog schema v2. Use the Lab catalog commands instead of legacy inventory-entry commands."
-                .to_string(),
-        )
-    } else {
-        Ok(())
-    }
-}
-
 fn parse_command_input<T: DeserializeOwned>(value: Value, label: &str) -> CommandResult<T> {
     serde_json::from_value(value).map_err(|error| format!("Invalid {label}: {error}"))
 }
@@ -907,7 +775,7 @@ fn load_inventory_from_store_with_status(
 
 fn load_lab_inventory_from_store_with_status(
     db: &LabInventoryDb,
-    latest_background_status: Option<lab_model::InventorySharedStatus>,
+    latest_background_status: Option<InventorySharedStatus>,
 ) -> CommandResult<lab_catalog_model::CatalogSyncResult> {
     let shared = latest_background_status.unwrap_or_else(|| {
         lab_catalog_sync::startup_catalog_status(
@@ -937,27 +805,6 @@ fn query_inventory_from_store_with_status(
     })
 }
 
-fn query_lab_inventory_from_store_with_status(
-    input: lab_model::InventoryQueryInput,
-    db: &LabInventoryDb,
-    latest_background_status: Option<lab_model::InventorySharedStatus>,
-) -> CommandResult<lab_model::InventoryQueryResult> {
-    let all_entries = db.load_entries()?;
-    let counts = lab_query::get_inventory_counts(&all_entries);
-    let (entries, total_filtered) = lab_query::query_entries(&all_entries, input);
-    let shared = latest_background_status.unwrap_or_else(|| {
-        lab_sync::shared_inventory_status(db, "FeOxDB Lab Components store ready.")
-    });
-
-    Ok(lab_model::InventoryQueryResult {
-        counts,
-        db_path: db.db_path_string(),
-        entries,
-        shared,
-        total_filtered,
-    })
-}
-
 fn schedule_te_shared_publish(app: AppHandle, db: InventoryDb, coordinator: SharedSyncCoordinator) {
     let module = ModuleId::TeTestEquipment;
     drop(tauri::async_runtime::spawn_blocking(move || {
@@ -966,28 +813,6 @@ fn schedule_te_shared_publish(app: AppHandle, db: InventoryDb, coordinator: Shar
         }) {
             Ok(result) => result.shared,
             Err(error) => sync::shared_inventory_status(
-                &db,
-                format!("Background shared publish failed: {error}"),
-            ),
-        };
-        let _ = coordinator.set_background_status(module, status);
-        db.flush();
-        shared_watcher::emit_module_shared_inventory_changed(&app, module);
-    }));
-}
-
-fn schedule_lab_shared_publish(
-    app: AppHandle,
-    db: LabInventoryDb,
-    coordinator: SharedSyncCoordinator,
-) {
-    let module = ModuleId::TeLabComponents;
-    drop(tauri::async_runtime::spawn_blocking(move || {
-        let status = match coordinator.run_exclusive(module, "shared publish", || {
-            lab_sync::publish_pending_local_changes(&db)
-        }) {
-            Ok(result) => result.shared,
-            Err(error) => lab_sync::shared_inventory_status(
                 &db,
                 format!("Background shared publish failed: {error}"),
             ),

@@ -1,6 +1,5 @@
 mod catalog_workbook;
 mod lab_order_workbook;
-mod lab_workbook;
 mod workbook;
 
 use std::path::{Path, PathBuf};
@@ -14,9 +13,7 @@ use crate::{
     inventory_stores::InventoryStores,
     model::{CommandResult, InventoryEntry},
     modules::te_lab_components::{
-        catalog_migration,
         catalog_model::{Part, StockPlacement, StorageArea, StorageContainer},
-        model::InventoryEntry as LabInventoryEntry,
         store::InventoryDb as LabInventoryDb,
     },
     platform::ModuleId,
@@ -85,7 +82,7 @@ pub(crate) async fn export_lab_order_request(
     stores: State<'_, InventoryStores>,
 ) -> CommandResult<ExcelExportResult> {
     let db = stores.te_lab_components();
-    catalog_migration::ensure_catalog_initialized(db)?;
+    db.ensure_catalog_schema()?;
     // Resolve authoritative rows before the save dialog so validation failures
     // never open a picker, and cancel never leaves partial work.
     let rows = lab_order_workbook::build_lab_order_rows(db, &lines)?;
@@ -126,12 +123,7 @@ pub(crate) fn export_lab_excel_to_path(
     db: &LabInventoryDb,
     output_path: impl AsRef<Path>,
 ) -> CommandResult<ExcelExportStats> {
-    let migration = catalog_migration::catalog_migration_status(db)?;
-    if migration.required {
-        let entries = db.load_entries()?;
-        return write_lab_legacy_inventory_workbook(&entries, output_path);
-    }
-    catalog_migration::ensure_catalog_initialized(db)?;
+    db.ensure_catalog_schema()?;
     write_lab_catalog_workbook(
         &db.load_parts()?,
         &db.load_storage_areas()?,
@@ -149,13 +141,6 @@ pub(crate) fn write_lab_catalog_workbook(
     output_path: impl AsRef<Path>,
 ) -> CommandResult<ExcelExportStats> {
     catalog_workbook::write_catalog_workbook(parts, areas, containers, placements, output_path)
-}
-
-pub(crate) fn write_lab_legacy_inventory_workbook(
-    entries: &[LabInventoryEntry],
-    output_path: impl AsRef<Path>,
-) -> CommandResult<ExcelExportStats> {
-    lab_workbook::write_legacy_inventory_workbook(entries, output_path)
 }
 
 impl ExcelExportResult {
@@ -423,31 +408,6 @@ mod tests {
     }
 
     #[test]
-    fn lab_legacy_workbook_remains_available_for_pre_migration_backup() {
-        let path = temp_xlsx_path("lab-legacy-backup");
-        let stats = write_lab_legacy_inventory_workbook(
-            &[
-                lab_test_entry("42", false, true, Some(3.5)),
-                lab_test_entry("43", true, false, None),
-            ],
-            &path,
-        )
-        .unwrap();
-
-        assert_eq!(stats.total_count, 2);
-        let workbook_xml = read_xlsx_member(&path, "xl/workbook.xml");
-        assert!(workbook_xml.contains(r#"name="Inventory""#));
-        assert!(workbook_xml.contains(r#"name="Archive""#));
-        let shared_strings = shared_strings(&path);
-        let rows = worksheet_rows(&path, "xl/worksheets/sheet1.xml", &shared_strings);
-        assert_eq!(rows[0], lab_legacy_inventory_headers());
-        assert_eq!(rows[1][0], "TE-42");
-        assert!(rows[0].iter().all(|header| !header.contains("Calibration")));
-
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
     fn calibration_export_uses_injected_date_and_includes_stored_verification_fields() {
         let path = temp_xlsx_path("calibration-contract");
         let mut entry = test_entry("9", false, false, Some(1.0));
@@ -532,39 +492,6 @@ mod tests {
             verified_at: verified.then(|| "2026-01-01T00:00:00Z".to_string()),
             verified_by: None,
             import_provenance: None,
-            archived,
-            manual_entry: false,
-            picture_path: format!(r"C:\Pictures\{id}.jpg"),
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-02T00:00:00.000Z".to_string(),
-        }
-    }
-
-    fn lab_test_entry(
-        id: &str,
-        archived: bool,
-        verified: bool,
-        qty: Option<f64>,
-    ) -> LabInventoryEntry {
-        LabInventoryEntry {
-            id: id.to_string(),
-            database_id: id.parse::<i64>().ok(),
-            entry_uuid: format!("lab-uuid-{id}"),
-            asset_number: format!("TE-{id}"),
-            serial_number: format!("SN-{id}"),
-            qty,
-            manufacturer: "Mitutoyo".to_string(),
-            model: format!("Model {id}"),
-            description: format!("Entry {id}"),
-            project_name: "Project".to_string(),
-            location: "Lab".to_string(),
-            assigned_to: "TE".to_string(),
-            links: "https://example.com".to_string(),
-            notes: "Notes".to_string(),
-            lifecycle_status: if archived { "scrapped" } else { "active" }.to_string(),
-            working_status: "working".to_string(),
-            condition: "Good".to_string(),
-            verified_in_survey: verified,
             archived,
             manual_entry: false,
             picture_path: format!(r"C:\Pictures\{id}.jpg"),
@@ -717,10 +644,6 @@ mod tests {
 
     fn inventory_headers() -> Vec<&'static str> {
         super::workbook::inventory_headers()
-    }
-
-    fn lab_legacy_inventory_headers() -> Vec<&'static str> {
-        super::lab_workbook::legacy_inventory_headers()
     }
 
     fn lab_catalog_sheet_headers() -> Vec<(&'static str, Vec<&'static str>)> {

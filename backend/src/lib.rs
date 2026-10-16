@@ -33,14 +33,9 @@ pub fn run() {
             if let Err(error) = sync::recover_local_sync_state(te_db) {
                 eprintln!("TE local sync recovery failed (continuing startup): {error}");
             }
-            let lab_recovery = if lab_db.schema_version()?
-                == Some(modules::te_lab_components::catalog_model::CATALOG_SCHEMA_VERSION)
-            {
+            if let Err(error) =
                 modules::te_lab_components::catalog_sync::recover_local_sync_state(lab_db)
-            } else {
-                modules::te_lab_components::sync::recover_local_sync_state(lab_db).map(|_| ())
-            };
-            if let Err(error) = lab_recovery {
+            {
                 eprintln!("Lab local sync recovery failed (continuing startup): {error}");
             }
             if let Err(error) =
@@ -80,10 +75,6 @@ pub fn run() {
             commands::delete_lab_stock_placement,
             commands::move_lab_stock,
             commands::count_lab_stock,
-            commands::preview_lab_catalog_migration,
-            commands::commit_lab_catalog_migration,
-            commands::preview_lab_shared_cutover,
-            commands::commit_lab_shared_cutover,
             commands::pick_calibration_roster_file,
             commands::preview_calibration_roster,
             commands::commit_calibration_roster,

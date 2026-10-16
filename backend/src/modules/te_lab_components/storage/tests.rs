@@ -1,4 +1,5 @@
 use super::*;
+use crate::modules::te_lab_components::catalog_model::CATALOG_SCHEMA_VERSION;
 use std::{env, fs, path::PathBuf};
 use uuid::Uuid;
 
@@ -6,52 +7,6 @@ use uuid::Uuid;
 struct TestSyncRecord {
     label: String,
     local_seq: u64,
-}
-
-#[test]
-fn find_entry_supports_key_uuid_and_legacy_numeric_id() {
-    let db = test_db();
-    let entry = test_entry("42", "legacy-uuid-42");
-
-    db.put_json(keys::entry_key(&entry.entry_uuid).as_bytes(), &entry)
-        .unwrap();
-
-    assert_eq!(
-        db.find_entry(&keys::entry_key(&entry.entry_uuid))
-            .unwrap()
-            .unwrap()
-            .id,
-        "42"
-    );
-    assert_eq!(db.find_entry(&entry.entry_uuid).unwrap().unwrap().id, "42");
-    assert_eq!(
-        db.find_entry("42").unwrap().unwrap().entry_uuid,
-        "legacy-uuid-42"
-    );
-    assert!(db.store.contains_key(keys::entry_id_key("42").as_bytes()));
-}
-
-#[test]
-fn delete_entry_removes_entry_and_id_index() {
-    let db = test_db();
-    let entry = test_entry("7", "uuid-7");
-
-    db.put_entry(&entry).unwrap();
-    assert!(db
-        .store
-        .contains_key(keys::entry_key(&entry.entry_uuid).as_bytes()));
-    assert!(db
-        .store
-        .contains_key(keys::entry_id_key(&entry.id).as_bytes()));
-
-    db.delete_entry(&entry).unwrap();
-
-    assert!(!db
-        .store
-        .contains_key(keys::entry_key(&entry.entry_uuid).as_bytes()));
-    assert!(!db
-        .store
-        .contains_key(keys::entry_id_key(&entry.id).as_bytes()));
 }
 
 #[test]
@@ -243,7 +198,7 @@ fn sync_records_round_trip_and_scan_in_key_order() {
 }
 
 #[test]
-fn sync_keys_do_not_appear_in_entry_scans() {
+fn sync_keys_do_not_appear_in_catalog_scans() {
     let db = test_db();
 
     db.set_schema_version(1).unwrap();
@@ -263,57 +218,40 @@ fn sync_keys_do_not_appear_in_entry_scans() {
     db.put_sync_value("meta:test_raw", b"meta").unwrap();
     db.put_sync_value("sync:test_raw", b"sync").unwrap();
 
-    assert!(!db.has_entries().unwrap());
-    assert!(db.load_entries().unwrap().is_empty());
+    assert!(!db.has_catalog_entities().unwrap());
+    assert!(db.load_parts().unwrap().is_empty());
     assert_eq!(
         db.get_sync_value("meta:test_raw").unwrap().as_deref(),
         Some(&b"meta"[..])
     );
-    assert!(db.put_sync_value("entry:test_raw", b"bad").is_err());
+    assert!(db.put_sync_value("part:test_raw", b"bad").is_err());
+}
 
-    let entry = test_entry("11", "uuid-11");
-    db.put_entry(&entry).unwrap();
+#[test]
+fn catalog_schema_setup_drops_v1_rows_and_sync_state() {
+    let db = test_db();
+    db.put_bytes(b"entry:legacy-uuid", b"{}").unwrap();
+    db.put_bytes(b"entry_id:7", b"legacy-uuid").unwrap();
+    db.put_sync_outbox_record(1, &sync_record("v1-op", 1))
+        .unwrap();
+    db.set_sync_schema_version(1).unwrap();
 
-    let entries = db.load_entries().unwrap();
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].entry_uuid, "uuid-11");
+    db.ensure_catalog_schema().unwrap();
+
+    assert_eq!(db.schema_version().unwrap(), Some(CATALOG_SCHEMA_VERSION));
+    assert_eq!(db.sync_schema_version().unwrap(), Some(2));
+    assert!(!db.store.contains_key(b"entry:legacy-uuid"));
+    assert!(!db.store.contains_key(b"entry_id:7"));
+    assert!(db
+        .sync_outbox_record::<TestSyncRecord>(1)
+        .unwrap()
+        .is_none());
 }
 
 fn sync_record(label: &str, local_seq: u64) -> TestSyncRecord {
     TestSyncRecord {
         label: label.to_string(),
         local_seq,
-    }
-}
-
-fn test_entry(
-    id: &str,
-    entry_uuid: &str,
-) -> crate::modules::te_lab_components::model::InventoryEntry {
-    crate::modules::te_lab_components::model::InventoryEntry {
-        id: id.to_string(),
-        database_id: id.parse::<i64>().ok(),
-        entry_uuid: entry_uuid.to_string(),
-        asset_number: format!("TE-{id}"),
-        serial_number: String::new(),
-        qty: Some(1.0),
-        manufacturer: "Mitutoyo".to_string(),
-        model: String::new(),
-        description: "Caliper".to_string(),
-        project_name: String::new(),
-        location: "Lab".to_string(),
-        assigned_to: String::new(),
-        links: String::new(),
-        notes: String::new(),
-        lifecycle_status: "active".to_string(),
-        working_status: "unknown".to_string(),
-        condition: String::new(),
-        verified_in_survey: false,
-        archived: false,
-        manual_entry: false,
-        picture_path: String::new(),
-        created_at: "2026-01-01T00:00:00Z".to_string(),
-        updated_at: "2026-01-01T00:00:00Z".to_string(),
     }
 }
 

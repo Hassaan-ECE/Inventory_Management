@@ -14,6 +14,7 @@ mod timestamps;
 mod types;
 
 pub(crate) use self::apply::{publish_pending_local_changes, run_shared_sync};
+pub(crate) use self::auth::{sign_canonical_bytes, verify_canonical_bytes};
 pub(crate) use self::queue::{queue_delete_operation, queue_entry_operation};
 pub(crate) use self::recovery::{last_local_recovery_message, recover_local_sync_state};
 pub(crate) use self::shared_paths::{

@@ -7,8 +7,6 @@ use crate::platform::{LocalDatabase, ModuleId};
 
 mod catalog;
 mod codec;
-#[allow(dead_code)]
-mod entries;
 mod keys;
 mod metadata;
 mod sync_state;

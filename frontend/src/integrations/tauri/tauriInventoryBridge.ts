@@ -18,15 +18,11 @@ import {
 } from "@/integrations/tauri/bridgeGuards";
 import {
   parseLabCatalogDeleteResult,
-  parseLabCatalogMigrationCommitResult,
-  parseLabCatalogMigrationPreview,
   parseLabDeleteMutationResult,
   parseLabEntryMutationResult,
   parseLabInventoryQueryResult,
   parseLabInventorySyncResult,
   parseLabPartMutationResult,
-  parseLabSharedCutoverCommitResult,
-  parseLabSharedCutoverPreview,
   parseLabSimpleComponentMutationResult,
   parseLabStockMoveMutationResult,
   parseLabStockPlacementMutationResult,
@@ -37,8 +33,6 @@ import type {
   CalibrationRosterCommitInput,
 } from "@/modules/te-test-equipment/types";
 import type {
-  CatalogMigrationCommitInput,
-  CatalogSharedCutoverCommitInput,
   LabOrderRequestLineInput,
   PartInput,
   SimpleComponentInput,
@@ -123,14 +117,6 @@ if (typeof window !== "undefined" && isTauri()) {
       invoke("move_lab_stock", { input }).then(parseLabStockMoveMutationResult),
     countLabStock: (placementUuid: string, input: StockCountInput) =>
       invoke("count_lab_stock", { input, placementUuid }).then(parseLabStockPlacementMutationResult),
-    previewLabCatalogMigration: () =>
-      invoke("preview_lab_catalog_migration").then(parseLabCatalogMigrationPreview),
-    commitLabCatalogMigration: (input: CatalogMigrationCommitInput) =>
-      invoke("commit_lab_catalog_migration", { input }).then(parseLabCatalogMigrationCommitResult),
-    previewLabSharedCutover: () =>
-      invoke("preview_lab_shared_cutover").then(parseLabSharedCutoverPreview),
-    commitLabSharedCutover: (input: CatalogSharedCutoverCommitInput) =>
-      invoke("commit_lab_shared_cutover", { input }).then(parseLabSharedCutoverCommitResult),
     openExternal: async (url: string) =>
       invoke("open_external", { url }).then((value) => parseBoolean(value, "open_external result")),
     openPath: async (path: string) =>

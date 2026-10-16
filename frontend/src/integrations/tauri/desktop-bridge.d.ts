@@ -14,13 +14,7 @@ import type {
 } from "@/modules/te-test-equipment/types";
 import type {
   CatalogDeleteResult as LabCatalogDeleteResult,
-  CatalogMigrationCommitInput,
-  CatalogMigrationCommitResult,
-  CatalogMigrationPreview,
   CatalogMutationResult as LabCatalogMutationResult,
-  CatalogSharedCutoverCommitInput,
-  CatalogSharedCutoverCommitResult,
-  CatalogSharedCutoverPreview,
   CatalogSyncResult as LabCatalogSyncResult,
   InventoryDeleteMutationResult as LabInventoryDeleteMutationResult,
   InventoryEntry as LabInventoryEntry,
@@ -172,14 +166,6 @@ export interface InventoryDesktopBridge {
     placementUuid: string,
     input: StockCountInput,
   ) => Promise<LabCatalogMutationResult<StockPlacement>>;
-  previewLabCatalogMigration?: () => Promise<CatalogMigrationPreview>;
-  commitLabCatalogMigration?: (
-    input: CatalogMigrationCommitInput,
-  ) => Promise<CatalogMigrationCommitResult>;
-  previewLabSharedCutover?: () => Promise<CatalogSharedCutoverPreview>;
-  commitLabSharedCutover?: (
-    input: CatalogSharedCutoverCommitInput,
-  ) => Promise<CatalogSharedCutoverCommitResult>;
   openExternal?: (url: string) => Promise<boolean>;
   openPath?: (path: string) => Promise<boolean>;
   loadPicturePreview?: (path: string) => Promise<string | null>;

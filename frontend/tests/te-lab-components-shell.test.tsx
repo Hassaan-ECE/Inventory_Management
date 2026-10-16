@@ -10,7 +10,6 @@ import type {
 import { MOCK_CATALOG } from "@/modules/te-lab-components/catalog/mockCatalog";
 import { PartDialog } from "@/modules/te-lab-components/catalog/PartDialog";
 import type {
-  CatalogMigrationPreview,
   CatalogMutationResult,
   CatalogSyncResult,
   InventorySharedStatus as LabInventorySharedStatus,
@@ -320,30 +319,6 @@ describe("TE Lab Components catalog shell integration", () => {
     expect(screen.getByLabelText("Search storage locations")).toBeInTheDocument();
   });
 
-  it("opens Lab shared cutover setup when the enabled shared root is not ready", async () => {
-    localStorage.setItem("inventory.activeSystem", "te-lab-components");
-    const user = userEvent.setup();
-    const catalog = buildLabCatalog([buildLabPart()], undefined, {
-      shared: {
-        ...LAB_SHARED_STATUS,
-        available: false,
-        message: "Shared catalog cutover required.",
-        mutationMode: "local",
-      },
-    });
-    window.inventoryDesktop = createDesktopBridge({
-      loadInventory: vi.fn().mockResolvedValue(catalog),
-      syncInventory: vi.fn().mockResolvedValue({ ...catalog, entriesChanged: false }),
-    });
-
-    render(<InventoryShell />);
-
-    await user.click(await screen.findByRole("button", { name: "Set Up Lab Shared Catalog" }));
-
-    expect(screen.getByRole("heading", { name: "Lab Shared Catalog Cutover" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
-  });
-
   it("selects shared bins with Excel labels, occupied warnings, and keyboard navigation", async () => {
     localStorage.setItem("inventory.activeSystem", "te-lab-components");
     const user = userEvent.setup();
@@ -485,53 +460,6 @@ describe("TE Lab Components catalog shell integration", () => {
       }),
     ));
     expect(createLabStockPlacement).not.toHaveBeenCalled();
-  });
-
-  it("requires a reviewed dry-run fingerprint before committing legacy migration", async () => {
-    localStorage.setItem("inventory.activeSystem", "te-lab-components");
-    const user = userEvent.setup();
-    const migrationCatalog = buildLabCatalog([], undefined, {
-      migration: {
-        schemaVersion: 1,
-        required: true,
-        legacyEntryCount: 3,
-        catalogInitialized: false,
-        message: "Legacy Lab Components data requires a reviewed catalog migration.",
-      },
-      shared: { ...LAB_SHARED_STATUS, enabled: false, available: false, mutationMode: "local" },
-    });
-    const readyCatalog = buildLabCatalog([]);
-    const preview = buildMigrationPreview();
-    const loadInventory = vi.fn().mockResolvedValueOnce(migrationCatalog).mockResolvedValue(readyCatalog);
-    const previewLabCatalogMigration = vi.fn().mockResolvedValue(preview);
-    const commitLabCatalogMigration = vi.fn().mockResolvedValue({
-      sourceFingerprint: preview.sourceFingerprint,
-      partsCreated: 3,
-      placementsCreated: 2,
-      areasCreated: 1,
-      containersCreated: 1,
-      noop: false,
-      message: "Migration committed.",
-    });
-    window.inventoryDesktop = createDesktopBridge({
-      loadInventory,
-      previewLabCatalogMigration,
-      commitLabCatalogMigration,
-    });
-
-    render(<InventoryShell />);
-
-    expect(await screen.findByRole("heading", { name: "Legacy Lab data requires reviewed migration" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Run Dry-Run" }));
-    expect(await screen.findByText("Every migrated quantity uses unit unknown.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Commit Migration" })).toBeDisabled();
-    await user.click(screen.getByLabelText(/I reviewed this exact dry-run fingerprint/i));
-    await user.click(screen.getByRole("button", { name: "Commit Migration" }));
-
-    await waitFor(() => expect(commitLabCatalogMigration).toHaveBeenCalledWith({
-      sourceFingerprint: preview.sourceFingerprint,
-      confirmed: true,
-    }));
   });
 
   it("shows selection only after Export → Select Components for Order", async () => {
@@ -729,36 +657,9 @@ function buildLabCatalog(
       lowStock: 0,
       unitReview: 0,
     },
-    migration: {
-      schemaVersion: 2,
-      required: false,
-      legacyEntryCount: 0,
-      catalogInitialized: true,
-      message: "Lab catalog ready.",
-    },
     entriesChanged,
     shared: LAB_SHARED_STATUS,
     ...overrides,
-  };
-}
-
-function buildMigrationPreview(): CatalogMigrationPreview {
-  return {
-    mappingVersion: "te-lab-components-catalog-v2",
-    sourceFingerprint: "sha256:migration-review",
-    sourceSchemaVersion: 1,
-    targetSchemaVersion: 2,
-    legacyRows: 3,
-    proposedParts: 3,
-    proposedPlacements: 2,
-    archivedParts: 0,
-    blankPositiveQuantityLocations: 1,
-    generatedPartUuids: 0,
-    duplicateInternalPartNumbers: [],
-    likelyMpnDuplicates: [],
-    invalidRows: [],
-    warnings: ["Every migrated quantity uses unit unknown."],
-    blocking: false,
   };
 }
 

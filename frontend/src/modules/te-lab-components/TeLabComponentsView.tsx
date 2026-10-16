@@ -24,7 +24,6 @@ import {
 } from "@/modules/te-lab-components/catalog/catalogUtils";
 import { CATEGORY_TEMPLATES } from "@/modules/te-lab-components/catalog/categoryTemplates";
 import { LocationManagerDialog } from "@/modules/te-lab-components/catalog/LocationManagerDialog";
-import { MigrationPanel } from "@/modules/te-lab-components/catalog/MigrationPanel";
 import {
   OrderExportDialog,
   type OrderDraftLine,
@@ -37,15 +36,12 @@ import {
   PlacementDialog,
 } from "@/modules/te-lab-components/catalog/PlacementDialogs";
 import { PartsTable } from "@/modules/te-lab-components/catalog/PartsTable";
-import { SharedCutoverDialog } from "@/modules/te-lab-components/catalog/SharedCutoverDialog";
 import { useLabCatalog } from "@/modules/te-lab-components/catalog/useLabCatalog";
 import { useDesktopUpdates } from "@/platform/updates/useDesktopUpdates";
 import { useStatusAnnouncer } from "@/shared/hooks/useStatusAnnouncer";
 import { StatusStrip } from "@/modules/te-lab-components/components/StatusStrip";
 import type {
-  CatalogMigrationPreview,
   CatalogScope,
-  CatalogSharedCutoverPreview,
   LabOrderRequestLineInput,
   Part,
   PartInput,
@@ -84,9 +80,7 @@ type LabCatalogBridgeMethod =
   | "updateLabStockPlacement"
   | "deleteLabStockPlacement"
   | "moveLabStock"
-  | "countLabStock"
-  | "previewLabCatalogMigration"
-  | "commitLabCatalogMigration";
+  | "countLabStock";
 
 type LabCatalogBridge = InventoryDesktopBridge & Required<Pick<InventoryDesktopBridge, LabCatalogBridgeMethod>>;
 
@@ -109,15 +103,6 @@ const LAB_LOCATION_BRIDGE_METHODS: LabLocationBridgeMethod[] = [
   "deleteLabStorageContainer",
 ];
 
-type LabSharedCutoverBridgeMethod = "previewLabSharedCutover" | "commitLabSharedCutover";
-
-type LabSharedCutoverBridge = InventoryDesktopBridge & Required<Pick<InventoryDesktopBridge, LabSharedCutoverBridgeMethod>>;
-
-const LAB_SHARED_CUTOVER_BRIDGE_METHODS: LabSharedCutoverBridgeMethod[] = [
-  "previewLabSharedCutover",
-  "commitLabSharedCutover",
-];
-
 const LAB_CATALOG_BRIDGE_METHODS: LabCatalogBridgeMethod[] = [
   "createLabPart",
   "updateLabPart",
@@ -129,8 +114,6 @@ const LAB_CATALOG_BRIDGE_METHODS: LabCatalogBridgeMethod[] = [
   "deleteLabStockPlacement",
   "moveLabStock",
   "countLabStock",
-  "previewLabCatalogMigration",
-  "commitLabCatalogMigration",
 ];
 
 export function TeLabComponentsView({
@@ -142,7 +125,7 @@ export function TeLabComponentsView({
 }: DesktopModuleViewProps) {
   const { announceStatus, statusOverride } = useStatusAnnouncer();
   const { handleUpdateAction, updateState } = useDesktopUpdates({ active, announceStatus });
-  const { catalog, dataSource, isLoading, lastError, refreshAfterMutation, refreshCatalog } = useLabCatalog({ active, announceStatus });
+  const { catalog, dataSource, isLoading, lastError, refreshAfterMutation } = useLabCatalog({ active, announceStatus });
   const [scope, setScope] = useState<CatalogScope>("inventory");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<CatalogFilters>(readFilterPreferences);
@@ -155,7 +138,6 @@ export function TeLabComponentsView({
   const [movePlacementUuid, setMovePlacementUuid] = useState<string | null>(null);
   const [countPlacementUuid, setCountPlacementUuid] = useState<string | null>(null);
   const [locationsOpen, setLocationsOpen] = useState(false);
-  const [sharedCutoverOpen, setSharedCutoverOpen] = useState(false);
   const [orderSelectionMode, setOrderSelectionMode] = useState(false);
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(() => new Set());
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
@@ -193,19 +175,12 @@ export function TeLabComponentsView({
     filters.subcategory,
   ].filter(Boolean).length;
   const hasCatalogFilters = Boolean(query || activeFilterCount > 0);
-  const canModify = !catalog.migration.required && (dataSource !== "desktop" || catalog.shared.canModify);
+  const canModify = dataSource !== "desktop" || catalog.shared.canModify;
   const desktopBridge = window.inventoryDesktop;
   const locationsAvailable = Boolean(
     dataSource === "desktop"
       && desktopBridge?.isDesktop
       && LAB_LOCATION_BRIDGE_METHODS.every((method) => typeof desktopBridge[method] === "function"),
-  );
-  const sharedCutoverAvailable = Boolean(
-    dataSource === "desktop"
-      && desktopBridge?.isDesktop
-      && catalog.shared.enabled
-      && !catalog.shared.available
-      && LAB_SHARED_CUTOVER_BRIDGE_METHODS.every((method) => typeof desktopBridge[method] === "function"),
   );
   const activePart = partDialogId && partDialogId !== "new" ? lookups.partsById.get(partDialogId) ?? null : null;
   const placementPart = placementDialog ? lookups.partsById.get(placementDialog.partUuid) ?? null : null;
@@ -320,17 +295,6 @@ export function TeLabComponentsView({
       throw new Error("This desktop build does not expose the Lab storage-location commands.");
     }
     return bridge as LabLocationBridge;
-  }
-
-  function requireSharedCutoverBridge(): LabSharedCutoverBridge {
-    const bridge = window.inventoryDesktop;
-    if (
-      !bridge?.isDesktop
-      || LAB_SHARED_CUTOVER_BRIDGE_METHODS.some((method) => typeof bridge[method] !== "function")
-    ) {
-      throw new Error("This desktop build does not expose the Lab shared-cutover commands.");
-    }
-    return bridge as LabSharedCutoverBridge;
   }
 
   async function savePart(part: Part | null, input: PartInput): Promise<void> {
@@ -515,7 +479,6 @@ export function TeLabComponentsView({
         }}
         onSelectForOrder={enterOrderSelection}
         onManageLocations={locationsAvailable ? () => setLocationsOpen(true) : undefined}
-        onOpenSharedCutover={sharedCutoverAvailable ? () => setSharedCutoverOpen(true) : undefined}
         onScopeChange={handleScopeChange}
         onThemeToggle={onThemeToggle}
         onUpdateAction={() => {
@@ -528,91 +491,77 @@ export function TeLabComponentsView({
         updateState={updateState}
       />
 
-      {catalog.migration.required ? (
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-2 py-2 sm:px-3">
+        <CatalogSearchCard
+          activeFilterCount={activeFilterCount}
+          areaOptions={catalog.storageAreas}
+          categoryOptions={filterOptions.categories}
+          colorRows={colorRows}
+          containerOptions={filteredContainerOptions.map((container) => ({
+            label: containerOptionLabel(container, lookups),
+            value: container.containerUuid,
+          }))}
+          filters={filters}
+          filtersOpen={filtersOpen}
+          hasActiveFilters={hasCatalogFilters}
+          manufacturerOptions={filterOptions.manufacturers}
+          mountingTypeOptions={filterOptions.mountingTypes}
+          onClearFilters={() => {
+            setQuery("");
+            setFilters({ ...EMPTY_CATALOG_FILTERS });
+          }}
+          onColorRowsChange={setColorRows}
+          onFilterChange={(field, value) => {
+            setFilters((current) => ({ ...current, [field]: value }));
+          }}
+          onFiltersToggle={() => setFiltersOpen((current) => !current)}
+          onQueryChange={setQuery}
+          packageTypeOptions={filterOptions.packageTypes}
+          partStatusOptions={filterOptions.partStatuses}
+          query={query}
+          subcategoryOptions={filterOptions.subcategories}
+        />
+
+        {orderSelectionMode ? (
+          <OrderSelectionBar
+            selectedCount={selectedPartIds.size}
+            onCancel={clearOrderSelection}
+            onContinue={() => setOrderDialogOpen(true)}
+          />
+        ) : null}
+
         <div className="min-h-0 flex-1 overflow-hidden">
-          <MigrationPanel
-            migration={catalog.migration}
-            onCommit={async (preview: CatalogMigrationPreview) => {
-              const result = await requireBridge().commitLabCatalogMigration({ sourceFingerprint: preview.sourceFingerprint, confirmed: true });
-              await refreshAfterMutation(result.message);
-              return result;
-            }}
-            onPreview={() => requireBridge().previewLabCatalogMigration()}
-          />
-        </div>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-2 py-2 sm:px-3">
-          <CatalogSearchCard
-            activeFilterCount={activeFilterCount}
-            areaOptions={catalog.storageAreas}
-            categoryOptions={filterOptions.categories}
-            colorRows={colorRows}
-            containerOptions={filteredContainerOptions.map((container) => ({
-              label: containerOptionLabel(container, lookups),
-              value: container.containerUuid,
-            }))}
-            filters={filters}
-            filtersOpen={filtersOpen}
-            hasActiveFilters={hasCatalogFilters}
-            manufacturerOptions={filterOptions.manufacturers}
-            mountingTypeOptions={filterOptions.mountingTypes}
-            onClearFilters={() => {
-              setQuery("");
-              setFilters({ ...EMPTY_CATALOG_FILTERS });
-            }}
-            onColorRowsChange={setColorRows}
-            onFilterChange={(field, value) => {
-              setFilters((current) => ({ ...current, [field]: value }));
-            }}
-            onFiltersToggle={() => setFiltersOpen((current) => !current)}
-            onQueryChange={setQuery}
-            packageTypeOptions={filterOptions.packageTypes}
-            partStatusOptions={filterOptions.partStatuses}
-            query={query}
-            subcategoryOptions={filterOptions.subcategories}
-          />
-
-          {orderSelectionMode ? (
-            <OrderSelectionBar
-              selectedCount={selectedPartIds.size}
-              onCancel={clearOrderSelection}
-              onContinue={() => setOrderDialogOpen(true)}
+          {isLoading ? (
+            <section className="flex h-full items-center justify-center rounded-xl border border-border bg-card/70 text-sm text-muted-foreground">Loading Lab Components catalog…</section>
+          ) : displayParts.length ? (
+            <PartsTable
+              catalog={catalog}
+              colorRows={colorRows}
+              columnVisibility={columnVisibility}
+              onOpenExternal={(url) => void openExternal(url)}
+              onOpenPart={(part) => setPartDialogId(part.entryUuid)}
+              onSortChange={(columnKey) => setSortState((current) => cycleCatalogSortState(current, columnKey))}
+              onToggleColumn={(columnKey) => {
+                setColumnVisibility((current) => {
+                  const nextVisible = !current[columnKey];
+                  if (!nextVisible && CATALOG_COLUMNS.filter((column) => current[column.key]).length <= 1) {
+                    return current;
+                  }
+                  return { ...current, [columnKey]: nextVisible };
+                });
+              }}
+              onToggleSelection={togglePartSelection}
+              parts={displayParts}
+              selectedPartIds={selectedPartIds}
+              selectionMode={orderSelectionMode}
+              sortState={sortState}
+              visibleColumns={columnVisibility}
             />
-          ) : null}
-
-          <div className="min-h-0 flex-1 overflow-hidden">
-            {isLoading ? (
-              <section className="flex h-full items-center justify-center rounded-xl border border-border bg-card/70 text-sm text-muted-foreground">Loading Lab Components catalog…</section>
-            ) : displayParts.length ? (
-              <PartsTable
-                catalog={catalog}
-                colorRows={colorRows}
-                columnVisibility={columnVisibility}
-                onOpenExternal={(url) => void openExternal(url)}
-                onOpenPart={(part) => setPartDialogId(part.entryUuid)}
-                onSortChange={(columnKey) => setSortState((current) => cycleCatalogSortState(current, columnKey))}
-                onToggleColumn={(columnKey) => {
-                  setColumnVisibility((current) => {
-                    const nextVisible = !current[columnKey];
-                    if (!nextVisible && CATALOG_COLUMNS.filter((column) => current[column.key]).length <= 1) {
-                      return current;
-                    }
-                    return { ...current, [columnKey]: nextVisible };
-                  });
-                }}
-                onToggleSelection={togglePartSelection}
-                parts={displayParts}
-                selectedPartIds={selectedPartIds}
-                selectionMode={orderSelectionMode}
-                sortState={sortState}
-                visibleColumns={columnVisibility}
-              />
-            ) : (
-              <section className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 p-8 text-center"><h2 className="font-semibold">No catalog parts found</h2><p className="mt-1 text-sm text-muted-foreground">Adjust the search and filters, or add a component.</p>{canModify ? <Button className="mt-4" onClick={() => setPartDialogId("new")}>Add Part</Button> : null}</section>
-            )}
-          </div>
+          ) : (
+            <section className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 p-8 text-center"><h2 className="font-semibold">No catalog parts found</h2><p className="mt-1 text-sm text-muted-foreground">Adjust the search and filters, or add a component.</p>{canModify ? <Button className="mt-4" onClick={() => setPartDialogId("new")}>Add Part</Button> : null}</section>
+          )}
         </div>
-      )}
+      </div>
 
       <StatusStrip
         counts={{ lowStock: catalog.counts.lowStock, noStock: catalog.counts.noStock }}
@@ -675,20 +624,6 @@ export function TeLabComponentsView({
             await refreshAfterMutation(result.message);
           }}
           readOnly={!canModify}
-        />
-      ) : null}
-      {sharedCutoverOpen ? (
-        <SharedCutoverDialog
-          onClose={() => setSharedCutoverOpen(false)}
-          onCommit={async (preview: CatalogSharedCutoverPreview) => {
-            const result = await requireSharedCutoverBridge().commitLabSharedCutover({
-              localFingerprint: preview.localFingerprint,
-              confirmed: true,
-            });
-            await refreshCatalog();
-            return result;
-          }}
-          onPreview={() => requireSharedCutoverBridge().previewLabSharedCutover()}
         />
       ) : null}
       {orderDialogOpen ? (

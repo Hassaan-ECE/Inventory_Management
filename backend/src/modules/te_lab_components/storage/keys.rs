@@ -1,10 +1,8 @@
-use crate::modules::te_lab_components::model::{db_error, CommandResult};
+use crate::platform::common::{db_error, CommandResult};
 
 pub(super) const KEY_RANGE_SENTINEL: &str = "\u{10ffff}";
-pub(super) const ENTRY_PREFIX: &str = "entry:";
-pub(super) const ENTRY_RANGE_END: &str = "entry:\u{10ffff}";
-pub(super) const ENTRY_ID_PREFIX: &str = "entry_id:";
-pub(super) const ENTRY_SCAN_BATCH_LIMIT: usize = 512;
+/// Row keys of the retired v1 Lab model, removed when a namespace moves to the catalog.
+pub(super) const LEGACY_ENTRY_PREFIXES: [&str; 2] = ["entry:", "entry_id:"];
 pub(super) const PART_PREFIX: &str = "part:";
 pub(super) const PART_ID_PREFIX: &str = "part_id:";
 pub(super) const PART_NUMBER_PREFIX: &str = "part_number:";
@@ -18,8 +16,6 @@ pub(super) const PLACEMENT_CONTAINER_INDEX_PREFIX: &str = "placement-container:"
 pub(super) const META_NEXT_ID: &[u8] = b"__meta:next_entry_id";
 pub(super) const SYNC_META_PREFIX: &str = "meta:";
 pub(super) const SYNC_STATE_PREFIX: &str = "sync:";
-// Schema metadata is exercised by tests and migration-safe storage helpers.
-#[allow(dead_code)]
 pub(super) const META_SCHEMA_VERSION: &[u8] = b"meta:schema_version";
 pub(super) const META_SYNC_SCHEMA_VERSION: &[u8] = b"meta:sync_schema_version";
 pub(super) const META_CLIENT_ID: &[u8] = b"meta:client_id";
@@ -38,14 +34,6 @@ pub(super) const SYNC_CORRUPT_REMOTE_PREFIX: &str = "sync:corrupt_remote:";
 pub(super) const SYNC_SCAN_BATCH_LIMIT: usize = 512;
 pub(super) const LOCAL_SEQ_KEY_WIDTH: usize = 12;
 pub(super) const MAX_LOCAL_SEQ: u64 = 999_999_999_999;
-
-pub(super) fn entry_key(entry_uuid: &str) -> String {
-    format!("{ENTRY_PREFIX}{entry_uuid}")
-}
-
-pub(super) fn entry_id_key(entry_id: &str) -> String {
-    format!("{ENTRY_ID_PREFIX}{entry_id}")
-}
 
 pub(super) fn part_key(part_uuid: &str) -> String {
     format!("{PART_PREFIX}{part_uuid}")
@@ -222,7 +210,7 @@ pub(super) fn range_end_for_prefix(prefix: &str) -> Vec<u8> {
     range_end
 }
 
-pub(super) fn is_numeric_entry_id(entry_id: &str) -> bool {
+pub(super) fn is_numeric_id(entry_id: &str) -> bool {
     entry_id.parse::<i64>().is_ok()
 }
 
@@ -236,7 +224,7 @@ pub(super) fn validate_sync_key(key: &str) -> CommandResult<()> {
     }
 }
 
-pub(super) fn next_entry_range_start(mut key: Vec<u8>) -> Vec<u8> {
+pub(super) fn next_key_after(mut key: Vec<u8>) -> Vec<u8> {
     key.push(0);
     key
 }

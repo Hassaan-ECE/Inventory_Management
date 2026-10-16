@@ -128,7 +128,7 @@ describe("tauri inventory bridge", () => {
     });
   });
 
-  it("parses Lab catalog payloads and scopes catalog, placement, migration, and export invocations", async () => {
+  it("parses Lab catalog payloads and scopes catalog, placement, and export invocations", async () => {
     const part = validLabCatalogPart();
     const placement = validLabStockPlacement();
     const invoke = vi.fn((command: string) => {
@@ -149,8 +149,6 @@ describe("tauri inventory bridge", () => {
             mutationMode: "shared",
             shared: validLabSharedStatus(),
           });
-        case "preview_lab_catalog_migration":
-          return Promise.resolve(validLabMigrationPreview());
         case "export_excel":
           return Promise.resolve({
             canceled: false,
@@ -174,11 +172,6 @@ describe("tauri inventory bridge", () => {
     await expect(
       desktopBridge.createLabStockPlacement?.(placementInput),
     ).resolves.toMatchObject({ value: { placementUuid: "lab-placement-1", quantity: 12 } });
-    await expect(desktopBridge.previewLabCatalogMigration?.()).resolves.toMatchObject({
-      sourceFingerprint: "sha256:legacy",
-      proposedParts: 1,
-      blocking: false,
-    });
     await expect(
       desktopBridge.exportExcel?.(TE_LAB_COMPONENTS_MODULE_ID),
     ).resolves.toEqual({
@@ -208,8 +201,7 @@ describe("tauri inventory bridge", () => {
     });
     expect(invoke).toHaveBeenNthCalledWith(2, "create_lab_part", { input: partInput });
     expect(invoke).toHaveBeenNthCalledWith(3, "create_lab_stock_placement", { input: placementInput });
-    expect(invoke).toHaveBeenNthCalledWith(4, "preview_lab_catalog_migration");
-    expect(invoke).toHaveBeenNthCalledWith(5, "export_excel", {
+    expect(invoke).toHaveBeenNthCalledWith(4, "export_excel", {
       moduleId: TE_LAB_COMPONENTS_MODULE_ID,
     });
   });
@@ -933,28 +925,7 @@ function validLabCatalogSyncPayload(part: Record<string, unknown>, placement: Re
     stockPlacements: [placement],
     summaries: [{ partUuid: "lab-part-1", totals: [{ unitOfMeasure: "pcs", quantity: 12 }], stockStatus: "in_stock" }],
     counts: { activeParts: 1, archivedParts: 0, totalParts: 1, noStock: 0, lowStock: 0, unitReview: 0 },
-    migration: { schemaVersion: 2, required: false, legacyEntryCount: 0, catalogInitialized: true, message: "ready" },
     shared: validLabSharedStatus(),
-  };
-}
-
-function validLabMigrationPreview(): Record<string, unknown> {
-  return {
-    mappingVersion: "te-lab-components-catalog-v2",
-    sourceFingerprint: "sha256:legacy",
-    sourceSchemaVersion: 1,
-    targetSchemaVersion: 2,
-    legacyRows: 1,
-    proposedParts: 1,
-    proposedPlacements: 1,
-    archivedParts: 0,
-    blankPositiveQuantityLocations: 0,
-    generatedPartUuids: 0,
-    duplicateInternalPartNumbers: [],
-    likelyMpnDuplicates: [],
-    invalidRows: [],
-    warnings: ["Units require review."],
-    blocking: false,
   };
 }
 

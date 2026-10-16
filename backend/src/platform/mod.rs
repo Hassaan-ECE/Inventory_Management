@@ -1,3 +1,4 @@
+pub(crate) mod common;
 mod database;
 mod dev_build;
 mod legacy_databases;

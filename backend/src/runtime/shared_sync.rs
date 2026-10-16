@@ -236,9 +236,7 @@ mod tests {
         assert_eq!(stored.has_local_only_changes, Some(true));
         assert_eq!(stored.mutation_mode, "local");
         assert!(coordinator
-            .background_status::<crate::modules::te_lab_components::model::InventorySharedStatus>(
-                ModuleId::TeLabComponents
-            )
+            .background_status::<InventorySharedStatus>(ModuleId::TeLabComponents)
             .unwrap()
             .is_none());
     }

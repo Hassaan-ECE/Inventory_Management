@@ -3,13 +3,10 @@ use std::{cmp::Ordering, collections::HashSet};
 use serde::de::DeserializeOwned;
 
 use super::{keys, InventoryDb};
-use crate::modules::te_lab_components::{
-    catalog_model::{
-        normalized_lookup, normalized_part_number, Part, StockPlacement, StorageArea,
-        StorageContainer,
-    },
-    model::{db_error, numeric_id, CommandResult},
+use crate::modules::te_lab_components::catalog_model::{
+    normalized_lookup, normalized_part_number, Part, StockPlacement, StorageArea, StorageContainer,
 };
+use crate::platform::common::{db_error, numeric_id, CommandResult};
 
 impl InventoryDb {
     pub(crate) fn has_catalog_entities(&self) -> CommandResult<bool> {
@@ -45,7 +42,7 @@ impl InventoryDb {
         if let Some(part_uuid) = part_id.strip_prefix(keys::PART_PREFIX) {
             return self.get_json(keys::part_key(part_uuid).as_bytes());
         }
-        if keys::is_numeric_entry_id(part_id) {
+        if keys::is_numeric_id(part_id) {
             if let Some(part) = self.find_part_by_index(keys::part_id_key(part_id).as_bytes())? {
                 return Ok(Some(part));
             }
@@ -53,7 +50,7 @@ impl InventoryDb {
         if let Some(part) = self.get_json(keys::part_key(part_id).as_bytes())? {
             return Ok(Some(part));
         }
-        if keys::is_numeric_entry_id(part_id) {
+        if keys::is_numeric_id(part_id) {
             Ok(None)
         } else {
             self.find_part_by_index(keys::part_id_key(part_id).as_bytes())
@@ -325,7 +322,7 @@ impl InventoryDb {
             .filter_map(|part| part.id.parse::<i64>().ok())
             .max()
             .unwrap_or(0);
-        self.set_next_entry_id(max_id + 1)?;
+        self.set_next_part_id(max_id + 1)?;
         Ok(changed)
     }
 
@@ -342,7 +339,7 @@ impl InventoryDb {
             keys::PLACEMENT_PART_INDEX_PREFIX,
             keys::PLACEMENT_CONTAINER_INDEX_PREFIX,
         ] {
-            self.clear_prefix(prefix)?;
+            self.delete_prefix(prefix)?;
         }
         Ok(())
     }
@@ -435,18 +432,6 @@ impl InventoryDb {
             },
         )?;
         Ok(values)
-    }
-
-    fn clear_prefix(&self, prefix: &str) -> CommandResult<()> {
-        let mut keys = Vec::new();
-        self.scan_sync_prefix_from(prefix, prefix.as_bytes().to_vec(), usize::MAX, |key, _| {
-            keys.push(key.to_vec());
-            Ok(true)
-        })?;
-        for key in keys {
-            self.delete_key(&key)?;
-        }
-        Ok(())
     }
 }
 

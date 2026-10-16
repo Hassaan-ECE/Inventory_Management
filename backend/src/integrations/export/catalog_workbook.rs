@@ -1,13 +1,11 @@
+use crate::platform::common::CommandResult;
 use std::{collections::BTreeMap, path::Path};
 
 use rust_xlsxwriter::{Format, FormatAlign, FormatBorder, Workbook, Worksheet, XlsxError};
 
-use crate::modules::te_lab_components::{
-    catalog_model::{
-        grid_coordinate_label, summarize_part_stock, Part, PartStockSummary, StockPlacement,
-        StockStatus, StorageArea, StorageContainer,
-    },
-    model::CommandResult,
+use crate::modules::te_lab_components::catalog_model::{
+    grid_coordinate_label, summarize_part_stock, Part, PartStockSummary, StockPlacement,
+    StockStatus, StorageArea, StorageContainer,
 };
 
 use super::ExcelExportStats;

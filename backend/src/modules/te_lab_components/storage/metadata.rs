@@ -1,37 +1,52 @@
-use super::{keys, sync_state::SyncMetadata, InventoryDb};
-use crate::modules::te_lab_components::model::CommandResult;
+#[cfg(test)]
+use super::sync_state::SyncMetadata;
+use super::{keys, InventoryDb};
+use crate::{
+    modules::te_lab_components::catalog_model::CATALOG_SCHEMA_VERSION,
+    platform::common::{db_error, CommandResult},
+};
 
-// Metadata accessors intentionally cover migration/test state beyond the current runtime path.
-#[allow(dead_code)]
 impl InventoryDb {
-    pub(crate) fn next_entry_id(&self) -> CommandResult<i64> {
+    /// Moves a namespace that is not yet on catalog schema v2 onto it. Rows left by the
+    /// retired v1 Lab model are dropped rather than migrated: the shared catalog is the source
+    /// of truth, and the 0.1.x database file is kept in `pre-0.2-databases\`.
+    pub(crate) fn ensure_catalog_schema(&self) -> CommandResult<()> {
+        if self.schema_version()? == Some(CATALOG_SCHEMA_VERSION) {
+            return Ok(());
+        }
+        for prefix in keys::LEGACY_ENTRY_PREFIXES {
+            self.delete_prefix(prefix)?;
+        }
+        self.reset_sync_state_for_catalog_v2()?;
+        self.set_schema_version(CATALOG_SCHEMA_VERSION)?;
+        self.flush();
+        Ok(())
+    }
+
+    /// Next numeric part id. The key keeps its v1 name so existing counters carry over.
+    pub(crate) fn next_part_id(&self) -> CommandResult<i64> {
         if self.store.contains_key(keys::META_NEXT_ID) {
-            let bytes = self
-                .store
-                .get(keys::META_NEXT_ID)
-                .map_err(crate::modules::te_lab_components::model::db_error)?;
-            let text = String::from_utf8(bytes)
-                .map_err(crate::modules::te_lab_components::model::db_error)?;
+            let bytes = self.store.get(keys::META_NEXT_ID).map_err(db_error)?;
+            let text = String::from_utf8(bytes).map_err(db_error)?;
             if let Ok(next_id) = text.parse::<i64>() {
                 return Ok(next_id.max(1));
             }
         }
 
-        let mut max_id = 0;
-        self.scan_entries(|entry| {
-            if let Ok(id) = entry.id.parse::<i64>() {
-                max_id = max_id.max(id);
-            }
-            Ok(true)
-        })?;
-
+        let max_id = self
+            .load_parts()?
+            .iter()
+            .filter_map(|part| part.id.parse::<i64>().ok())
+            .max()
+            .unwrap_or(0);
         Ok(max_id + 1)
     }
 
-    pub(crate) fn set_next_entry_id(&self, next_id: i64) -> CommandResult<()> {
+    pub(crate) fn set_next_part_id(&self, next_id: i64) -> CommandResult<()> {
         self.put_bytes(keys::META_NEXT_ID, next_id.to_string().as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn sync_metadata(&self) -> CommandResult<SyncMetadata> {
         Ok(SyncMetadata {
             schema_version: self.schema_version()?,
@@ -51,6 +66,7 @@ impl InventoryDb {
         self.put_u32(keys::META_SCHEMA_VERSION, "schema_version", version)
     }
 
+    #[cfg(test)]
     pub(crate) fn sync_schema_version(&self) -> CommandResult<Option<u32>> {
         self.get_u32(keys::META_SYNC_SCHEMA_VERSION, "sync_schema_version")
     }
@@ -155,6 +171,7 @@ impl InventoryDb {
         self.put_bytes(keys::META_LAST_SNAPSHOT_ID, snapshot_id.as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn clear_last_snapshot_id(&self) -> CommandResult<()> {
         self.delete_key(keys::META_LAST_SNAPSHOT_ID)
     }
