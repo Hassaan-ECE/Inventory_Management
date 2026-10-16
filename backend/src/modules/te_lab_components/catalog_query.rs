@@ -1,51 +1,15 @@
-use crate::modules::te_lab_components::{
-    catalog_demo_seed::seed_demo_catalog_if_empty,
-    catalog_migration::{catalog_migration_status, ensure_catalog_initialized},
+use super::{
     catalog_model::{catalog_counts, summarize_part_stock, CatalogSyncResult, PartStockSummary},
-    model::{CommandResult, InventorySharedStatus},
     store::InventoryDb,
 };
+use crate::platform::common::{CommandResult, InventorySharedStatus};
 
 pub(crate) fn load_catalog_from_store(
     db: &InventoryDb,
-    mut shared: InventorySharedStatus,
+    shared: InventorySharedStatus,
     entries_changed: Option<bool>,
 ) -> CommandResult<CatalogSyncResult> {
-    let mut migration = catalog_migration_status(db)?;
-    if !migration.required && !migration.catalog_initialized {
-        ensure_catalog_initialized(db)?;
-        migration = catalog_migration_status(db)?;
-    }
-
-    if migration.required {
-        shared.can_modify = false;
-        shared.mutation_mode = "migration_required".to_string();
-        shared.message = migration.message.clone();
-        return Ok(CatalogSyncResult {
-            db_path: db.db_path_string(),
-            parts: Vec::new(),
-            storage_areas: Vec::new(),
-            storage_containers: Vec::new(),
-            stock_placements: Vec::new(),
-            summaries: Vec::new(),
-            counts: Default::default(),
-            migration,
-            entries_changed,
-            shared,
-        });
-    }
-
-    // Explicit demo seed only (layout review / empty-lab bootstrap). Never auto-seed
-    // production shared catalogs; set INVENTORY_MANAGEMENT_LAB_DEMO_SEED=1 to enable.
-    if std::env::var_os("INVENTORY_MANAGEMENT_LAB_DEMO_SEED").is_some_and(|value| {
-        let value = value.to_string_lossy();
-        matches!(
-            value.trim().to_ascii_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
-        )
-    }) {
-        seed_demo_catalog_if_empty(db)?;
-    }
+    db.ensure_catalog_schema()?;
 
     let parts = db.load_parts()?;
     let storage_areas = db.load_storage_areas()?;
@@ -65,7 +29,6 @@ pub(crate) fn load_catalog_from_store(
         stock_placements,
         summaries,
         counts,
-        migration,
         entries_changed,
         shared,
     })
@@ -75,8 +38,8 @@ pub(crate) fn load_catalog_from_store(
 mod tests {
     use super::*;
     use crate::modules::te_lab_components::{
+        catalog_model::CATALOG_SCHEMA_VERSION,
         catalog_model::{create_part, normalize_part_input, PartInput},
-        model::InventorySharedStatus,
     };
     use std::{env, fs, path::PathBuf};
     use uuid::Uuid;
@@ -86,8 +49,7 @@ mod tests {
         let db = test_db();
         let loaded = load_catalog_from_store(&db, shared_status(), Some(true)).unwrap();
 
-        assert!(loaded.migration.catalog_initialized);
-        assert_eq!(loaded.migration.schema_version, Some(2));
+        assert_eq!(db.schema_version().unwrap(), Some(CATALOG_SCHEMA_VERSION));
         assert_eq!(loaded.counts.total_parts, 0);
         assert!(loaded.shared.can_modify);
     }
@@ -95,7 +57,7 @@ mod tests {
     #[test]
     fn load_derives_stock_summaries_instead_of_persisting_totals() {
         let db = test_db();
-        ensure_catalog_initialized(&db).unwrap();
+        db.ensure_catalog_schema().unwrap();
         let part = create_part(
             1,
             normalize_part_input(PartInput {
@@ -123,6 +85,7 @@ mod tests {
             revision: None,
             last_snapshot_id: None,
             shared_root_path: None,
+            warning: None,
         }
     }
 

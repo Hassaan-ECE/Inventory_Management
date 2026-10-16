@@ -1,8 +1,6 @@
-export type { ThemeMode } from "@/platform/ui/theme";
-
 export type InventoryScope = "inventory" | "archive";
 export type TeTestEquipmentWorkspace = "equipment" | "calibration";
-export type SortDirection = "asc" | "desc";
+type SortDirection = "asc" | "desc";
 export type LifecycleStatus = "active" | "repair" | "scrapped" | "missing" | "rental";
 export type WorkingStatus = "working" | "limited" | "not_working" | "unknown";
 export type CalibrationRequirement = "required" | "reference_only" | "not_required" | "unknown";
@@ -14,7 +12,7 @@ export type CalibrationHealth =
   | "not_applicable"
   | "unknown"
   | "out_to_cal";
-export type DueWindow = "all" | "overdue" | "next30" | "next60" | "next90" | "missing";
+type DueWindow = "all" | "overdue" | "next30" | "next60" | "next90" | "missing";
 
 export const LIFECYCLE_OPTIONS = ["active", "repair", "scrapped", "missing", "rental"] as const satisfies readonly LifecycleStatus[];
 export const WORKING_STATUS_OPTIONS = ["unknown", "working", "limited", "not_working"] as const satisfies readonly WorkingStatus[];
@@ -24,15 +22,6 @@ export const CALIBRATION_REQUIREMENT_OPTIONS = [
   "not_required",
   "unknown",
 ] as const satisfies readonly CalibrationRequirement[];
-export const CALIBRATION_HEALTH_OPTIONS = [
-  "missing_due",
-  "overdue",
-  "due_soon",
-  "current",
-  "not_applicable",
-  "unknown",
-  "out_to_cal",
-] as const satisfies readonly CalibrationHealth[];
 
 export interface ImportProvenance {
   batchId: string;
@@ -114,42 +103,9 @@ export interface InventoryEntryEditContext {
   changedFields: string[];
 }
 
-export type UpdateStatus =
-  | "idle"
-  | "checking"
-  | "available"
-  | "not-available"
-  | "downloading"
-  | "ready"
-  | "installing"
-  | "error";
+import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
 
-export interface UpdateState {
-  available: boolean;
-  currentVersion: string;
-  downloadPhase?: "copying" | "verifying" | "ready";
-  downloadProgress?: number;
-  downloadedInstallerPath?: string;
-  error?: string;
-  installLogPath?: string;
-  installerPid?: number;
-  latestVersion?: string;
-  notes?: string;
-  publishedAt?: string;
-  status: UpdateStatus;
-}
-
-export interface InventorySharedStatus {
-  available: boolean;
-  canModify: boolean;
-  enabled: boolean;
-  hasLocalOnlyChanges?: boolean;
-  message: string;
-  mutationMode?: "shared" | "local";
-  revision?: string;
-  lastSnapshotId?: string;
-  sharedRootPath?: string;
-}
+export type { InventorySharedStatus };
 
 export interface InventoryCounts {
   archive: number;
@@ -160,64 +116,6 @@ export interface InventoryCounts {
   overdue: number;
   total: number;
   verified: number;
-}
-
-export type ImportClassification = "inserted" | "matched" | "conflicted" | "rejected" | "ignored";
-export type ImportColumnTreatment = "mapped" | "intentionally_ignored" | "unknown";
-
-export interface ImportColumnReport {
-  originalHeader: string;
-  normalizedTarget: string | null;
-  treatment: ImportColumnTreatment;
-  nonblankCount: number;
-  reason: string;
-}
-
-export interface ImportRowOutcome {
-  sourceRow: number;
-  classification: ImportClassification;
-  issues: string[];
-  originalId: string | null;
-  originalAssetNumber: string | null;
-  originalSerialNumber: string | null;
-  candidateEntryUuid: string | null;
-  rawValues: Record<string, string>;
-}
-
-export interface ImportDryRunReport {
-  batchId: string;
-  sourceFingerprint: string;
-  sourceFilename: string;
-  selectedSheet: string;
-  mappingVersion: string;
-  totalRows: number;
-  inserted: number;
-  matched: number;
-  conflicted: number;
-  rejected: number;
-  ignored: number;
-  columns: ImportColumnReport[];
-  rowOutcomes: ImportRowOutcome[];
-  blocking: boolean;
-  reconciliationBasis: string;
-}
-
-export interface ImportCommitInput {
-  batchId: string;
-  confirmed: boolean;
-}
-
-export interface ImportCommitResult {
-  batchId: string;
-  inserted: number;
-  matched: number;
-  conflicted: number;
-  rejected: number;
-  ignored: number;
-  remaining: number;
-  noop: number;
-  entriesChanged: boolean;
-  message: string;
 }
 
 export type CalibrationRosterClassification =
@@ -336,7 +234,7 @@ export interface CalibrationRosterCommitResult {
   message: string;
 }
 
-export type InventoryMutationMode = "shared" | "local";
+type InventoryMutationMode = "shared" | "local";
 
 export interface InventoryEntryMutationResult {
   entry: InventoryEntry;
@@ -456,5 +354,3 @@ export const CALIBRATION_COLUMNS = [
   { key: "assignedTo", label: "Assigned to", defaultVisible: false, sortable: true },
   { key: "calibrationNotes", label: "Calibration notes", defaultVisible: false, sortable: true },
 ] as const satisfies readonly ColumnConfig[];
-
-export const INVENTORY_COLUMNS = EQUIPMENT_COLUMNS;

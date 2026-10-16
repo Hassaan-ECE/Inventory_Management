@@ -395,13 +395,6 @@ export const MOCK_CATALOG: CatalogSyncResult = {
     lowStock: 2,
     unitReview: 0,
   },
-  migration: {
-    schemaVersion: 2,
-    required: false,
-    legacyEntryCount: 0,
-    catalogInitialized: true,
-    message: "Lab Components catalog schema v2 is ready.",
-  },
   shared: {
     available: true,
     canModify: true,

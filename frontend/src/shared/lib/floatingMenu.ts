@@ -1,5 +1,5 @@
 /** Viewport padding for fixed context menus / floating panels. */
-export const FLOATING_MENU_PAD = 8;
+const FLOATING_MENU_PAD = 8;
 
 export interface FloatingMenuPlacement {
   maxHeight: number;

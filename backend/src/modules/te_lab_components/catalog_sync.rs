@@ -14,17 +14,22 @@ use uuid::Uuid;
 
 use crate::{
     modules::te_lab_components::{
-        catalog_migration::ensure_catalog_initialized,
         catalog_model::{
             validate_part, validate_stock_placement, validate_storage_area,
             validate_storage_container, Part, StockPlacement, StorageArea, StorageContainer,
             CATALOG_SCHEMA_VERSION,
         },
-        model::{now_timestamp, CommandResult, InventorySharedStatus},
         store::{InventoryDb, SyncKeyspace},
-        sync::{sign_canonical_bytes, verify_canonical_bytes},
     },
-    platform::{default_shared_root, ModuleId},
+    platform::{
+        common::{now_timestamp, CommandResult, InventorySharedStatus},
+        default_shared_root,
+        sync::{
+            record_sync_findings, sign_canonical_bytes, sync_warning, verify_canonical_bytes,
+            SyncFindings,
+        },
+        ModuleId,
+    },
 };
 
 const CATALOG_SYNC_SCHEMA_VERSION: u16 = 2;
@@ -37,6 +42,8 @@ const LOCAL_SEQ_WIDTH: usize = 12;
 const CHECKSUM_PREFIX: &str = "sha256:";
 const CATALOG_BOOTSTRAP_COMPLETE_KEY: &str = "meta:catalog_v2_bootstrap_complete";
 const LEGACY_STREAM_BLOCKER_PREFIX: &str = "TE Lab Components legacy sync v1 is blocked";
+const CATALOG_SHARE_UNAVAILABLE_MESSAGE: &str =
+    "Lab shared catalog is not available yet; catalog changes stay on this computer.";
 
 #[derive(Debug, Clone)]
 pub(crate) struct CatalogSharedSyncPaths {
@@ -338,39 +345,6 @@ struct CatalogCutoverMarker {
     auth: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct CatalogSharedCutoverPreview {
-    pub local_fingerprint: String,
-    pub shared_root_path: String,
-    pub shared_root_available: bool,
-    pub catalog_v2_initialized: bool,
-    pub legacy_stream_state: String,
-    pub part_count: usize,
-    pub area_count: usize,
-    pub container_count: usize,
-    pub placement_count: usize,
-    pub warnings: Vec<String>,
-    pub blocking: bool,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub(crate) struct CatalogSharedCutoverCommitInput {
-    pub local_fingerprint: String,
-    pub confirmed: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct CatalogSharedCutoverCommitResult {
-    pub local_fingerprint: String,
-    pub legacy_backup_path: Option<String>,
-    pub catalog_root_path: String,
-    pub noop: bool,
-    pub message: String,
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct CatalogSharedSyncRunResult {
     pub entries_changed: bool,
@@ -396,13 +370,13 @@ pub(crate) fn startup_catalog_status(message: impl Into<String>) -> InventorySha
         message: if ready {
             message
         } else {
-            "Lab catalog shared cutover is not active; changes remain local until reviewed cutover."
-                .to_string()
+            CATALOG_SHARE_UNAVAILABLE_MESSAGE.to_string()
         },
         mutation_mode: if ready { "shared" } else { "local" }.to_string(),
         revision: None,
         last_snapshot_id: None,
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
+        warning: None,
     }
 }
 
@@ -438,22 +412,9 @@ pub(crate) fn queued_local_status(db: &InventoryDb) -> InventorySharedStatus {
         if ready {
             "Local catalog change saved and queued for shared sync.".to_string()
         } else {
-            "Local catalog change saved; shared catalog cutover is still required.".to_string()
+            "Local catalog change saved; the shared catalog is unavailable.".to_string()
         },
     )
-}
-
-pub(crate) fn preview_shared_cutover(
-    db: &InventoryDb,
-) -> CommandResult<CatalogSharedCutoverPreview> {
-    preview_shared_cutover_with_root(db, resolve_shared_root())
-}
-
-pub(crate) fn commit_shared_cutover(
-    input: CatalogSharedCutoverCommitInput,
-    db: &InventoryDb,
-) -> CommandResult<CatalogSharedCutoverCommitResult> {
-    commit_shared_cutover_with_root(input, db, resolve_shared_root())
 }
 
 pub(crate) fn run_shared_sync(db: &InventoryDb) -> CommandResult<CatalogSharedSyncRunResult> {
@@ -542,7 +503,7 @@ pub(crate) fn queue_upsert_operation(
     changed_fields: Vec<String>,
     base_version: Option<String>,
 ) -> CommandResult<CatalogOperationEnvelope> {
-    ensure_catalog_initialized(db)?;
+    db.ensure_catalog_schema()?;
     validate_entity(db, &entity)?;
     let entity_type = entity.entity_type();
     let entity_id = entity.entity_id().to_string();
@@ -571,7 +532,7 @@ pub(crate) fn queue_delete_operation(
     deleted_at_utc: impl Into<String>,
     base_version: Option<String>,
 ) -> CommandResult<CatalogOperationEnvelope> {
-    ensure_catalog_initialized(db)?;
+    db.ensure_catalog_schema()?;
     let entity_id = entity_uuid.into();
     let deleted_at_utc = nonempty_timestamp(&deleted_at_utc.into());
     let operation = build_operation(
@@ -668,166 +629,64 @@ fn persist_local_operation(
     Ok(())
 }
 
-fn preview_shared_cutover_with_root(
-    db: &InventoryDb,
-    shared_root: impl Into<PathBuf>,
-) -> CommandResult<CatalogSharedCutoverPreview> {
-    ensure_catalog_initialized(db)?;
-    let paths = CatalogSharedSyncPaths::from_shared_root(shared_root);
-    let local_fingerprint = catalog_fingerprint(db)?;
-    let parts = db.load_parts()?;
-    let areas = db.load_storage_areas()?;
-    let containers = db.load_storage_containers()?;
-    let placements = db.load_stock_placements()?;
-    let shared_root_available = paths.shared_root.exists();
-    let catalog_v2_initialized = read_cutover_marker(&paths)?.is_some();
-    let legacy_stream_state = legacy_stream_state(&paths)?;
-    let mut warnings = vec![
-        "Stop every Lab Components writer before committing shared cutover.".to_string(),
-        "The legacy shared/inventory directory will be retained as a dated backup and replaced by a blocker file."
-            .to_string(),
-        "Shared sync is not a backup; retain the workbook, local database, and shared-root copies."
-            .to_string(),
-    ];
-    if !placements.is_empty() {
-        warnings.push(
-            "Verify placement quantities and units before designating this client as the first v2 snapshot source."
-                .to_string(),
-        );
+/// Whether the shared catalog stream can be used. A shared root that has never held Lab data
+/// is set up by the first client to sync; one that still holds the retired v1 stream (or a
+/// damaged marker) stays unavailable, and catalog changes remain local.
+fn prepare_catalog_share(db: &InventoryDb, paths: &CatalogSharedSyncPaths) -> CommandResult<bool> {
+    if catalog_cutover_ready(paths)? {
+        return Ok(true);
     }
-    let blocking = !shared_root_available || legacy_stream_state == "unexpected_file";
-    Ok(CatalogSharedCutoverPreview {
-        local_fingerprint,
-        shared_root_path: paths.shared_root.to_string_lossy().into_owned(),
-        shared_root_available,
-        catalog_v2_initialized,
-        legacy_stream_state,
-        part_count: parts.len(),
-        area_count: areas.len(),
-        container_count: containers.len(),
-        placement_count: placements.len(),
-        warnings,
-        blocking,
-    })
+    if paths.legacy_inventory_path.exists() || paths.cutover_marker_path.exists() {
+        return Ok(false);
+    }
+    initialize_catalog_share(db, paths)?;
+    Ok(true)
 }
 
-fn commit_shared_cutover_with_root(
-    input: CatalogSharedCutoverCommitInput,
-    db: &InventoryDb,
-    shared_root: impl Into<PathBuf>,
-) -> CommandResult<CatalogSharedCutoverCommitResult> {
-    if !input.confirmed {
-        return Err(
-            "Confirm the reviewed Lab catalog shared cutover before committing.".to_string(),
-        );
-    }
-    let paths = CatalogSharedSyncPaths::from_shared_root(shared_root);
-    let preview = preview_shared_cutover_with_root(db, paths.shared_root.clone())?;
-    if preview.blocking {
-        return Err(
-            "Shared cutover is blocked. Review the cutover preview and shared root.".to_string(),
-        );
-    }
-    if preview.local_fingerprint != input.local_fingerprint {
-        return Err(
-            "The local catalog changed after cutover preview. Run the preview again.".to_string(),
-        );
-    }
-
-    if let Some(marker) = read_cutover_marker(&paths)? {
-        ensure_legacy_stream_blocked(&paths)?;
-        return Ok(CatalogSharedCutoverCommitResult {
-            local_fingerprint: marker.local_fingerprint,
-            legacy_backup_path: None,
-            catalog_root_path: paths.catalog_root.to_string_lossy().into_owned(),
-            noop: true,
-            message: "Lab catalog shared cutover was already committed.".to_string(),
-        });
-    }
-
+/// Writes the v1 blocker file and the catalog-v2 marker that 0.1.x clients check before
+/// syncing, then publishes this client's catalog as the first snapshot.
+fn initialize_catalog_share(db: &InventoryDb, paths: &CatalogSharedSyncPaths) -> CommandResult<()> {
     let shared_dir = paths
         .catalog_root
         .parent()
         .ok_or_else(|| "Catalog shared path has no parent directory.".to_string())?;
     fs::create_dir_all(shared_dir).map_err(|error| error.to_string())?;
-    let mut legacy_backup_path = None;
-    let mut blocker_created = false;
-    let write_result = (|| -> CommandResult<()> {
-        if paths.legacy_inventory_path.is_dir() {
-            let backup_path = shared_dir.join(format!(
-                "legacy-inventory-v1-backup-{}",
-                Uuid::new_v4().simple()
-            ));
-            fs::rename(&paths.legacy_inventory_path, &backup_path)
-                .map_err(|error| format!("Could not quarantine legacy Lab sync: {error}"))?;
-            legacy_backup_path = Some(backup_path);
-        } else if paths.legacy_inventory_path.is_file() {
-            ensure_legacy_stream_blocked(&paths)?;
-        }
-
-        if !paths.legacy_inventory_path.exists() {
-            write_new_file(
-                &paths.legacy_inventory_path,
-                format!("{LEGACY_STREAM_BLOCKER_PREFIX}. Use shared/catalog-v2 with schema 2.\n")
-                    .as_bytes(),
-            )?;
-            blocker_created = true;
-        }
-
-        ensure_catalog_layout(&paths)?;
-        let mut marker = CatalogCutoverMarker {
-            schema_version: CATALOG_SNAPSHOT_SCHEMA_VERSION,
-            sync_schema_version: CATALOG_SYNC_SCHEMA_VERSION,
-            local_fingerprint: preview.local_fingerprint.clone(),
-            source_client_id: db.get_or_create_client_id()?,
-            created_at_utc: now_timestamp(),
-            checksum: String::new(),
-            auth: None,
-        };
-        marker.checksum = canonical_checksum(&marker)?;
-        marker.auth = sign_canonical_bytes(
-            "catalog.sync.cutover.v2",
-            &canonical_bytes_without_checksum_or_auth(&marker)?,
+    write_new_file(
+        &paths.legacy_inventory_path,
+        format!(
+            "{LEGACY_STREAM_BLOCKER_PREFIX}. Use shared/catalog-v2 with schema 2.
+"
         )
-        .map_err(|error| error.to_string())?;
-        write_json_atomic(&paths.cutover_marker_path, &marker, false)?;
-        push_pending_local_operations(db, &paths)?;
-        publish_snapshot(db, &paths, true)?;
-        db.put_sync_value(CATALOG_BOOTSTRAP_COMPLETE_KEY, now_timestamp().as_bytes())?;
-        db.flush();
-        Ok(())
-    })();
+        .as_bytes(),
+    )?;
 
-    if let Err(error) = write_result {
-        let _ = fs::remove_file(&paths.cutover_marker_path);
-        if blocker_created {
-            let _ = fs::remove_file(&paths.legacy_inventory_path);
-        }
-        if let Some(backup_path) = &legacy_backup_path {
-            if !paths.legacy_inventory_path.exists() {
-                let _ = fs::rename(backup_path, &paths.legacy_inventory_path);
-            }
-        }
-        return Err(format!("Lab catalog shared cutover rolled back: {error}"));
-    }
-
-    Ok(CatalogSharedCutoverCommitResult {
-        local_fingerprint: preview.local_fingerprint,
-        legacy_backup_path: legacy_backup_path
-            .as_ref()
-            .map(|path| path.to_string_lossy().into_owned()),
-        catalog_root_path: paths.catalog_root.to_string_lossy().into_owned(),
-        noop: false,
-        message: "Lab catalog shared sync v2 cutover completed; the legacy v1 stream is blocked."
-            .to_string(),
-    })
+    ensure_catalog_layout(paths)?;
+    let mut marker = CatalogCutoverMarker {
+        schema_version: CATALOG_SNAPSHOT_SCHEMA_VERSION,
+        sync_schema_version: CATALOG_SYNC_SCHEMA_VERSION,
+        local_fingerprint: catalog_fingerprint(db)?,
+        source_client_id: db.get_or_create_client_id()?,
+        created_at_utc: now_timestamp(),
+        checksum: String::new(),
+        auth: None,
+    };
+    marker.checksum = canonical_checksum(&marker)?;
+    marker.auth = sign_canonical_bytes(
+        "catalog.sync.cutover.v2",
+        &canonical_bytes_without_checksum_or_auth(&marker)?,
+    )
+    .map_err(|error| error.to_string())?;
+    write_json_atomic(&paths.cutover_marker_path, &marker, false)?;
+    db.put_sync_value(CATALOG_BOOTSTRAP_COMPLETE_KEY, now_timestamp().as_bytes())?;
+    db.flush();
+    Ok(())
 }
 
 fn run_shared_sync_with_root(
     db: &InventoryDb,
     shared_root: impl Into<PathBuf>,
 ) -> CommandResult<CatalogSharedSyncRunResult> {
-    ensure_catalog_initialized(db)?;
+    db.ensure_catalog_schema()?;
     let paths = CatalogSharedSyncPaths::from_shared_root(shared_root);
     if !paths.shared_root.exists() {
         let pending_count = count_pending_local_operations(db, None)?;
@@ -843,7 +702,7 @@ fn run_shared_sync_with_root(
             ),
         });
     }
-    if !catalog_cutover_ready(&paths)? {
+    if !prepare_catalog_share(db, &paths)? {
         let pending_count = count_pending_local_operations(db, None)?;
         return Ok(CatalogSharedSyncRunResult {
             entries_changed: false,
@@ -853,7 +712,7 @@ fn run_shared_sync_with_root(
                 false,
                 pending_count,
                 0,
-                "Shared catalog cutover is required before v2 synchronization.".to_string(),
+                CATALOG_SHARE_UNAVAILABLE_MESSAGE.to_string(),
             ),
         });
     }
@@ -869,6 +728,13 @@ fn run_shared_sync_with_root(
         pushed_count > 0 || snapshot_changed || pull_report.entries_changed,
     )?;
     let pending_count = count_pending_local_operations(db, Some(&paths))?;
+    record_sync_findings(
+        db,
+        &SyncFindings {
+            skipped_files: pull_report.corrupt_count,
+            ..SyncFindings::default()
+        },
+    )?;
     let mut message = if pull_report.corrupt_count > 0 {
         format!(
             "Lab catalog shared sync ready. Ignored {} corrupt remote file(s).",
@@ -903,9 +769,9 @@ fn publish_pending_local_changes_with_root(
     db: &InventoryDb,
     shared_root: impl Into<PathBuf>,
 ) -> CommandResult<CatalogSharedSyncRunResult> {
-    ensure_catalog_initialized(db)?;
+    db.ensure_catalog_schema()?;
     let paths = CatalogSharedSyncPaths::from_shared_root(shared_root);
-    if !paths.shared_root.exists() || !catalog_cutover_ready(&paths)? {
+    if !paths.shared_root.exists() || !prepare_catalog_share(db, &paths)? {
         let pending_count = count_pending_local_operations(db, None)?;
         return Ok(CatalogSharedSyncRunResult {
             entries_changed: false,
@@ -915,7 +781,7 @@ fn publish_pending_local_changes_with_root(
                 false,
                 pending_count,
                 0,
-                "Catalog change saved locally; shared v2 cutover is unavailable.".to_string(),
+                "Catalog change saved locally; the shared catalog is unavailable.".to_string(),
             ),
         });
     }
@@ -1888,19 +1754,6 @@ fn ensure_legacy_stream_blocked(paths: &CatalogSharedSyncPaths) -> CommandResult
     Ok(())
 }
 
-fn legacy_stream_state(paths: &CatalogSharedSyncPaths) -> CommandResult<String> {
-    if paths.legacy_inventory_path.is_dir() {
-        Ok("legacy_directory".to_string())
-    } else if paths.legacy_inventory_path.is_file() {
-        match ensure_legacy_stream_blocked(paths) {
-            Ok(()) => Ok("blocked_file".to_string()),
-            Err(_) => Ok("unexpected_file".to_string()),
-        }
-    } else {
-        Ok("missing".to_string())
-    }
-}
-
 fn catalog_fingerprint(db: &InventoryDb) -> CommandResult<String> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -1990,6 +1843,7 @@ fn build_status(
         revision: db.sync_revision().ok().map(|value| value.to_string()),
         last_snapshot_id: db.last_snapshot_id().ok().flatten(),
         shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
+        warning: sync_warning(db),
     }
 }
 
@@ -2005,6 +1859,7 @@ fn disabled_status(db: Option<&InventoryDb>, message: impl Into<String>) -> Inve
         revision: db.and_then(|db| db.sync_revision().ok().map(|value| value.to_string())),
         last_snapshot_id: db.and_then(|db| db.last_snapshot_id().ok().flatten()),
         shared_root_path: None,
+        warning: db.and_then(sync_warning),
     }
 }
 
@@ -2158,45 +2013,38 @@ mod tests {
     use std::{env, fs, path::PathBuf};
 
     #[test]
-    fn cutover_quarantines_and_blocks_the_legacy_v1_stream() {
-        let db = test_db("catalog-cutover-db");
-        ensure_catalog_initialized(&db).unwrap();
-        let root = unique_test_dir("catalog-cutover-root");
+    fn first_sync_sets_up_a_new_shared_catalog_and_blocks_the_v1_stream() {
+        let db = test_db("catalog-share-db");
+        let root = unique_test_dir("catalog-share-root");
+        fs::create_dir_all(&root).unwrap();
+
+        let result = run_shared_sync_with_root(&db, root.clone()).unwrap();
+
+        assert!(result.shared.available);
+        let shared = root.join("shared");
+        assert!(shared.join("inventory").is_file());
+        assert!(shared.join("catalog-v2").join("cutover.json").is_file());
+        assert!(shared.join("catalog-v2").join("manifest.json").is_file());
+    }
+
+    #[test]
+    fn a_share_still_holding_the_v1_stream_stays_local_only() {
+        let db = test_db("catalog-v1-share-db");
+        let root = unique_test_dir("catalog-v1-share-root");
         let legacy = root.join("shared").join("inventory");
         fs::create_dir_all(&legacy).unwrap();
-        fs::write(legacy.join("manifest.json"), b"legacy").unwrap();
 
-        let preview = preview_shared_cutover_with_root(&db, root.clone()).unwrap();
-        assert_eq!(preview.legacy_stream_state, "legacy_directory");
-        let result = commit_shared_cutover_with_root(
-            CatalogSharedCutoverCommitInput {
-                local_fingerprint: preview.local_fingerprint,
-                confirmed: true,
-            },
-            &db,
-            root.clone(),
-        )
-        .unwrap();
+        let result = run_shared_sync_with_root(&db, root.clone()).unwrap();
 
-        assert!(!result.noop);
-        assert!(root.join("shared").join("inventory").is_file());
-        assert!(result
-            .legacy_backup_path
-            .as_ref()
-            .is_some_and(|path| Path::new(path).join("manifest.json").exists()));
-        assert!(root
-            .join("shared")
-            .join("catalog-v2")
-            .join("cutover.json")
-            .exists());
+        assert!(!result.shared.available);
+        assert!(legacy.is_dir());
+        assert!(!root.join("shared").join("catalog-v2").exists());
     }
 
     #[test]
     fn two_databases_sync_every_catalog_entity_and_dependency_safe_deletes() {
         let first = test_db("catalog-sync-first");
         let second = test_db("catalog-sync-second");
-        ensure_catalog_initialized(&first).unwrap();
-        ensure_catalog_initialized(&second).unwrap();
         let root = unique_test_dir("catalog-sync-root");
         fs::create_dir_all(&root).unwrap();
         let (part, area, container, placement) = seed_catalog(&first);
@@ -2204,16 +2052,7 @@ mod tests {
         queue_upsert_operation(&first, container.clone().into(), Vec::new(), None).unwrap();
         queue_upsert_operation(&first, part.clone().into(), Vec::new(), None).unwrap();
         queue_upsert_operation(&first, placement.clone().into(), Vec::new(), None).unwrap();
-        let preview = preview_shared_cutover_with_root(&first, root.clone()).unwrap();
-        commit_shared_cutover_with_root(
-            CatalogSharedCutoverCommitInput {
-                local_fingerprint: preview.local_fingerprint,
-                confirmed: true,
-            },
-            &first,
-            root.clone(),
-        )
-        .unwrap();
+        run_shared_sync_with_root(&first, root.clone()).unwrap();
 
         run_shared_sync_with_root(&second, root.clone()).unwrap();
         assert_eq!(second.load_parts().unwrap(), vec![part.clone()]);
@@ -2276,8 +2115,6 @@ mod tests {
     fn simultaneous_quantity_edits_converge_without_additive_merge() {
         let first = test_db("catalog-conflict-first");
         let second = test_db("catalog-conflict-second");
-        ensure_catalog_initialized(&first).unwrap();
-        ensure_catalog_initialized(&second).unwrap();
         let root = unique_test_dir("catalog-conflict-root");
         fs::create_dir_all(&root).unwrap();
         let (part, area, container, placement) = seed_catalog(&first);
@@ -2285,16 +2122,7 @@ mod tests {
         queue_upsert_operation(&first, container.into(), Vec::new(), None).unwrap();
         queue_upsert_operation(&first, part.into(), Vec::new(), None).unwrap();
         queue_upsert_operation(&first, placement.clone().into(), Vec::new(), None).unwrap();
-        let preview = preview_shared_cutover_with_root(&first, root.clone()).unwrap();
-        commit_shared_cutover_with_root(
-            CatalogSharedCutoverCommitInput {
-                local_fingerprint: preview.local_fingerprint,
-                confirmed: true,
-            },
-            &first,
-            root.clone(),
-        )
-        .unwrap();
+        run_shared_sync_with_root(&first, root.clone()).unwrap();
         run_shared_sync_with_root(&second, root.clone()).unwrap();
 
         let base_version = placement.updated_at.clone();
@@ -2393,7 +2221,7 @@ mod tests {
         db.put_storage_container(&container).unwrap();
         db.put_part(&part).unwrap();
         db.put_stock_placement(&placement).unwrap();
-        db.set_next_entry_id(2).unwrap();
+        db.set_next_part_id(2).unwrap();
         (part, area, container, placement)
     }
 
@@ -2410,302 +2238,12 @@ mod tests {
     fn test_db(prefix: &str) -> InventoryDb {
         let root = unique_test_dir(prefix);
         fs::create_dir_all(&root).unwrap();
-        InventoryDb::open_at(root.join("te-lab-components.feox")).unwrap()
+        let db = InventoryDb::open_at(root.join("te-lab-components.feox")).unwrap();
+        db.ensure_catalog_schema().unwrap();
+        db
     }
 
     fn unique_test_dir(prefix: &str) -> PathBuf {
         env::temp_dir().join(format!("{prefix}-{}", Uuid::new_v4().simple()))
-    }
-
-    /// Owner one-shot: seed demo parts into local Lab DB if empty, cut over product
-    /// shared root to catalog-v2, and publish the initial shared snapshot.
-    ///
-    ///   set SEED_LAB_SHARED=1
-    ///   cargo test seed_live_lab_shared_demo_catalog -- --ignored --nocapture
-    #[test]
-    #[ignore = "live shared Lab cutover; set SEED_LAB_SHARED=1"]
-    fn seed_live_lab_shared_demo_catalog() {
-        use crate::modules::te_lab_components::catalog_demo_seed::seed_demo_catalog_if_empty;
-        use crate::platform::DEFAULT_LAB_COMPONENTS_SHARED_ROOT;
-
-        if env::var("SEED_LAB_SHARED").ok().as_deref() != Some("1") {
-            eprintln!("skip: set SEED_LAB_SHARED=1 to seed shared Lab catalog");
-            return;
-        }
-
-        let local = env::var("LOCALAPPDATA").expect("LOCALAPPDATA");
-        let lab_path = PathBuf::from(local)
-            .join("com.inventory.management")
-            .join("te-lab-components.feox");
-        assert!(
-            lab_path.is_file(),
-            "local Lab DB missing at {}",
-            lab_path.display()
-        );
-
-        let shared_root = PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT);
-        assert!(
-            shared_root.is_dir(),
-            "shared root missing at {}",
-            shared_root.display()
-        );
-
-        let db = InventoryDb::open_at(lab_path).expect("open local Lab DB");
-        ensure_catalog_initialized(&db).expect("init catalog v2");
-        seed_demo_catalog_if_empty(&db).expect("seed demo parts when empty");
-        repair_demo_counted_placements(&db);
-        queue_all_catalog_entities(&db);
-
-        let part_count = db.load_parts().expect("load parts").len();
-        let placement_count = db.load_stock_placements().expect("load placements").len();
-        assert!(
-            part_count >= 6,
-            "expected at least the 6 demo parts, got {part_count}"
-        );
-        eprintln!("local catalog: {part_count} parts, {placement_count} placements");
-
-        let preview = preview_shared_cutover_with_root(&db, shared_root.clone()).expect("preview");
-        eprintln!(
-            "cutover preview: blocking={} catalog_v2_initialized={} legacy={} parts={} areas={} containers={} placements={}",
-            preview.blocking,
-            preview.catalog_v2_initialized,
-            preview.legacy_stream_state,
-            preview.part_count,
-            preview.area_count,
-            preview.container_count,
-            preview.placement_count
-        );
-        assert!(
-            !preview.blocking,
-            "shared cutover blocked: root available={} legacy={}",
-            preview.shared_root_available, preview.legacy_stream_state
-        );
-
-        let commit = commit_shared_cutover_with_root(
-            CatalogSharedCutoverCommitInput {
-                local_fingerprint: preview.local_fingerprint.clone(),
-                confirmed: true,
-            },
-            &db,
-            shared_root.clone(),
-        )
-        .expect("commit cutover");
-        eprintln!(
-            "cutover commit: noop={} catalog_root={} message={}",
-            commit.noop, commit.catalog_root_path, commit.message
-        );
-
-        let sync = run_shared_sync_with_root(&db, shared_root).expect("shared sync");
-        eprintln!(
-            "shared sync: available={} enabled={} mode={} message={}",
-            sync.shared.available,
-            sync.shared.enabled,
-            sync.shared.mutation_mode,
-            sync.shared.message
-        );
-        assert!(
-            sync.shared.available && sync.shared.enabled,
-            "expected shared ready after cutover"
-        );
-        assert!(
-            PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT)
-                .join("shared")
-                .join("catalog-v2")
-                .join("cutover.json")
-                .is_file(),
-            "expected catalog-v2 cutover marker on shared root"
-        );
-    }
-
-    /// Make installed 0.1.0 openable after newer catalog-v2 Lab writes.
-    ///
-    /// 0.1.0 has **no** catalog sync types. Its inventory-style recovery panics on
-    /// catalog tombstones/entry-states that use `entityUuid` instead of `entryUuid`.
-    /// This strips catalog sync metadata (keeps part/placement data for newer builds).
-    ///
-    ///   set REPAIR_LAB_OUTBOX=1
-    ///   cargo test repair_live_lab_outbox_for_legacy_install -- --ignored --nocapture
-    #[test]
-    #[ignore = "live Lab outbox repair for 0.1.0; set REPAIR_LAB_OUTBOX=1"]
-    fn repair_live_lab_outbox_for_legacy_install() {
-        if env::var("REPAIR_LAB_OUTBOX").ok().as_deref() != Some("1") {
-            eprintln!("skip: set REPAIR_LAB_OUTBOX=1 to strip Lab outbox for legacy 0.1.0");
-            return;
-        }
-
-        let local = env::var("LOCALAPPDATA").expect("LOCALAPPDATA");
-        let lab_path = PathBuf::from(local)
-            .join("com.inventory.management")
-            .join("te-lab-components.feox");
-        assert!(
-            lab_path.is_file(),
-            "missing Lab DB at {}",
-            lab_path.display()
-        );
-
-        let file_size = std::fs::metadata(&lab_path)
-            .expect("metadata")
-            .len()
-            .max(64 * 1024 * 1024);
-        let db =
-            InventoryDb::open_at_with_size(lab_path.clone(), file_size).expect("open local Lab DB");
-        let schema = db.schema_version().expect("schema");
-        eprintln!("Lab DB {} schema_version={schema:?}", lab_path.display());
-
-        let mut rows: Vec<(u64, String)> = Vec::new();
-        db.scan_sync_outbox_raw(None, usize::MAX, |local_seq, value| {
-            let preview = String::from_utf8_lossy(value);
-            let op = if preview.contains("catalog.entity.upsert") {
-                "catalog.entity.upsert".to_string()
-            } else if preview.contains("catalog.entity.delete") {
-                "catalog.entity.delete".to_string()
-            } else if preview.contains("inventory.entry") {
-                "inventory.entry.*".to_string()
-            } else {
-                format!("other/unknown ({} bytes)", value.len())
-            };
-            rows.push((local_seq, op));
-            Ok(true)
-        })
-        .expect("scan outbox");
-
-        eprintln!("outbox rows before repair: {}", rows.len());
-        for (seq, op) in &rows {
-            eprintln!("  seq={seq} op={op}");
-        }
-
-        let mut deleted_outbox = 0usize;
-        for (seq, op) in &rows {
-            // Remove everything that installed 0.1.0 inventory-style recovery cannot parse,
-            // and catalog ops that re-poison after mixed dev use of the same AppData path.
-            if op.starts_with("catalog.entity") || op.starts_with("other") {
-                db.delete_sync_outbox_record(*seq)
-                    .unwrap_or_else(|error| panic!("delete outbox seq {seq}: {error}"));
-                deleted_outbox += 1;
-            }
-        }
-
-        // Catalog entity states/tombstones use entityUuid — 0.1.0 expects entryUuid and panics.
-        let mut deleted_states = 0usize;
-        let mut state_keys: Vec<String> = Vec::new();
-        db.scan_sync_range(SyncKeyspace::EntryState, usize::MAX, |key, value| {
-            let preview = String::from_utf8_lossy(value);
-            if preview.contains("entityUuid") || !preview.contains("entryUuid") {
-                state_keys.push(String::from_utf8_lossy(key).into_owned());
-            }
-            Ok(true)
-        })
-        .expect("scan entry states");
-        for key in &state_keys {
-            let entity = key
-                .strip_prefix("sync:entry_state:")
-                .unwrap_or(key.as_str());
-            db.delete_sync_entry_state(entity)
-                .unwrap_or_else(|error| panic!("delete entry state {entity}: {error}"));
-            deleted_states += 1;
-        }
-
-        let mut deleted_tombstones = 0usize;
-        let mut tombstone_keys: Vec<String> = Vec::new();
-        db.scan_sync_range(SyncKeyspace::Tombstone, usize::MAX, |key, value| {
-            let preview = String::from_utf8_lossy(value);
-            if preview.contains("entityUuid") || !preview.contains("entryUuid") {
-                tombstone_keys.push(String::from_utf8_lossy(key).into_owned());
-            }
-            Ok(true)
-        })
-        .expect("scan tombstones");
-        for key in &tombstone_keys {
-            let entity = key.strip_prefix("sync:tombstone:").unwrap_or(key.as_str());
-            db.delete_sync_tombstone(entity)
-                .unwrap_or_else(|error| panic!("delete tombstone {entity}: {error}"));
-            deleted_tombstones += 1;
-        }
-
-        db.flush();
-
-        let mut remaining = 0usize;
-        db.scan_sync_outbox_raw(None, usize::MAX, |_, _| {
-            remaining += 1;
-            Ok(true)
-        })
-        .expect("rescan");
-        eprintln!(
-            "deleted_outbox={deleted_outbox} deleted_entry_states={deleted_states} deleted_tombstones={deleted_tombstones} remaining_outbox={remaining}"
-        );
-        assert_eq!(remaining, 0, "expected catalog outbox cleared");
-        assert_eq!(deleted_states, state_keys.len());
-        assert_eq!(deleted_tombstones, tombstone_keys.len());
-    }
-
-    /// Re-bootstrap the six demo parts after accidental local/shared deletion.
-    ///
-    ///   set RESEED_LAB_DEMO=1
-    ///   cargo test reseed_live_lab_demo_catalog -- --ignored --nocapture
-    #[test]
-    #[ignore = "live reseed Lab demo catalog; set RESEED_LAB_DEMO=1"]
-    fn reseed_live_lab_demo_catalog() {
-        use crate::modules::te_lab_components::catalog_demo_seed::reseed_demo_catalog;
-        use crate::platform::DEFAULT_LAB_COMPONENTS_SHARED_ROOT;
-
-        if env::var("RESEED_LAB_DEMO").ok().as_deref() != Some("1") {
-            eprintln!("skip: set RESEED_LAB_DEMO=1 to reseed Lab demo catalog");
-            return;
-        }
-
-        let local = env::var("LOCALAPPDATA").expect("LOCALAPPDATA");
-        let lab_path = PathBuf::from(local)
-            .join("com.inventory.management")
-            .join("te-lab-components.feox");
-        let shared_root = PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT);
-        let db = InventoryDb::open_at(lab_path).expect("open local Lab DB");
-        ensure_catalog_initialized(&db).expect("init catalog v2");
-
-        let before = db.load_parts().expect("parts").len();
-        reseed_demo_catalog(&db).expect("reseed demo catalog");
-        repair_demo_counted_placements(&db);
-        queue_all_catalog_entities(&db);
-        let after = db.load_parts().expect("parts").len();
-        eprintln!("reseeded demo catalog: before={before} after={after}");
-        assert_eq!(after, 6);
-
-        let sync = publish_pending_local_changes_with_root(&db, shared_root.clone())
-            .expect("publish demo catalog");
-        let again = run_shared_sync_with_root(&db, shared_root).expect("shared sync");
-        eprintln!(
-            "publish: available={} enabled={} message={}",
-            again.shared.available, again.shared.enabled, again.shared.message
-        );
-        assert!(sync.shared.enabled || again.shared.enabled);
-    }
-
-    fn repair_demo_counted_placements(db: &InventoryDb) {
-        for mut placement in db.load_stock_placements().expect("load placements") {
-            if placement.count_state == "counted" && placement.last_counted_at.is_none() {
-                placement.last_counted_at = Some(now_timestamp());
-                if placement.last_counted_by.trim().is_empty() {
-                    placement.last_counted_by = "demo-seed".to_string();
-                }
-                db.put_stock_placement(&placement)
-                    .expect("repair counted placement timestamp");
-            }
-        }
-    }
-
-    fn queue_all_catalog_entities(db: &InventoryDb) {
-        for area in db.load_storage_areas().expect("areas") {
-            queue_upsert_operation(db, area.into(), Vec::new(), None).expect("queue area");
-        }
-        for container in db.load_storage_containers().expect("containers") {
-            queue_upsert_operation(db, container.into(), Vec::new(), None)
-                .expect("queue container");
-        }
-        for part in db.load_parts().expect("parts") {
-            queue_upsert_operation(db, part.into(), Vec::new(), None).expect("queue part");
-        }
-        for placement in db.load_stock_placements().expect("placements") {
-            queue_upsert_operation(db, placement.into(), Vec::new(), None)
-                .expect("queue placement");
-        }
     }
 }

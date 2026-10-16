@@ -1,5 +1,4 @@
-use crate::modules::te_lab_components::{
-    catalog_migration::ensure_catalog_initialized,
+use super::{
     catalog_model::{
         create_part, create_stock_placement, create_storage_area, create_storage_container,
         indistinguishable_placement_key, normalize_part_input, normalize_stock_placement_input,
@@ -12,24 +11,24 @@ use crate::modules::te_lab_components::{
         StorageArea, StorageAreaInput, StorageContainer, StorageContainerInput,
     },
     catalog_sync::{self, CatalogEntityType},
-    model::{CommandResult, InventorySharedStatus},
     store::InventoryDb,
 };
+use crate::platform::common::{CommandResult, InventorySharedStatus};
 
 pub(crate) fn create_part_in_store(
     input: PartInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<Part>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let input = normalize_part_input(input);
     validate_part_input(&input)?;
     ensure_unique_part_number(db, &input.internal_part_number, None)?;
 
-    let id = db.next_entry_id()?;
+    let id = db.next_part_id()?;
     let part = create_part(id, input);
     let sync_backup = db.backup_sync_state()?;
     db.put_part(&part)?;
-    if let Err(error) = db.set_next_entry_id(id + 1) {
+    if let Err(error) = db.set_next_part_id(id + 1) {
         let _ = db.delete_part(&part);
         db.flush();
         return Err(error);
@@ -38,7 +37,7 @@ pub(crate) fn create_part_in_store(
         catalog_sync::queue_upsert_operation(db, part.clone().into(), Vec::new(), None)
     {
         let _ = db.delete_part(&part);
-        let _ = db.set_next_entry_id(id);
+        let _ = db.set_next_part_id(id);
         let _ = db.restore_sync_state(sync_backup);
         db.flush();
         return Err(error);
@@ -56,7 +55,7 @@ pub(crate) fn update_part_in_store(
     input: PartInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<Part>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let input = normalize_part_input(input);
     validate_part_input(&input)?;
     let existing = db
@@ -101,7 +100,7 @@ pub(crate) fn delete_part_in_store(
     part_id: &str,
     db: &InventoryDb,
 ) -> CommandResult<CatalogDeleteResult> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let part = db
         .find_part(part_id)?
         .ok_or_else(|| "The selected part could not be found.".to_string())?;
@@ -166,7 +165,7 @@ pub(crate) fn create_storage_area_in_store(
     input: StorageAreaInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<StorageArea>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let input = normalize_storage_area_input(input);
     validate_storage_area_input(&input)?;
     ensure_unique_area_name(db, &input.name, None, input.archived)?;
@@ -190,7 +189,7 @@ pub(crate) fn update_storage_area_in_store(
     input: StorageAreaInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<StorageArea>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let input = normalize_storage_area_input(input);
     validate_storage_area_input(&input)?;
     let existing = db
@@ -227,7 +226,7 @@ pub(crate) fn delete_storage_area_in_store(
     area_uuid: &str,
     db: &InventoryDb,
 ) -> CommandResult<CatalogDeleteResult> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let area = db
         .find_storage_area(area_uuid)?
         .ok_or_else(|| "The selected storage area could not be found.".to_string())?;
@@ -260,7 +259,7 @@ pub(crate) fn create_storage_container_in_store(
     input: StorageContainerInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<StorageContainer>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let input = normalize_storage_container_input(input);
     validate_storage_container_input(&input)?;
     let area = require_area(db, &input.area_uuid)?;
@@ -288,7 +287,7 @@ pub(crate) fn update_storage_container_in_store(
     input: StorageContainerInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<StorageContainer>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let input = normalize_storage_container_input(input);
     validate_storage_container_input(&input)?;
     let existing = require_container(db, container_uuid)?;
@@ -346,7 +345,7 @@ pub(crate) fn delete_storage_container_in_store(
     container_uuid: &str,
     db: &InventoryDb,
 ) -> CommandResult<CatalogDeleteResult> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let container = require_container(db, container_uuid)?;
     if !db
         .load_stock_placements_for_container(&container.container_uuid)?
@@ -382,7 +381,7 @@ pub(crate) fn create_stock_placement_in_store(
     input: StockPlacementInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<StockPlacement>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let part = require_part(db, &input.part_uuid)?;
     if part.archived {
         return Err("Restore the part before adding stock.".to_string());
@@ -411,7 +410,7 @@ pub(crate) fn update_stock_placement_in_store(
     input: StockPlacementInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<StockPlacement>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let existing = require_placement(db, placement_uuid)?;
     let part = require_part(db, &input.part_uuid)?;
     let container = require_container(db, &input.container_uuid)?;
@@ -451,7 +450,7 @@ pub(crate) fn delete_stock_placement_in_store(
     placement_uuid: &str,
     db: &InventoryDb,
 ) -> CommandResult<CatalogDeleteResult> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     let placement = require_placement(db, placement_uuid)?;
     let sync_backup = db.backup_sync_state()?;
     db.delete_stock_placement(&placement)?;
@@ -480,7 +479,7 @@ pub(crate) fn count_stock_in_store(
     input: StockCountInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<StockPlacement>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     if input.counted_by.trim().is_empty() {
         return Err("Enter who performed the physical count.".to_string());
     }
@@ -518,7 +517,7 @@ pub(crate) fn move_stock_in_store(
     input: StockMoveInput,
     db: &InventoryDb,
 ) -> CommandResult<CatalogMutationResult<Vec<StockPlacement>>> {
-    require_catalog_ready(db)?;
+    db.ensure_catalog_schema()?;
     if !input.quantity.is_finite() || input.quantity <= 0.0 {
         return Err("Move quantity must be greater than zero.".to_string());
     }
@@ -666,10 +665,6 @@ pub(crate) fn move_stock_in_store(
         "Stock moved between placements.",
         db,
     ))
-}
-
-fn require_catalog_ready(db: &InventoryDb) -> CommandResult<()> {
-    ensure_catalog_initialized(db)
 }
 
 fn require_part(db: &InventoryDb, part_uuid: &str) -> CommandResult<Part> {

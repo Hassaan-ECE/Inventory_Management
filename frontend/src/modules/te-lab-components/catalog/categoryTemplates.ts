@@ -1,4 +1,4 @@
-export interface AttributeTemplate {
+interface AttributeTemplate {
   key: string;
   label: string;
   unit?: string;

@@ -10,7 +10,7 @@ Compact design note for how the unified product syncs. Constants quoted here are
 - The S: drive is sync transport, not a database. Each module has its own shared root and stream; modules never read each other's streams.
 - Shared sync is on by default. `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED=0|false|no|off` disables it for all modules in that process.
 - Optional `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` (≥16 bytes) signs and verifies operations, snapshots, and manifests for all modules. Either every client sets the same key or none do.
-- Old app-owned SQLite `.db` files are quarantined locally once (`integrations/deprecated_db_cleanup.rs`) and are not import sources.
+- Developer builds use `<repo>/.tmp/dev-data` and `<repo>/.tmp/dev-share` instead of the locations above (`backend/src/platform/dev_build.rs`).
 
 ## Shared Layout
 

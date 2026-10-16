@@ -3,18 +3,18 @@ import { FileSpreadsheetIcon, MoonIcon, PlusIcon, SunIcon } from "lucide-react";
 
 import { ExportMenu } from "@/modules/te-test-equipment/components/header/ExportMenu";
 import { ScopeToggle } from "@/modules/te-test-equipment/components/header/ScopeToggle";
-import { UpdateActionButton } from "@/modules/te-test-equipment/components/header/UpdateActionButton";
+import { UpdateActionButton } from "@/platform/updates/UpdateActionButton";
 import type {
   InventoryScope,
   InventorySharedStatus,
   TeTestEquipmentWorkspace,
-  UpdateState,
 } from "@/modules/te-test-equipment/types";
 import type { InventoryViewId } from "@/platform/modules/types";
 import type { ThemeMode } from "@/platform/ui/theme";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { InventorySystemSwitcher } from "@/shell/InventorySystemSwitcher";
+import type { UpdateState } from "@/platform/updates/updateState";
 
 interface InventoryHeaderProps {
   activeViewId: InventoryViewId;
@@ -24,7 +24,6 @@ interface InventoryHeaderProps {
   inventoryCount: number;
   onAddEntry: () => void;
   onExportExcel: () => void;
-  onExportHtml: () => void;
   onInitializeCalibrationRoster: () => void;
   onScopeChange: (scope: InventoryScope) => void;
   onThemeToggle: () => void;
@@ -45,7 +44,6 @@ export function InventoryHeader({
   inventoryCount,
   onAddEntry,
   onExportExcel,
-  onExportHtml,
   onInitializeCalibrationRoster,
   onScopeChange,
   onThemeToggle,
@@ -112,7 +110,7 @@ export function InventoryHeader({
           >
             {theme === "light" ? <MoonIcon className="size-3.5" /> : <SunIcon className="size-3.5" />}
           </Button>
-          <ExportMenu onExportExcel={onExportExcel} onExportHtml={onExportHtml} onOpenChange={setExportOpen} />
+          <ExportMenu onExportExcel={onExportExcel} onOpenChange={setExportOpen} />
           {workspace === "calibration" && calibrationRosterAvailable ? (
             <Button
               aria-label="Initialize from Calibration Workbook"

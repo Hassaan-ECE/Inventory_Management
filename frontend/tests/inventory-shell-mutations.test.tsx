@@ -97,9 +97,6 @@ describe("InventoryShell mutations", () => {
       openExternal: vi.fn().mockResolvedValue(true),
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
-      pickImportFile: vi.fn().mockResolvedValue(null),
-      previewImport: vi.fn(),
-      commitImport: vi.fn(),
       exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
     };
 
@@ -177,9 +174,6 @@ describe("InventoryShell mutations", () => {
       openExternal: vi.fn().mockResolvedValue(true),
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
-      pickImportFile: vi.fn().mockResolvedValue(null),
-      previewImport: vi.fn(),
-      commitImport: vi.fn(),
       exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
     };
 

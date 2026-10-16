@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { STORAGE_COLUMNS, type StorageBridge, type StorageEntry, type StorageMutation, type StorageSharedStatus, type StorageSnapshot } from "./types";
+import { parseSharedStatus as shared } from "@/platform/sync/sharedStatus";
+import { STORAGE_COLUMNS, type StorageBridge, type StorageEntry, type StorageMutation, type StorageSnapshot } from "./types";
 
 const moduleId = "te-storage";
 function object(value: unknown): Record<string, unknown> {
@@ -19,15 +20,6 @@ function entry(value: unknown): StorageEntry {
   }
   if (typeof row.archived !== "boolean") throw new Error("Invalid EVCS Storage record state.");
   return row as unknown as StorageEntry;
-}
-function shared(value: unknown): StorageSharedStatus {
-  const status = object(value);
-  if (["available", "enabled", "canModify"].some(key => typeof status[key] !== "boolean") ||
-      typeof status.message !== "string" || typeof status.mutationMode !== "string" ||
-      (status.hasLocalOnlyChanges !== null && typeof status.hasLocalOnlyChanges !== "boolean")) {
-    throw new Error("Invalid EVCS Storage sync status.");
-  }
-  return status as unknown as StorageSharedStatus;
 }
 export function parseStorageSnapshot(value: unknown): StorageSnapshot {
   const payload = object(value);

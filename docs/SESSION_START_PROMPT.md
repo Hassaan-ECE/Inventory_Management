@@ -38,7 +38,7 @@ Prefer live code and these current documents over older TE/ME planning copies.
 ## Product intent
 
 - One install with a title-menu switcher across separate inventories.
-- Labels: **TE Test Equipment** (with a **Calibration** view), **TE Lab Components**, **ME Storage**, **EVCS Storage** (module id `te-storage`).
+- Labels: **TE Test Equipment** (with a **Calibration** view), **TE Lab Components**, **EVCS Storage** (module id `te-storage`).
 - Modules keep separate databases, domain types, shared roots, and sync streams.
 - Shared data stays per module on S:; sync is not a backup.
 
@@ -49,9 +49,7 @@ Prefer live code and these current documents over older TE/ME planning copies.
 | Display | Inventory Management |
 | Package | `inventory-management` `0.1.4` |
 | Tauri id | `com.inventory.management` |
-| TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
-| TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
-| EVCS Storage DB | `%LOCALAPPDATA%\com.inventory.management\te-storage-room.feox` |
+| Local database (0.2+) | `%LOCALAPPDATA%\com.inventory.management\inventory-management.feox` (all inventories; 0.1.x files are merged in once and kept in `pre-0.2-databases\`) |
 | Product share | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
 | Default TE shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
 | Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
@@ -64,20 +62,24 @@ Prefer live code and these current documents over older TE/ME planning copies.
 
 - IM-011 adaptive per-inventory sync lifecycle (TE, Lab, Storage).
 - IM-012 shell/platform/module architecture.
-- TE Test Equipment, TE Lab Components, and EVCS Storage are implemented; ME Storage is a placeholder.
+- TE Test Equipment, TE Lab Components, and EVCS Storage are implemented.
 - IM-014 generalized Lab parts catalog (sync schema v2 under `shared\catalog-v2\`) with the simple five-column workspace, bin picker, and order-request export.
 - IM-015 TE Equipment/Calibration workspace and guarded calibration-roster tooling.
 - Release **0.1.4** published (sync divergence fix + EVCS Storage rename). TE shared data was restored to the most complete copy on 2026-10-15; see SESSION_HANDOFF.
 
+**In progress (branch `feature/0.2-cleanup`)**
+
+- 0.2 cleanup and consolidation: `docs/superpowers/plans/2026-10-16-v0.2-cleanup-and-consolidation.md`. Done so far: developer builds isolated in `.tmp/` with a DEV footer tag; dead code, placeholders, and copied frontend update code removed (`docs/engineering/REMOVED_AND_FUTURE.md`).
+
 **Not completed**
 
 - Live IM-014 Lab schema-v2 cutover and live IM-015 calibration roster cutover (separate owner ops).
-- ME Storage implementation.
+- ME Storage (idea only; see REMOVED_AND_FUTURE.md).
 
 **Known code facts worth knowing**
 
 - The operation-log sync engine is copied three times (`backend/src/sync/`, `modules/te_lab_components/sync/`, `modules/te_storage/sync/`); a fix in one is not a fix in the others.
-- The TE Import button is intentionally hidden; the TE export menu's HTML option is a placeholder; window-geometry restore is intentionally disabled.
+- On `main` (0.1.4) the TE Import button is hidden, the HTML export item is a placeholder, and window-geometry restore is disabled; all three are removed on the 0.2 branch.
 
 ## Rules
 
@@ -88,7 +90,7 @@ Prefer live code and these current documents over older TE/ME planning copies.
 - Do not run either live cutover during a normal development smoke.
 - For copied-data desktop testing, set the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT`, redirect all three shared roots, and set `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED=0`; changing `LOCALAPPDATA` alone is insufficient on Windows.
 - Do not point verification env vars at live `%LOCALAPPDATA%\com.inventory.management` or `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App`.
-- Do not run the ignored `REPAIR_*` / `TE_LOAD_LIVE_LOCAL` tests unless the owner asks; they write live data.
+- Do not run the ignored live-data tests (`REPAIR_*` / `TE_LOAD_LIVE_LOCAL` on 0.1.4, the snapshot restore tool everywhere) unless the owner asks; they write live data.
 
 ## First reply in a new chat
 

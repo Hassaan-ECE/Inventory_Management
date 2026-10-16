@@ -1,4 +1,5 @@
 import { APP_VERSION } from "@/app/branding";
+import { parseSharedStatus } from "@/platform/sync/sharedStatus";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 import {
   type CalibrationRosterAbsentEntry,
@@ -20,28 +21,14 @@ import {
   type InventoryEntryInput,
   type InventoryEntryMutationResult,
   type InventoryQueryResult,
-  type InventorySharedStatus,
-  type ImportClassification,
-  type ImportColumnReport,
-  type ImportColumnTreatment,
-  type ImportCommitResult,
-  type ImportDryRunReport,
   type ImportProvenance,
-  type ImportRowOutcome,
   type ExcelExportResult,
   type LifecycleStatus,
-  type UpdateState,
-  type UpdateStatus,
   type WorkingStatus,
 } from "@/modules/te-test-equipment/types";
 import { isValidDateOnly } from "@/modules/te-test-equipment/lib/calibrationHealth";
+import type { UpdateState, UpdateStatus } from "@/platform/updates/updateState";
 
-const IMPORT_CLASSIFICATIONS = new Set<ImportClassification>([
-  "inserted", "matched", "conflicted", "rejected", "ignored",
-]);
-const IMPORT_COLUMN_TREATMENTS = new Set<ImportColumnTreatment>([
-  "mapped", "intentionally_ignored", "unknown",
-]);
 const CALIBRATION_ROSTER_CLASSIFICATIONS = new Set<CalibrationRosterClassification>([
   "matched_update",
   "create_candidate",
@@ -77,10 +64,6 @@ export function parseInventorySyncResult(value: unknown): InventorySyncResult {
     entriesChanged: optionalBoolean(record.entriesChanged),
     shared: parseSharedStatus(record.shared),
   };
-}
-
-export function parseNullableInventorySyncResult(value: unknown): InventorySyncResult | null {
-  return value === null || value === undefined ? null : parseInventorySyncResult(value);
 }
 
 export function parseInventoryQueryResult(value: unknown): InventoryQueryResult {
@@ -129,65 +112,6 @@ export function parseExcelExportResult(value: unknown): ExcelExportResult {
     canceled: record.canceled,
     error: optionalString(record.error),
     outputPath: optionalString(record.outputPath),
-  };
-}
-
-export function parseImportDryRunReport(value: unknown): ImportDryRunReport {
-  const record = requireRecord(value, "import dry-run report");
-  const report: ImportDryRunReport = {
-    batchId: requireString(record.batchId, "Invalid import dry-run report: batchId must be a string."),
-    sourceFingerprint: requireString(record.sourceFingerprint, "Invalid import dry-run report: sourceFingerprint must be a string."),
-    sourceFilename: requireString(record.sourceFilename, "Invalid import dry-run report: sourceFilename must be a string."),
-    selectedSheet: requireString(record.selectedSheet, "Invalid import dry-run report: selectedSheet must be a string."),
-    mappingVersion: requireString(record.mappingVersion, "Invalid import dry-run report: mappingVersion must be a string."),
-    totalRows: requireNonnegativeInteger(record.totalRows, "Invalid import dry-run report: totalRows must be a nonnegative integer."),
-    inserted: requireNonnegativeInteger(record.inserted, "Invalid import dry-run report: inserted must be a nonnegative integer."),
-    matched: requireNonnegativeInteger(record.matched, "Invalid import dry-run report: matched must be a nonnegative integer."),
-    conflicted: requireNonnegativeInteger(record.conflicted, "Invalid import dry-run report: conflicted must be a nonnegative integer."),
-    rejected: requireNonnegativeInteger(record.rejected, "Invalid import dry-run report: rejected must be a nonnegative integer."),
-    ignored: requireNonnegativeInteger(record.ignored, "Invalid import dry-run report: ignored must be a nonnegative integer."),
-    columns: requireArray(record.columns, "import dry-run columns").map(parseImportColumnReport),
-    rowOutcomes: requireArray(record.rowOutcomes, "import dry-run row outcomes").map(parseImportRowOutcome),
-    blocking: requireBoolean(record.blocking, "Invalid import dry-run report: blocking must be a boolean."),
-    reconciliationBasis: requireString(record.reconciliationBasis, "Invalid import dry-run report: reconciliationBasis must be a string."),
-  };
-  const total = report.inserted + report.matched + report.conflicted + report.rejected + report.ignored;
-  if (report.totalRows !== total || report.rowOutcomes.length !== report.totalRows) {
-    throw new Error("Invalid import dry-run report: totalRows must equal the five totals and row outcomes.");
-  }
-  const actualCounts: Record<ImportClassification, number> = {
-    inserted: 0,
-    matched: 0,
-    conflicted: 0,
-    rejected: 0,
-    ignored: 0,
-  };
-  for (const row of report.rowOutcomes) actualCounts[row.classification] += 1;
-  if (
-    actualCounts.inserted !== report.inserted ||
-    actualCounts.matched !== report.matched ||
-    actualCounts.conflicted !== report.conflicted ||
-    actualCounts.rejected !== report.rejected ||
-    actualCounts.ignored !== report.ignored
-  ) {
-    throw new Error("Invalid import dry-run report: row classifications do not match the five totals.");
-  }
-  return report;
-}
-
-export function parseImportCommitResult(value: unknown): ImportCommitResult {
-  const record = requireRecord(value, "import commit result");
-  return {
-    batchId: requireString(record.batchId, "Invalid import commit result: batchId must be a string."),
-    inserted: requireNonnegativeInteger(record.inserted, "Invalid import commit result: inserted must be a nonnegative integer."),
-    matched: requireNonnegativeInteger(record.matched, "Invalid import commit result: matched must be a nonnegative integer."),
-    conflicted: requireNonnegativeInteger(record.conflicted, "Invalid import commit result: conflicted must be a nonnegative integer."),
-    rejected: requireNonnegativeInteger(record.rejected, "Invalid import commit result: rejected must be a nonnegative integer."),
-    ignored: requireNonnegativeInteger(record.ignored, "Invalid import commit result: ignored must be a nonnegative integer."),
-    remaining: requireNonnegativeInteger(record.remaining, "Invalid import commit result: remaining must be a nonnegative integer."),
-    noop: requireNonnegativeInteger(record.noop, "Invalid import commit result: noop must be a nonnegative integer."),
-    entriesChanged: requireBoolean(record.entriesChanged, "Invalid import commit result: entriesChanged must be a boolean."),
-    message: requireString(record.message, "Invalid import commit result: message must be a string."),
   };
 }
 
@@ -380,45 +304,6 @@ function parseInventoryEntry(value: unknown): InventoryEntry {
   };
 }
 
-function parseImportColumnReport(value: unknown): ImportColumnReport {
-  const record = requireRecord(value, "import dry-run column");
-  if (!IMPORT_COLUMN_TREATMENTS.has(record.treatment as ImportColumnTreatment)) {
-    throw new Error("Invalid import dry-run report: column treatment is invalid.");
-  }
-  return {
-    originalHeader: requireString(record.originalHeader, "Invalid import dry-run report: column header must be a string."),
-    normalizedTarget: parseNullableStrictString(record.normalizedTarget, "Invalid import dry-run report: normalizedTarget must be a string or null."),
-    treatment: record.treatment as ImportColumnTreatment,
-    nonblankCount: requireNonnegativeInteger(record.nonblankCount, "Invalid import dry-run report: nonblankCount must be a nonnegative integer."),
-    reason: requireString(record.reason, "Invalid import dry-run report: column reason must be a string."),
-  };
-}
-
-function parseImportRowOutcome(value: unknown): ImportRowOutcome {
-  const record = requireRecord(value, "import dry-run row outcome");
-  if (!IMPORT_CLASSIFICATIONS.has(record.classification as ImportClassification)) {
-    throw new Error("Invalid import dry-run report: row classification is invalid.");
-  }
-  const issues = requireArray(record.issues, "import dry-run row issues").map((issue) =>
-    requireString(issue, "Invalid import dry-run report: row issues must be strings."),
-  );
-  const rawRecord = requireRecord(record.rawValues, "import dry-run raw values");
-  const rawValues: Record<string, string> = {};
-  for (const [key, rawValue] of Object.entries(rawRecord)) {
-    rawValues[key] = requireString(rawValue, "Invalid import dry-run report: raw values must be strings.");
-  }
-  return {
-    sourceRow: requirePositiveInteger(record.sourceRow, "Invalid import dry-run report: sourceRow must be a positive integer."),
-    classification: record.classification as ImportClassification,
-    issues,
-    originalId: parseNullableStrictString(record.originalId, "Invalid import dry-run report: originalId must be a string or null."),
-    originalAssetNumber: parseNullableStrictString(record.originalAssetNumber, "Invalid import dry-run report: originalAssetNumber must be a string or null."),
-    originalSerialNumber: parseNullableStrictString(record.originalSerialNumber, "Invalid import dry-run report: originalSerialNumber must be a string or null."),
-    candidateEntryUuid: parseNullableStrictString(record.candidateEntryUuid, "Invalid import dry-run report: candidateEntryUuid must be a string or null."),
-    rawValues,
-  };
-}
-
 function parseCalibrationRosterCounts(value: unknown): CalibrationRosterCounts {
   const record = requireRecord(value, "calibration roster counts");
   return {
@@ -579,21 +464,6 @@ function parseCalibrationRosterEntryInput(value: unknown): InventoryEntryInput {
       "Invalid calibration roster proposed input: archived is invalid.",
     ),
     picturePath: parseOptionalString(record.picturePath, "picturePath"),
-  };
-}
-
-function parseSharedStatus(value: unknown): InventorySharedStatus {
-  const record = isRecord(value) ? value : {};
-  return {
-    available: record.available === true,
-    canModify: record.canModify !== false,
-    enabled: record.enabled === true,
-    hasLocalOnlyChanges: optionalBoolean(record.hasLocalOnlyChanges),
-    lastSnapshotId: optionalString(record.lastSnapshotId),
-    message: optionalString(record.message) ?? "Shared sync status unavailable.",
-    mutationMode: record.mutationMode === "shared" ? "shared" : "local",
-    revision: optionalString(record.revision),
-    sharedRootPath: optionalString(record.sharedRootPath),
   };
 }
 

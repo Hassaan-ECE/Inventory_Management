@@ -3,9 +3,6 @@ import type {
   CalibrationRosterCommitResult,
   CalibrationRosterPreviewReport,
   ExcelExportResult,
-  ImportCommitInput,
-  ImportCommitResult,
-  ImportDryRunReport,
   InventoryDeleteMutationResult as TeInventoryDeleteMutationResult,
   InventoryEntry as TeInventoryEntry,
   InventoryEntryEditContext as TeInventoryEntryEditContext,
@@ -14,17 +11,10 @@ import type {
   InventoryQueryInput as TeInventoryQueryInput,
   InventoryQueryResult as TeInventoryQueryResult,
   InventorySharedStatus as TeInventorySharedStatus,
-  UpdateState,
 } from "@/modules/te-test-equipment/types";
 import type {
   CatalogDeleteResult as LabCatalogDeleteResult,
-  CatalogMigrationCommitInput,
-  CatalogMigrationCommitResult,
-  CatalogMigrationPreview,
   CatalogMutationResult as LabCatalogMutationResult,
-  CatalogSharedCutoverCommitInput,
-  CatalogSharedCutoverCommitResult,
-  CatalogSharedCutoverPreview,
   CatalogSyncResult as LabCatalogSyncResult,
   InventoryDeleteMutationResult as LabInventoryDeleteMutationResult,
   InventoryEntry as LabInventoryEntry,
@@ -49,6 +39,7 @@ import type {
   StorageContainerInput,
 } from "@/modules/te-lab-components/types";
 import type { ModuleId } from "@/platform/modules/types";
+import type { UpdateState } from "@/platform/updates/updateState";
 
 export type ImplementedInventoryModuleId = "te-test-equipment" | "te-lab-components";
 
@@ -75,7 +66,7 @@ interface InventoryModuleContract {
   };
 }
 
-export type InventoryEntryFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["entry"];
+type InventoryEntryFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["entry"];
 export type InventoryEntryInputFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["entryInput"];
 export type InventoryEntryEditContextFor<M extends ImplementedInventoryModuleId> =
   InventoryModuleContract[M]["editContext"];
@@ -175,21 +166,10 @@ export interface InventoryDesktopBridge {
     placementUuid: string,
     input: StockCountInput,
   ) => Promise<LabCatalogMutationResult<StockPlacement>>;
-  previewLabCatalogMigration?: () => Promise<CatalogMigrationPreview>;
-  commitLabCatalogMigration?: (
-    input: CatalogMigrationCommitInput,
-  ) => Promise<CatalogMigrationCommitResult>;
-  previewLabSharedCutover?: () => Promise<CatalogSharedCutoverPreview>;
-  commitLabSharedCutover?: (
-    input: CatalogSharedCutoverCommitInput,
-  ) => Promise<CatalogSharedCutoverCommitResult>;
   openExternal?: (url: string) => Promise<boolean>;
   openPath?: (path: string) => Promise<boolean>;
   loadPicturePreview?: (path: string) => Promise<string | null>;
   pickPicturePath?: () => Promise<string | null>;
-  pickImportFile: (moduleId: "te-test-equipment") => Promise<string | null>;
-  previewImport: (moduleId: "te-test-equipment", path: string) => Promise<ImportDryRunReport>;
-  commitImport: (moduleId: "te-test-equipment", input: ImportCommitInput) => Promise<ImportCommitResult>;
   pickCalibrationRosterFile?: (moduleId: "te-test-equipment") => Promise<string | null>;
   previewCalibrationRoster?: (
     moduleId: "te-test-equipment",

@@ -1,7 +1,8 @@
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-pub(crate) type CommandResult<T> = Result<T, String>;
+
+pub(crate) use crate::platform::common::{now_timestamp, CommandResult, InventorySharedStatus};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InventoryEntry {
@@ -40,20 +41,6 @@ pub(crate) struct InventoryEntryEditContext {
     pub base_version: Option<String>,
     pub changed_fields: Vec<String>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct InventorySharedStatus {
-    pub available: bool,
-    pub can_modify: bool,
-    pub enabled: bool,
-    pub has_local_only_changes: Option<bool>,
-    pub message: String,
-    pub mutation_mode: String,
-    pub revision: Option<String>,
-    pub last_snapshot_id: Option<String>,
-    pub shared_root_path: Option<String>,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InventorySyncResult {
@@ -79,16 +66,6 @@ pub(crate) struct InventoryDeleteMutationResult {
     pub message: String,
     pub mutation_mode: String,
     pub shared: InventorySharedStatus,
-}
-
-pub(crate) fn db_error(error: impl std::fmt::Display) -> String {
-    error.to_string()
-}
-pub(crate) fn numeric_id(id: &str) -> i64 {
-    id.parse().unwrap_or(0)
-}
-pub(crate) fn now_timestamp() -> String {
-    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
 pub(crate) fn timestamp_after(previous: &str) -> String {

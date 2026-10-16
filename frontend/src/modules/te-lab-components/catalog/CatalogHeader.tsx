@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { MapPinnedIcon, MoonIcon, PlusIcon, SunIcon, WifiIcon } from "lucide-react";
+import { MapPinnedIcon, MoonIcon, PlusIcon, SunIcon } from "lucide-react";
 
 import { ExportMenu } from "@/modules/te-lab-components/components/header/ExportMenu";
-import { UpdateActionButton } from "@/modules/te-lab-components/components/header/UpdateActionButton";
-import type { CatalogCounts, CatalogScope, InventorySharedStatus, UpdateState } from "@/modules/te-lab-components/types";
+import { UpdateActionButton } from "@/platform/updates/UpdateActionButton";
+import type { CatalogCounts, CatalogScope, InventorySharedStatus } from "@/modules/te-lab-components/types";
+import type { UpdateState } from "@/platform/updates/updateState";
 import type { InventoryViewId } from "@/platform/modules/types";
 import type { ThemeMode } from "@/platform/ui/theme";
 import { Button } from "@/shared/components/ui/button";
@@ -18,7 +19,6 @@ interface CatalogHeaderProps {
   onExportExcel: () => void;
   onSelectForOrder: () => void;
   onManageLocations?: () => void;
-  onOpenSharedCutover?: () => void;
   onScopeChange: (scope: CatalogScope) => void;
   onThemeToggle: () => void;
   onUpdateAction: () => void;
@@ -37,7 +37,6 @@ export function CatalogHeader({
   onExportExcel,
   onSelectForOrder,
   onManageLocations,
-  onOpenSharedCutover,
   onScopeChange,
   onThemeToggle,
   onUpdateAction,
@@ -117,18 +116,6 @@ export function CatalogHeader({
               Archive ({counts.archivedParts})
             </button>
           </div>
-          {onOpenSharedCutover ? (
-            <Button
-              aria-label="Set Up Lab Shared Catalog"
-              className="size-8"
-              size="icon"
-              title="Set Up Lab Shared Catalog"
-              variant="outline"
-              onClick={onOpenSharedCutover}
-            >
-              <WifiIcon className="size-3.5" />
-            </Button>
-          ) : null}
           {onManageLocations ? (
             <Button
               aria-label="Manage Lab Storage Locations"

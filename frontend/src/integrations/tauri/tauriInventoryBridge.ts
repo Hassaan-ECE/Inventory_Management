@@ -12,23 +12,17 @@ import {
   parseExcelExportResult,
   parseInventoryQueryResult,
   parseInventorySyncResult,
-  parseImportCommitResult,
-  parseImportDryRunReport,
   parseNonemptyString,
   parseNullableString,
   parseUpdateState,
 } from "@/integrations/tauri/bridgeGuards";
 import {
   parseLabCatalogDeleteResult,
-  parseLabCatalogMigrationCommitResult,
-  parseLabCatalogMigrationPreview,
   parseLabDeleteMutationResult,
   parseLabEntryMutationResult,
   parseLabInventoryQueryResult,
   parseLabInventorySyncResult,
   parseLabPartMutationResult,
-  parseLabSharedCutoverCommitResult,
-  parseLabSharedCutoverPreview,
   parseLabSimpleComponentMutationResult,
   parseLabStockMoveMutationResult,
   parseLabStockPlacementMutationResult,
@@ -37,12 +31,8 @@ import {
 } from "@/integrations/tauri/labBridgeGuards";
 import type {
   CalibrationRosterCommitInput,
-  ImportCommitInput,
-  UpdateState,
 } from "@/modules/te-test-equipment/types";
 import type {
-  CatalogMigrationCommitInput,
-  CatalogSharedCutoverCommitInput,
   LabOrderRequestLineInput,
   PartInput,
   SimpleComponentInput,
@@ -64,12 +54,11 @@ import type {
   InventorySharedChangedPayload,
   InventorySyncResult,
 } from "@/integrations/tauri/desktop-bridge";
+import type { UpdateState } from "@/platform/updates/updateState";
 
 const updateStateListeners = new Set<(state: UpdateState) => void>();
 let pendingUpdate: Update | null = null;
 let pendingUpdateState: UpdateState | null = null;
-
-// Window geometry restore is intentionally disabled — it was breaking window layout on some monitors.
 
 if (typeof window !== "undefined" && isTauri()) {
   const bridge: InventoryDesktopBridge = {
@@ -128,14 +117,6 @@ if (typeof window !== "undefined" && isTauri()) {
       invoke("move_lab_stock", { input }).then(parseLabStockMoveMutationResult),
     countLabStock: (placementUuid: string, input: StockCountInput) =>
       invoke("count_lab_stock", { input, placementUuid }).then(parseLabStockPlacementMutationResult),
-    previewLabCatalogMigration: () =>
-      invoke("preview_lab_catalog_migration").then(parseLabCatalogMigrationPreview),
-    commitLabCatalogMigration: (input: CatalogMigrationCommitInput) =>
-      invoke("commit_lab_catalog_migration", { input }).then(parseLabCatalogMigrationCommitResult),
-    previewLabSharedCutover: () =>
-      invoke("preview_lab_shared_cutover").then(parseLabSharedCutoverPreview),
-    commitLabSharedCutover: (input: CatalogSharedCutoverCommitInput) =>
-      invoke("commit_lab_shared_cutover", { input }).then(parseLabSharedCutoverCommitResult),
     openExternal: async (url: string) =>
       invoke("open_external", { url }).then((value) => parseBoolean(value, "open_external result")),
     openPath: async (path: string) =>
@@ -148,12 +129,6 @@ if (typeof window !== "undefined" && isTauri()) {
     },
     pickPicturePath: () =>
       invoke("pick_picture_path").then((value) => parseNullableString(value, "picked picture path")),
-    pickImportFile: (moduleId: "te-test-equipment") =>
-      invoke("pick_import_file", { moduleId }).then((value) => parseNullableString(value, "picked import path")),
-    previewImport: (moduleId: "te-test-equipment", path: string) =>
-      invoke("preview_import", { moduleId, path }).then(parseImportDryRunReport),
-    commitImport: (moduleId: "te-test-equipment", input: ImportCommitInput) =>
-      invoke("commit_import", { input, moduleId }).then(parseImportCommitResult),
     pickCalibrationRosterFile: (moduleId: "te-test-equipment") =>
       invoke("pick_calibration_roster_file", { moduleId }).then((value) =>
         parseNullableString(value, "picked calibration roster path"),

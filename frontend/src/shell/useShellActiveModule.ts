@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { getInventoryViewDefinition, getModuleHost } from "@/platform/modules/registry";
+import { getInventoryViewDefinition } from "@/platform/modules/registry";
 import {
   readStoredInventoryViewId,
   writeStoredInventoryViewId,
@@ -18,7 +18,6 @@ export function useShellActiveModule() {
   }
 
   return {
-    activeHost: getModuleHost(activeModuleId),
     activeModuleId,
     activeView,
     activeViewId,

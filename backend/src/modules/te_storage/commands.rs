@@ -1,10 +1,10 @@
 use tauri::AppHandle;
 
-use super::{model::*, store::InventoryDb, sync};
-use crate::{
-    platform::ModuleId,
-    shared_sync::SharedSyncCoordinator,
-    shared_watcher::{self, SharedSyncWatcher},
+use super::{model::*, store::InventoryDb};
+use crate::platform::{
+    runtime::shared_sync::SharedSyncCoordinator,
+    runtime::shared_watcher::{self, SharedSyncWatcher},
+    sync, ModuleId,
 };
 
 pub(crate) fn load(
@@ -45,7 +45,7 @@ pub(crate) async fn synchronize(
             app,
             module,
             &session_id,
-            &sync::resolved_shared_sync_paths().ops_dir,
+            &sync::resolved_shared_sync_paths::<InventoryEntry>().ops_dir,
         )?
     } else {
         watcher.complete_sync_without_watcher_for(module, &session_id)?

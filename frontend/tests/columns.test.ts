@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { getVisibleDataColumnCount } from "@/modules/te-test-equipment/lib";
-import { INVENTORY_COLUMNS } from "@/modules/te-test-equipment/types";
+import { EQUIPMENT_COLUMNS } from "@/modules/te-test-equipment/types";
 import {
   COLUMN_VISIBILITY_STORAGE_KEY,
   readColumnVisibility,
@@ -14,7 +14,7 @@ describe("column visibility persistence", () => {
 
   it("repairs stored visibility when every data column is hidden", () => {
     const allHidden = Object.fromEntries(
-      INVENTORY_COLUMNS.map((column) => [column.key, false]),
+      EQUIPMENT_COLUMNS.map((column) => [column.key, false]),
     );
     localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(allHidden));
 

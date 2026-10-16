@@ -1,4 +1,4 @@
-use crate::modules::te_storage::{
+use super::{
     entry_changes::{
         changed_entry_fields, entry_base_version, normalize_changed_entry_fields,
         update_entry_from_input_fields,
@@ -10,8 +10,8 @@ use crate::modules::te_storage::{
         InventoryEntryInput, InventoryEntryMutationResult, InventorySharedStatus,
     },
     store::InventoryDb,
-    sync::{self, SyncOperationType},
 };
+use crate::platform::sync::{self, SyncOperationType};
 
 fn create_entry_in_store_inner(
     input: InventoryEntryInput,

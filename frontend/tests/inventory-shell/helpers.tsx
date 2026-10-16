@@ -32,7 +32,7 @@ export const DISABLED_SHARED_STATUS: InventorySharedStatus = {
   message: "",
   mutationMode: "local",
 };
-export const EMPTY_TEST_COUNTS: InventoryCounts = {
+const EMPTY_TEST_COUNTS: InventoryCounts = {
   archive: 0,
   dueSoon: 0,
   inventory: 0,
@@ -91,7 +91,7 @@ export function buildDesktopSyncResult(shared: InventorySharedStatus, entries: I
   };
 }
 
-export function buildInventoryCounts(entries: InventoryEntry[]): InventoryCounts {
+function buildInventoryCounts(entries: InventoryEntry[]): InventoryCounts {
   return getInventoryCounts(entries, "2026-07-13");
 }
 
@@ -139,16 +139,9 @@ export function createDesktopBridge(
     deleteLabStockPlacement: vi.fn(),
     moveLabStock: vi.fn(),
     countLabStock: vi.fn(),
-    previewLabCatalogMigration: vi.fn(),
-    commitLabCatalogMigration: vi.fn(),
-    previewLabSharedCutover: vi.fn(),
-    commitLabSharedCutover: vi.fn(),
     openExternal: vi.fn().mockResolvedValue(true),
     openPath: vi.fn().mockResolvedValue(true),
     pickPicturePath: vi.fn().mockResolvedValue(null),
-    pickImportFile: vi.fn().mockResolvedValue(null),
-    previewImport: vi.fn(),
-    commitImport: vi.fn(),
     exportExcel: vi.fn().mockResolvedValue({ canceled: false, outputPath: "D:/exports/TE_Test_Equipment_Inventory_Export.xlsx" }),
     exportLabOrderRequest: vi.fn().mockResolvedValue({
       canceled: false,

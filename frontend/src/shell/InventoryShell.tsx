@@ -4,13 +4,11 @@ import { APP_VERSION } from "@/app/branding";
 import { INVENTORY_MODULE_HOSTS } from "@/platform/modules/registry";
 import { readTheme, THEME_STORAGE_KEY } from "@/platform/ui/theme";
 
-import { InventorySystemPlaceholder } from "./InventorySystemPlaceholder";
-import { ShellHeader } from "./ShellHeader";
-import { ShellStatusStrip } from "./ShellStatusStrip";
 import { useShellActiveModule } from "./useShellActiveModule";
 
+/** Mounts every inventory module; each renders its own header and footer and stays idle while inactive. */
 export function InventoryShell() {
-  const { activeHost, activeModuleId, activeView, activeViewId, selectView } = useShellActiveModule();
+  const { activeModuleId, activeView, activeViewId, selectView } = useShellActiveModule();
   const [theme, setTheme] = useState(() => readTheme());
 
   useEffect(() => {
@@ -26,46 +24,19 @@ export function InventoryShell() {
     setTheme((current) => (current === "light" ? "dark" : "light"));
   };
 
-  const placeholderMessage = `${activeHost.definition.label} — module not connected yet. Switch systems from the title menu.`;
-
   return (
     <div className="h-screen overflow-hidden bg-background text-foreground">
       <main className="flex h-full min-h-0 flex-col overflow-hidden">
-        {/* Placeholder modules: shell-only chrome (switcher + theme). Implemented modules render their own top bar. */}
-        {activeHost.kind === "placeholder" ? (
-          <ShellHeader
+        {INVENTORY_MODULE_HOSTS.map(({ definition, MainView }) => (
+          <MainView
+            active={activeModuleId === definition.id}
             activeViewId={activeViewId}
+            key={definition.id}
             onThemeToggle={onThemeToggle}
             onViewChange={selectView}
             theme={theme}
           />
-        ) : null}
-
-        {INVENTORY_MODULE_HOSTS.map((host) => {
-          if (host.kind !== "desktop") {
-            return null;
-          }
-          const MainView = host.MainView;
-          return (
-            <MainView
-              active={activeModuleId === host.definition.id}
-              activeViewId={activeViewId}
-              key={host.definition.id}
-              onThemeToggle={onThemeToggle}
-              onViewChange={selectView}
-              theme={theme}
-            />
-          );
-        })}
-
-        {activeHost.kind === "placeholder" ? (
-          <>
-            <div className="flex min-h-0 flex-1 overflow-hidden px-2 py-1.5 sm:px-3">
-              <InventorySystemPlaceholder system={activeHost.definition} />
-            </div>
-            <ShellStatusStrip message={placeholderMessage} resultsLabel={activeHost.definition.label} />
-          </>
-        ) : null}
+        ))}
       </main>
     </div>
   );

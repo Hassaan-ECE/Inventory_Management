@@ -1,36 +1,36 @@
 use crate::{
-    modules::te_lab_components::store::InventoryDb as LabComponentsDb, platform::InventoryAppPaths,
-    store::InventoryDb,
+    modules::te_test_equipment::store::InventoryDb,
+    modules::{te_lab_components::store::InventoryDb as LabComponentsDb, te_storage},
+    platform::{InventoryAppPaths, LocalDatabase},
 };
 
+/// Every inventory's store, each a namespace of the one local database file.
 pub(crate) struct InventoryStores {
+    database: LocalDatabase,
     te_test_equipment: InventoryDb,
     te_lab_components: LabComponentsDb,
-    te_storage: crate::modules::te_storage::store::InventoryDb,
+    te_storage: te_storage::store::InventoryDb,
 }
 
 impl InventoryStores {
     pub(crate) fn open(paths: &InventoryAppPaths) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self {
-            te_test_equipment: InventoryDb::open(paths.local_data_dir(), paths.roaming_data_dir())?,
-            te_lab_components: LabComponentsDb::open(paths.local_data_dir())?,
-            te_storage: crate::modules::te_storage::store::InventoryDb::open(
-                paths.local_data_dir(),
-            )?,
-        })
+        Ok(Self::from_database(LocalDatabase::open(
+            paths.local_data_dir(),
+        )?))
     }
 
     #[cfg(test)]
     pub(crate) fn open_at(root: std::path::PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self {
-            te_test_equipment: InventoryDb::open_at(root.join("inventory.feox"))?,
-            te_storage: crate::modules::te_storage::store::InventoryDb::open_at(
-                root.join("te-storage-room.feox"),
-            )?,
-            te_lab_components: LabComponentsDb::open_at(
-                root.join(crate::modules::te_lab_components::storage::DB_FILE_NAME),
-            )?,
-        })
+        Ok(Self::from_database(LocalDatabase::open(&root)?))
+    }
+
+    fn from_database(database: LocalDatabase) -> Self {
+        Self {
+            te_test_equipment: InventoryDb::open_in(&database),
+            te_lab_components: LabComponentsDb::open_in(&database),
+            te_storage: te_storage::store::InventoryDb::open_in(&database),
+            database,
+        }
     }
 
     pub(crate) fn te_test_equipment(&self) -> &InventoryDb {
@@ -41,45 +41,51 @@ impl InventoryStores {
         &self.te_lab_components
     }
 
-    pub(crate) fn te_storage(&self) -> &crate::modules::te_storage::store::InventoryDb {
+    pub(crate) fn te_storage(&self) -> &te_storage::store::InventoryDb {
         &self.te_storage
     }
 
     pub(crate) fn flush(&self) {
-        self.te_storage.flush();
-        self.te_test_equipment.flush();
-        self.te_lab_components.flush();
+        self.database.flush();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::InventoryStores;
-    use std::{env, fs, path::PathBuf};
+    use crate::platform::DATABASE_FILE_NAME;
+    use std::{env, fs};
     use uuid::Uuid;
 
     #[test]
-    fn opens_separate_database_files_without_renaming_te() {
-        let root = unique_test_dir("inventory-stores");
+    fn every_inventory_lives_in_the_one_local_database_file() {
+        let root = env::temp_dir().join(format!("inventory-stores-{}", Uuid::new_v4().simple()));
         fs::create_dir_all(&root).unwrap();
 
         let stores = InventoryStores::open_at(root.clone()).unwrap();
 
-        assert_eq!(
-            PathBuf::from(stores.te_test_equipment().db_path_string()),
-            root.join("inventory.feox")
-        );
-        assert_eq!(
-            PathBuf::from(stores.te_lab_components().db_path_string()),
-            root.join("te-lab-components.feox")
-        );
-        assert_ne!(
-            stores.te_test_equipment().db_path_string(),
-            stores.te_lab_components().db_path_string()
-        );
+        let database = root.join(DATABASE_FILE_NAME).to_string_lossy().into_owned();
+        assert_eq!(stores.te_test_equipment().db_path_string(), database);
+        assert_eq!(stores.te_lab_components().db_path_string(), database);
+        assert_eq!(stores.te_storage().db_path_string(), database);
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
     }
 
-    fn unique_test_dir(prefix: &str) -> PathBuf {
-        env::temp_dir().join(format!("{prefix}-{}", Uuid::new_v4().simple()))
+    #[test]
+    fn inventories_do_not_see_each_others_entries() {
+        let root = env::temp_dir().join(format!("inventory-stores-{}", Uuid::new_v4().simple()));
+        let stores = InventoryStores::open_at(root).unwrap();
+
+        stores
+            .te_test_equipment()
+            .set_client_id("te-client")
+            .unwrap();
+
+        assert_eq!(
+            stores.te_test_equipment().client_id().unwrap().as_deref(),
+            Some("te-client")
+        );
+        assert_eq!(stores.te_storage().client_id().unwrap(), None);
+        assert_eq!(stores.te_lab_components().client_id().unwrap(), None);
     }
 }

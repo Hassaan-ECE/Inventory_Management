@@ -5,7 +5,7 @@ import { ScrollRegion } from "@/shared/components/ui/ScrollRegion";
 import { useDropdownMenu } from "@/shared/hooks/useDropdownMenu";
 import { cn } from "@/shared/lib/utils";
 
-export type DropdownAlign = "left" | "right";
+type DropdownAlign = "left" | "right";
 
 interface DropdownPanelProps {
   align?: DropdownAlign;
@@ -98,9 +98,9 @@ export function DropdownItem({
   );
 }
 
-export type DropdownOptionTone = "success" | "warning" | "danger" | "muted" | "info";
+type DropdownOptionTone = "success" | "warning" | "danger" | "muted" | "info";
 
-export type DropdownOption = {
+type DropdownOption = {
   disabled?: boolean;
   label: string;
   /** Soft status color for the option and the closed trigger when selected. */

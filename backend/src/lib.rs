@@ -1,20 +1,14 @@
 pub(crate) mod api;
-pub(crate) mod domain;
-pub(crate) mod integrations;
 mod inventory_stores;
 pub(crate) mod modules;
 pub(crate) mod platform;
-pub(crate) mod runtime;
-pub(crate) mod storage;
-mod sync;
 
-pub(crate) use api::commands;
-pub(crate) use domain::{model, query};
-pub(crate) use integrations::{
-    calibration_roster_import, deprecated_db_cleanup, export, inventory_import, native,
+use api::{commands, export};
+use platform::{
+    native,
+    runtime::{shared_sync, shared_watcher},
+    sync,
 };
-pub(crate) use runtime::{shared_sync, shared_watcher};
-pub(crate) use storage as store;
 
 use tauri::{Manager, RunEvent};
 
@@ -29,26 +23,18 @@ pub fn run() {
             let stores = inventory_stores::InventoryStores::open(&app_paths)?;
             let te_db = stores.te_test_equipment();
             let lab_db = stores.te_lab_components();
-            let _ = deprecated_db_cleanup::quarantine_deprecated_databases_once(&app_paths, te_db);
             // Recovery must never prevent the window from opening: unknown/future outbox
             // op kinds (or mixed catalog vs inventory rows) should not brick launches or
             // block in-app updates from an older install.
             if let Err(error) = sync::recover_local_sync_state(te_db) {
                 eprintln!("TE local sync recovery failed (continuing startup): {error}");
             }
-            let lab_recovery = if lab_db.schema_version()?
-                == Some(modules::te_lab_components::catalog_model::CATALOG_SCHEMA_VERSION)
-            {
+            if let Err(error) =
                 modules::te_lab_components::catalog_sync::recover_local_sync_state(lab_db)
-            } else {
-                modules::te_lab_components::sync::recover_local_sync_state(lab_db).map(|_| ())
-            };
-            if let Err(error) = lab_recovery {
+            {
                 eprintln!("Lab local sync recovery failed (continuing startup): {error}");
             }
-            if let Err(error) =
-                modules::te_storage::sync::recover_local_sync_state(stores.te_storage())
-            {
+            if let Err(error) = sync::recover_local_sync_state(stores.te_storage()) {
                 eprintln!("EVCS Storage local sync recovery failed (continuing startup): {error}");
             }
             app.manage(stores);
@@ -83,13 +69,6 @@ pub fn run() {
             commands::delete_lab_stock_placement,
             commands::move_lab_stock,
             commands::count_lab_stock,
-            commands::preview_lab_catalog_migration,
-            commands::commit_lab_catalog_migration,
-            commands::preview_lab_shared_cutover,
-            commands::commit_lab_shared_cutover,
-            commands::pick_import_file,
-            commands::preview_import,
-            commands::commit_import,
             commands::pick_calibration_roster_file,
             commands::preview_calibration_roster,
             commands::commit_calibration_roster,

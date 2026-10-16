@@ -6,38 +6,38 @@ use serde_json::Value;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use super::mutations::{
+use crate::modules::te_test_equipment::mutations::{
     create_entry_in_store, delete_entry_in_store, set_archived_entry_in_store,
     toggle_verified_entry_in_store, update_entry_in_store,
 };
 use crate::{
-    calibration_roster_import::{
-        self, CalibrationRosterCommitInput, CalibrationRosterCommitResult,
-        CalibrationRosterPreviewReport, CALIBRATION_ROSTER_FILE_EXTENSIONS,
-    },
-    inventory_import::{
-        self, ImportCommitInput, ImportCommitResult, ImportDryRunReport, IMPORT_FILE_EXTENSIONS,
-    },
     inventory_stores::InventoryStores,
-    model::{
-        CommandResult, InventoryEntryEditContext, InventoryEntryInput, InventoryQueryInput,
-        InventoryQueryResult, InventorySharedStatus, InventorySyncResult,
-    },
     modules::te_lab_components::{
-        catalog_migration as lab_catalog_migration, catalog_model as lab_catalog_model,
-        catalog_mutations as lab_catalog_mutations, catalog_query as lab_catalog_query,
-        catalog_sync as lab_catalog_sync, model as lab_model, mutations as lab_mutations,
-        query as lab_query, simple_workflow as lab_simple_workflow,
-        store::InventoryDb as LabInventoryDb, sync as lab_sync,
+        catalog_model as lab_catalog_model, catalog_mutations as lab_catalog_mutations,
+        catalog_query as lab_catalog_query, catalog_sync as lab_catalog_sync,
+        simple_workflow as lab_simple_workflow, store::InventoryDb as LabInventoryDb,
     },
-    platform::ModuleId,
-    query::{get_inventory_counts, query_entries},
-    shared_sync::SharedSyncCoordinator,
-    shared_watcher::{self, SharedSyncWatcher},
-    store::InventoryDb,
-    sync,
+    modules::te_test_equipment::{
+        calibration_roster_import::{
+            self, CalibrationRosterCommitInput, CalibrationRosterCommitResult,
+            CalibrationRosterPreviewReport, CALIBRATION_ROSTER_FILE_EXTENSIONS,
+        },
+        model::{
+            CommandResult, InventoryEntryEditContext, InventoryEntryInput, InventoryQueryInput,
+            InventoryQueryResult, InventorySharedStatus, InventorySyncResult,
+        },
+        query::{get_inventory_counts, query_entries},
+        store::InventoryDb,
+    },
+    platform::{
+        runtime::shared_sync::SharedSyncCoordinator,
+        runtime::shared_watcher::{self, SharedSyncWatcher},
+        sync, ModuleId,
+    },
 };
 
+const LAB_USES_CATALOG_COMMANDS: &str =
+    "TE Lab Components changes go through the Lab catalog commands.";
 const WATCHER_DEGRADED_MESSAGE: &str =
     "File watch unavailable; scheduled synchronization remains active.";
 
@@ -62,7 +62,7 @@ pub(crate) fn load_inventory(
         )?),
         ModuleId::TeLabComponents => command_value(load_lab_inventory_from_store_with_status(
             stores.te_lab_components(),
-            coordinator.background_status::<lab_model::InventorySharedStatus>(module)?,
+            coordinator.background_status::<InventorySharedStatus>(module)?,
         )?),
     }
 }
@@ -86,18 +86,7 @@ pub(crate) fn query_inventory(
                 coordinator.background_status::<InventorySharedStatus>(module)?,
             )?)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let input = parse_command_input::<lab_model::InventoryQueryInput>(
-                input,
-                "Lab inventory query",
-            )?;
-            command_value(query_lab_inventory_from_store_with_status(
-                input,
-                stores.te_lab_components(),
-                coordinator.background_status::<lab_model::InventorySharedStatus>(module)?,
-            )?)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -151,7 +140,9 @@ pub(crate) async fn sync_inventory(
 
             let mut result = result;
             let completion = if result.shared.enabled && result.shared.available {
-                let paths = sync::resolved_shared_sync_paths();
+                let paths = sync::resolved_shared_sync_paths::<
+                    crate::modules::te_test_equipment::model::InventoryEntry,
+                >();
                 watcher.complete_sync_for(app, module, &session_id, &paths.ops_dir)?
             } else {
                 watcher.complete_sync_without_watcher_for(module, &session_id)?
@@ -172,15 +163,6 @@ pub(crate) async fn sync_inventory(
             })?))
         }
         ModuleId::TeLabComponents => {
-            let migration =
-                lab_catalog_migration::catalog_migration_status(stores.te_lab_components())?;
-            if migration.required {
-                let value = command_value(load_lab_inventory_from_store_with_status(
-                    stores.te_lab_components(),
-                    coordinator.background_status::<lab_model::InventorySharedStatus>(module)?,
-                )?)?;
-                return Ok(Some(value));
-            }
             let coordinator = coordinator.inner().clone();
             let task_coordinator = coordinator.clone();
             let db = stores.te_lab_components().clone();
@@ -263,17 +245,7 @@ pub(crate) fn create_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let input = parse_command_input::<lab_model::InventoryEntryInput>(input, "Lab entry")?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory create", || {
-                lab_mutations::create_entry_in_store(input, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -321,21 +293,7 @@ pub(crate) fn update_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let input = parse_command_input::<lab_model::InventoryEntryInput>(input, "Lab entry")?;
-            let edit_context = parse_optional_command_input::<lab_model::InventoryEntryEditContext>(
-                edit_context,
-                "Lab edit context",
-            )?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory update", || {
-                lab_mutations::update_entry_in_store(&entry_id, input, edit_context, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -361,16 +319,7 @@ pub(crate) fn toggle_verified_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory verify", || {
-                lab_mutations::toggle_verified_entry_in_store(&entry_id, next_verified, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -396,16 +345,7 @@ pub(crate) fn set_archived_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory archive", || {
-                lab_mutations::set_archived_entry_in_store(&entry_id, archived, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -438,16 +378,7 @@ pub(crate) fn delete_entry(
             schedule_te_shared_publish(app, db.clone(), coordinator);
             command_value(result)
         }
-        ModuleId::TeLabComponents => {
-            require_legacy_lab_projection(stores.te_lab_components())?;
-            let coordinator = coordinator.inner().clone();
-            let db = stores.te_lab_components();
-            let result = coordinator.run_exclusive(module, "inventory delete", || {
-                lab_mutations::delete_entry_in_store(&entry_id, db)
-            })?;
-            schedule_lab_shared_publish(app, db.clone(), coordinator);
-            command_value(result)
-        }
+        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -732,119 +663,6 @@ pub(crate) fn count_lab_stock(
 }
 
 #[tauri::command]
-pub(crate) fn preview_lab_catalog_migration(
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    command_value(coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "catalog migration preview",
-        || lab_catalog_migration::preview_catalog_migration(stores.te_lab_components()),
-    )?)
-}
-
-#[tauri::command]
-pub(crate) fn commit_lab_catalog_migration(
-    input: lab_catalog_migration::CatalogMigrationCommitInput,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    command_value(coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "catalog migration commit",
-        || lab_catalog_migration::commit_catalog_migration(input, stores.te_lab_components()),
-    )?)
-}
-
-#[tauri::command]
-pub(crate) fn preview_lab_shared_cutover(
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    command_value(coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "shared catalog cutover preview",
-        || lab_catalog_sync::preview_shared_cutover(stores.te_lab_components()),
-    )?)
-}
-
-#[tauri::command]
-pub(crate) fn commit_lab_shared_cutover(
-    input: lab_catalog_sync::CatalogSharedCutoverCommitInput,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    command_value(coordinator.run_exclusive(
-        ModuleId::TeLabComponents,
-        "shared catalog cutover commit",
-        || lab_catalog_sync::commit_shared_cutover(input, stores.te_lab_components()),
-    )?)
-}
-
-#[tauri::command]
-pub(crate) async fn pick_import_file(
-    app: AppHandle,
-    module_id: String,
-) -> CommandResult<Option<String>> {
-    require_te_module(parse_module_id(&module_id)?)?;
-    let selected = app
-        .dialog()
-        .file()
-        .set_title("Select TE Test Equipment Import")
-        .add_filter("Inventory data", IMPORT_FILE_EXTENSIONS)
-        .blocking_pick_file();
-
-    selected
-        .map(|file_path| {
-            file_path
-                .simplified()
-                .into_path()
-                .map(|path| path.to_string_lossy().to_string())
-                .map_err(|error| format!("Could not read the selected import path: {error}"))
-        })
-        .transpose()
-}
-
-#[tauri::command]
-pub(crate) fn preview_import(
-    module_id: String,
-    path: String,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<ImportDryRunReport> {
-    let module = parse_module_id(&module_id)?;
-    require_te_module(module)?;
-    coordinator.run_exclusive(module, "inventory import preview", || {
-        inventory_import::preview_import_from_path(
-            std::path::Path::new(&path),
-            stores.te_test_equipment(),
-        )
-    })
-}
-
-#[tauri::command]
-pub(crate) fn commit_import(
-    app: AppHandle,
-    module_id: String,
-    input: ImportCommitInput,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<ImportCommitResult> {
-    let module = parse_module_id(&module_id)?;
-    require_te_module(module)?;
-    validate_v0_1_import_policy(&input)?;
-    let coordinator = coordinator.inner().clone();
-    let db = stores.te_test_equipment();
-    let result = coordinator.run_exclusive(module, "inventory import commit", || {
-        inventory_import::commit_import_from_store(input, db)
-    })?;
-    if result.entries_changed {
-        schedule_te_shared_publish(app, db.clone(), coordinator);
-    }
-    Ok(result)
-}
-
-#[tauri::command]
 pub(crate) async fn pick_calibration_roster_file(
     app: AppHandle,
     module_id: String,
@@ -918,17 +736,6 @@ fn require_te_module(module: ModuleId) -> CommandResult<()> {
     }
 }
 
-fn require_legacy_lab_projection(db: &LabInventoryDb) -> CommandResult<()> {
-    if db.schema_version()? == Some(lab_catalog_model::CATALOG_SCHEMA_VERSION) {
-        Err(
-            "This Lab Components database uses catalog schema v2. Use the Lab catalog commands instead of legacy inventory-entry commands."
-                .to_string(),
-        )
-    } else {
-        Ok(())
-    }
-}
-
 fn parse_command_input<T: DeserializeOwned>(value: Value, label: &str) -> CommandResult<T> {
     serde_json::from_value(value).map_err(|error| format!("Invalid {label}: {error}"))
 }
@@ -947,16 +754,6 @@ fn command_value<T: Serialize>(value: T) -> CommandResult<Value> {
         .map_err(|error| format!("Could not serialize command result: {error}"))
 }
 
-fn validate_v0_1_import_policy(input: &ImportCommitInput) -> CommandResult<()> {
-    if input.allow_partial {
-        return Err(
-            "v0.1 desktop import is full-batch-only; partial commit is reserved for internal tests."
-                .to_string(),
-        );
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 fn load_inventory_from_store(db: &InventoryDb) -> CommandResult<InventorySyncResult> {
     load_inventory_from_store_with_status(db, None)
@@ -969,7 +766,9 @@ fn load_inventory_from_store_with_status(
     let shared = latest_background_status.unwrap_or_else(|| {
         let message = sync::last_local_recovery_message(db)
             .unwrap_or_else(|| "FeOxDB local store ready. Shared sync starting.".to_string());
-        sync::startup_inventory_status(message)
+        sync::startup_inventory_status::<crate::modules::te_test_equipment::model::InventoryEntry>(
+            message,
+        )
     });
     let entries = db.load_entries()?;
 
@@ -983,7 +782,7 @@ fn load_inventory_from_store_with_status(
 
 fn load_lab_inventory_from_store_with_status(
     db: &LabInventoryDb,
-    latest_background_status: Option<lab_model::InventorySharedStatus>,
+    latest_background_status: Option<InventorySharedStatus>,
 ) -> CommandResult<lab_catalog_model::CatalogSyncResult> {
     let shared = latest_background_status.unwrap_or_else(|| {
         lab_catalog_sync::startup_catalog_status(
@@ -1013,27 +812,6 @@ fn query_inventory_from_store_with_status(
     })
 }
 
-fn query_lab_inventory_from_store_with_status(
-    input: lab_model::InventoryQueryInput,
-    db: &LabInventoryDb,
-    latest_background_status: Option<lab_model::InventorySharedStatus>,
-) -> CommandResult<lab_model::InventoryQueryResult> {
-    let all_entries = db.load_entries()?;
-    let counts = lab_query::get_inventory_counts(&all_entries);
-    let (entries, total_filtered) = lab_query::query_entries(&all_entries, input);
-    let shared = latest_background_status.unwrap_or_else(|| {
-        lab_sync::shared_inventory_status(db, "FeOxDB Lab Components store ready.")
-    });
-
-    Ok(lab_model::InventoryQueryResult {
-        counts,
-        db_path: db.db_path_string(),
-        entries,
-        shared,
-        total_filtered,
-    })
-}
-
 fn schedule_te_shared_publish(app: AppHandle, db: InventoryDb, coordinator: SharedSyncCoordinator) {
     let module = ModuleId::TeTestEquipment;
     drop(tauri::async_runtime::spawn_blocking(move || {
@@ -1042,28 +820,6 @@ fn schedule_te_shared_publish(app: AppHandle, db: InventoryDb, coordinator: Shar
         }) {
             Ok(result) => result.shared,
             Err(error) => sync::shared_inventory_status(
-                &db,
-                format!("Background shared publish failed: {error}"),
-            ),
-        };
-        let _ = coordinator.set_background_status(module, status);
-        db.flush();
-        shared_watcher::emit_module_shared_inventory_changed(&app, module);
-    }));
-}
-
-fn schedule_lab_shared_publish(
-    app: AppHandle,
-    db: LabInventoryDb,
-    coordinator: SharedSyncCoordinator,
-) {
-    let module = ModuleId::TeLabComponents;
-    drop(tauri::async_runtime::spawn_blocking(move || {
-        let status = match coordinator.run_exclusive(module, "shared publish", || {
-            lab_sync::publish_pending_local_changes(&db)
-        }) {
-            Ok(result) => result.shared,
-            Err(error) => lab_sync::shared_inventory_status(
                 &db,
                 format!("Background shared publish failed: {error}"),
             ),
@@ -1099,8 +855,8 @@ fn schedule_lab_catalog_shared_publish(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{create_entry_from_input, InventoryEntryInput};
-    use crate::sync::test_support::SyncOperationEnvelope;
+    use crate::modules::te_test_equipment::model::{create_entry_from_input, InventoryEntryInput};
+    use crate::platform::sync::test_support::SyncOperationEnvelope;
     use std::{env, fs, path::PathBuf};
     use uuid::Uuid;
 
@@ -1134,6 +890,7 @@ mod tests {
             mutation_mode: "local".to_string(),
             revision: Some("7".to_string()),
             shared_root_path: Some("S:\\TE\\Test_Equipment".to_string()),
+            warning: None,
         };
 
         let loaded = load_inventory_from_store_with_status(&db, Some(status.clone())).unwrap();
@@ -1155,24 +912,6 @@ mod tests {
         assert_eq!(queried.shared.has_local_only_changes, Some(true));
     }
 
-    #[test]
-    fn desktop_import_policy_rejects_partial_commit_requests() {
-        let partial = ImportCommitInput {
-            batch_id: "batch-partial".to_string(),
-            confirmed: true,
-            allow_partial: true,
-        };
-        let error = validate_v0_1_import_policy(&partial).unwrap_err();
-        assert!(error.contains("full-batch-only"));
-
-        let full = ImportCommitInput {
-            batch_id: "batch-full".to_string(),
-            confirmed: true,
-            allow_partial: false,
-        };
-        assert_eq!(validate_v0_1_import_policy(&full), Ok(()));
-    }
-
     fn test_input(description: &str) -> InventoryEntryInput {
         InventoryEntryInput {
             description: description.to_string(),
@@ -1190,10 +929,14 @@ mod tests {
 
     fn outbox_count(db: &InventoryDb) -> usize {
         let mut count = 0;
-        db.scan_sync_outbox_records::<SyncOperationEnvelope, _>(None, usize::MAX, |_, _| {
-            count += 1;
-            Ok(true)
-        })
+        db.scan_sync_outbox_records::<SyncOperationEnvelope<crate::modules::te_test_equipment::model::InventoryEntry>, _>(
+            None,
+            usize::MAX,
+            |_, _| {
+                count += 1;
+                Ok(true)
+            },
+        )
         .unwrap();
         count
     }

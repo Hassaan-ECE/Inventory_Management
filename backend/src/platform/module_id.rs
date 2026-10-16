@@ -19,7 +19,6 @@ impl ModuleId {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn parse(value: &str) -> Option<Self> {
         match value {
             Self::TE_SYSTEM_ID_STR => Some(Self::TeTestEquipment),

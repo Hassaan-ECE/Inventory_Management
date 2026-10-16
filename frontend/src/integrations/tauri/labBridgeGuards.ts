@@ -1,26 +1,18 @@
-import { APP_VERSION } from "@/app/branding";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
+import { parseSharedStatus } from "@/platform/sync/sharedStatus";
 import {
   LIFECYCLE_OPTIONS,
   WORKING_STATUS_OPTIONS,
   type CatalogCounts,
   type CatalogDeleteResult,
-  type CatalogMigrationCommitResult,
-  type CatalogMigrationPreview,
-  type CatalogMigrationStatus,
   type CatalogMutationResult,
-  type CatalogSharedCutoverCommitResult,
-  type CatalogSharedCutoverPreview,
   type ComponentAttributes,
   type InventoryCounts,
   type InventoryDeleteMutationResult,
   type InventoryEntry,
   type InventoryEntryMutationResult,
   type InventoryQueryResult,
-  type InventorySharedStatus,
-  type ExcelExportResult,
   type LifecycleStatus,
-  type MigrationDuplicateGroup,
   type Part,
   type PartStockSummary,
   type QuantityTotal,
@@ -29,21 +21,8 @@ import {
   type StockStatus,
   type StorageArea,
   type StorageContainer,
-  type UpdateState,
-  type UpdateStatus,
   type WorkingStatus,
 } from "@/modules/te-lab-components/types";
-
-const UPDATE_STATUSES = new Set<UpdateStatus>([
-  "idle",
-  "checking",
-  "available",
-  "not-available",
-  "downloading",
-  "ready",
-  "installing",
-  "error",
-]);
 
 export function parseLabInventorySyncResult(value: unknown): InventorySyncResult<"te-lab-components"> {
   const record = requireRecord(value, "inventory sync payload");
@@ -55,7 +34,6 @@ export function parseLabInventorySyncResult(value: unknown): InventorySyncResult
     stockPlacements: requireArray(record.stockPlacements, "stock placements").map(parseStockPlacement),
     summaries: requireArray(record.summaries, "part stock summaries").map(parsePartStockSummary),
     counts: parseCatalogCounts(record.counts),
-    migration: parseCatalogMigrationStatus(record.migration),
     entriesChanged: optionalBoolean(record.entriesChanged),
     shared: parseSharedStatus(record.shared),
   };
@@ -121,76 +99,6 @@ export function parseLabCatalogDeleteResult(value: unknown): CatalogDeleteResult
   };
 }
 
-export function parseLabCatalogMigrationPreview(value: unknown): CatalogMigrationPreview {
-  const record = requireRecord(value, "catalog migration preview");
-  return {
-    mappingVersion: requireString(record.mappingVersion, "migration mapping version"),
-    sourceFingerprint: requireString(record.sourceFingerprint, "migration source fingerprint"),
-    sourceSchemaVersion: parseNullableFiniteNumber(record.sourceSchemaVersion),
-    targetSchemaVersion: requireFiniteNumber(record.targetSchemaVersion, "migration target schema version"),
-    legacyRows: requireFiniteNumber(record.legacyRows, "legacy row count"),
-    proposedParts: requireFiniteNumber(record.proposedParts, "proposed part count"),
-    proposedPlacements: requireFiniteNumber(record.proposedPlacements, "proposed placement count"),
-    archivedParts: requireFiniteNumber(record.archivedParts, "archived part count"),
-    blankPositiveQuantityLocations: requireFiniteNumber(
-      record.blankPositiveQuantityLocations,
-      "blank positive-quantity location count",
-    ),
-    generatedPartUuids: requireFiniteNumber(record.generatedPartUuids, "generated part UUID count"),
-    duplicateInternalPartNumbers: requireArray(
-      record.duplicateInternalPartNumbers,
-      "duplicate internal part-number groups",
-    ).map(parseMigrationDuplicateGroup),
-    likelyMpnDuplicates: requireArray(record.likelyMpnDuplicates, "likely MPN duplicate groups").map(
-      parseMigrationDuplicateGroup,
-    ),
-    invalidRows: parseStringArray(record.invalidRows, "invalid migration rows"),
-    warnings: parseStringArray(record.warnings, "migration warnings"),
-    blocking: requireBoolean(record.blocking, "migration blocking flag"),
-  };
-}
-
-export function parseLabCatalogMigrationCommitResult(value: unknown): CatalogMigrationCommitResult {
-  const record = requireRecord(value, "catalog migration commit result");
-  return {
-    sourceFingerprint: requireString(record.sourceFingerprint, "migration source fingerprint"),
-    partsCreated: requireFiniteNumber(record.partsCreated, "created part count"),
-    placementsCreated: requireFiniteNumber(record.placementsCreated, "created placement count"),
-    areasCreated: requireFiniteNumber(record.areasCreated, "created area count"),
-    containersCreated: requireFiniteNumber(record.containersCreated, "created container count"),
-    noop: requireBoolean(record.noop, "migration no-op flag"),
-    message: requireString(record.message, "migration commit message"),
-  };
-}
-
-export function parseLabSharedCutoverPreview(value: unknown): CatalogSharedCutoverPreview {
-  const record = requireRecord(value, "Lab shared cutover preview");
-  return {
-    localFingerprint: requireString(record.localFingerprint, "cutover local fingerprint"),
-    sharedRootPath: requireString(record.sharedRootPath, "cutover shared root path"),
-    sharedRootAvailable: requireBoolean(record.sharedRootAvailable, "shared-root availability"),
-    catalogV2Initialized: requireBoolean(record.catalogV2Initialized, "catalog-v2 initialized flag"),
-    legacyStreamState: requireString(record.legacyStreamState, "legacy stream state"),
-    partCount: requireFiniteNumber(record.partCount, "cutover part count"),
-    areaCount: requireFiniteNumber(record.areaCount, "cutover area count"),
-    containerCount: requireFiniteNumber(record.containerCount, "cutover container count"),
-    placementCount: requireFiniteNumber(record.placementCount, "cutover placement count"),
-    warnings: parseStringArray(record.warnings, "cutover warnings"),
-    blocking: requireBoolean(record.blocking, "cutover blocking flag"),
-  };
-}
-
-export function parseLabSharedCutoverCommitResult(value: unknown): CatalogSharedCutoverCommitResult {
-  const record = requireRecord(value, "Lab shared cutover commit result");
-  return {
-    localFingerprint: requireString(record.localFingerprint, "cutover local fingerprint"),
-    legacyBackupPath: parseNullableStringValue(record.legacyBackupPath, "legacy backup path"),
-    catalogRootPath: requireString(record.catalogRootPath, "catalog root path"),
-    noop: requireBoolean(record.noop, "cutover no-op flag"),
-    message: requireString(record.message, "cutover commit message"),
-  };
-}
-
 export function parseLabInventoryQueryResult(value: unknown): InventoryQueryResult {
   const record = requireRecord(value, "inventory query payload");
   return {
@@ -224,62 +132,6 @@ export function parseLabDeleteMutationResult(value: unknown): InventoryDeleteMut
     message: optionalString(record.message) ?? "Inventory entry deleted.",
     mutationMode: record.mutationMode === "shared" ? "shared" : "local",
     shared: parseSharedStatus(record.shared),
-  };
-}
-
-export function parseLabExcelExportResult(value: unknown): ExcelExportResult {
-  const record = requireRecord(value, "Excel export payload");
-  if (typeof record.canceled !== "boolean") {
-    throw new Error("Invalid Excel export payload: missing canceled flag.");
-  }
-
-  return {
-    canceled: record.canceled,
-    error: optionalString(record.error),
-    outputPath: optionalString(record.outputPath),
-  };
-}
-
-export function parseNullableString(value: unknown, label: string): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value !== "string") {
-    throw new Error(`Invalid ${label}: expected a string or null.`);
-  }
-  return value;
-}
-
-export function parseBoolean(value: unknown, label: string): boolean {
-  if (typeof value !== "boolean") {
-    throw new Error(`Invalid ${label}: expected a boolean.`);
-  }
-  return value;
-}
-
-export function parseUpdateState(value: unknown): UpdateState {
-  const record = requireRecord(value, "update state");
-  const status = UPDATE_STATUSES.has(record.status as UpdateStatus)
-    ? (record.status as UpdateStatus)
-    : "error";
-  return {
-    available: record.available === true,
-    currentVersion: optionalString(record.currentVersion) ?? APP_VERSION,
-    downloadPhase:
-      record.downloadPhase === "copying" ||
-      record.downloadPhase === "verifying" ||
-      record.downloadPhase === "ready"
-        ? record.downloadPhase
-        : undefined,
-    downloadProgress: optionalFiniteNumber(record.downloadProgress),
-    downloadedInstallerPath: optionalString(record.downloadedInstallerPath),
-    error: optionalString(record.error),
-    installLogPath: optionalString(record.installLogPath),
-    installerPid: optionalFiniteNumber(record.installerPid),
-    latestVersion: optionalString(record.latestVersion),
-    notes: optionalString(record.notes),
-    publishedAt: optionalString(record.publishedAt),
-    status,
   };
 }
 
@@ -433,17 +285,6 @@ function parseCatalogCounts(value: unknown): CatalogCounts {
   };
 }
 
-function parseCatalogMigrationStatus(value: unknown): CatalogMigrationStatus {
-  const record = requireRecord(value, "catalog migration status");
-  return {
-    schemaVersion: parseNullableFiniteNumber(record.schemaVersion),
-    required: requireBoolean(record.required, "migration required flag"),
-    legacyEntryCount: requireFiniteNumber(record.legacyEntryCount, "legacy entry count"),
-    catalogInitialized: requireBoolean(record.catalogInitialized, "catalog initialized flag"),
-    message: requireString(record.message, "migration status message"),
-  };
-}
-
 function parseComponentAttributes(value: unknown): ComponentAttributes {
   const record = requireRecord(value, "component attributes");
   const attributes: ComponentAttributes = {};
@@ -468,15 +309,6 @@ function parseLegacyPartFields(value: unknown): Part["legacy"] {
     condition: optionalString(record.condition) ?? "",
     verifiedInSurvey: record.verifiedInSurvey === true,
     manualEntry: record.manualEntry === true,
-  };
-}
-
-function parseMigrationDuplicateGroup(value: unknown): MigrationDuplicateGroup {
-  const record = requireRecord(value, "migration duplicate group");
-  return {
-    key: requireString(record.key, "migration duplicate key"),
-    entryUuids: parseStringArray(record.entryUuids, "migration duplicate entry UUIDs"),
-    entryIds: parseStringArray(record.entryIds, "migration duplicate entry IDs"),
   };
 }
 
@@ -511,21 +343,6 @@ function parseInventoryEntry(value: unknown): InventoryEntry {
     updatedAt: optionalString(record.updatedAt) ?? "",
     verifiedInSurvey: record.verifiedInSurvey === true,
     workingStatus: parseWorkingStatus(record.workingStatus),
-  };
-}
-
-function parseSharedStatus(value: unknown): InventorySharedStatus {
-  const record = isRecord(value) ? value : {};
-  return {
-    available: record.available === true,
-    canModify: record.canModify !== false,
-    enabled: record.enabled === true,
-    hasLocalOnlyChanges: optionalBoolean(record.hasLocalOnlyChanges),
-    lastSnapshotId: optionalString(record.lastSnapshotId),
-    message: optionalString(record.message) ?? "Shared sync status unavailable.",
-    mutationMode: record.mutationMode === "shared" ? "shared" : "local",
-    revision: optionalString(record.revision),
-    sharedRootPath: optionalString(record.sharedRootPath),
   };
 }
 
@@ -585,10 +402,6 @@ function parseNullableStringValue(value: unknown, label: string): string | null 
     return null;
   }
   return requireString(value, label);
-}
-
-function parseStringArray(value: unknown, label: string): string[] {
-  return requireArray(value, label).map((item) => requireString(item, label));
 }
 
 function optionalString(value: unknown): string | undefined {

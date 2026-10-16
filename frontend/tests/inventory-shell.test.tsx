@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { APP_CREDIT, APP_VERSION } from "@/app/branding";
+import { APP_CREDIT, APP_FOOTER_TAG, APP_VERSION } from "@/app/branding";
 import type { InventoryEntry } from "@/modules/te-test-equipment/types";
 import { InventoryShell } from "@/shell/InventoryShell";
 import {
@@ -27,7 +27,7 @@ describe("InventoryShell loading and search", () => {
 
     expect(screen.getAllByText("TE Test Equipment")).toHaveLength(1);
     expect(screen.queryByText(`v${APP_VERSION}`)).not.toBeInTheDocument();
-    expect(screen.getAllByText(APP_CREDIT).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(APP_FOOTER_TAG).length).toBeGreaterThanOrEqual(1);
     expect(document.title).toBe(`Inventory Management — TE Test Equipment v${APP_VERSION}`);
     expect(document.title).not.toContain(APP_CREDIT);
     expect(screen.queryByText(/prototype/i)).not.toBeInTheDocument();
@@ -49,7 +49,7 @@ describe("InventoryShell loading and search", () => {
     expect(screen.queryByText(/Missing due:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Out to cal:/)).not.toBeInTheDocument();
     expect(screen.getByText("Local")).toBeInTheDocument();
-    expect(screen.getByText(/Built by Syed Hassaan Shah/i)).toBeInTheDocument();
+    expect(screen.getByText(APP_FOOTER_TAG)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /Manufacturer/i })).toBeInTheDocument();
   });
@@ -148,7 +148,7 @@ describe("InventoryShell loading and search", () => {
     expect(screen.queryByText(/Total:\s*\d+/i)).not.toBeInTheDocument();
     // Connected shared status fixture → Shared mode pill next to title/version
     expect(screen.getByText("Shared")).toBeInTheDocument();
-    expect(screen.getByText(/Built by Syed Hassaan Shah/i)).toBeInTheDocument();
+    expect(screen.getByText(APP_FOOTER_TAG)).toBeInTheDocument();
   });
 
   it("does not show bundled mock data when desktop database loading fails", async () => {

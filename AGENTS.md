@@ -19,9 +19,7 @@ New chat: owner pastes `docs/SESSION_START_PROMPT.md`. See also `docs/CHAT_HANDO
 | Name | Inventory Management |
 | Package | `inventory-management` `0.1.4` |
 | Tauri id | `com.inventory.management` |
-| Local DB — TE Test Equipment | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
-| Local DB — TE Lab Components | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
-| Local DB - EVCS Storage | `%LOCALAPPDATA%\com.inventory.management\te-storage-room.feox` |
+| Local DB (all inventories, from 0.2) | `%LOCALAPPDATA%\com.inventory.management\inventory-management.feox`, one namespace per module id. On first 0.2 launch the 0.1.x files (`inventory.feox`, `te-lab-components.feox`, `te-storage-room.feox`) are merged in and moved to `pre-0.2-databases\` |
 | Product share (installers + modules) | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
 | Default TE shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
 | Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
@@ -36,24 +34,24 @@ Scaffold lineage: TE Test Equipment Inventory (switcher prototype + rebrand) ←
 
 One installer; in-app switcher between inventories:
 
-1. TE Test Equipment (implemented)
+1. TE Test Equipment (implemented, with a Calibration view)
 2. TE Lab Components (implemented)
-3. ME Storage (placeholder)
-4. EVCS Storage (implemented; module id `te-storage`, renamed from TE Storage in 0.1.4)
+3. EVCS Storage (implemented; module id `te-storage`, renamed from TE Storage in 0.1.4)
 
-Modules stay **separate** under the hood (own DBs, shared roots, domain types, and sync streams). Do not merge row types.
+ME Storage and other unbuilt ideas live in `docs/engineering/REMOVED_AND_FUTURE.md`, not in code.
+
+Modules stay **separate** under the hood: each has its own namespace in the one local database, its own shared root and sync stream on S:, and its own domain types. Do not merge row types.
 
 ## Current code layout
 
-- `frontend/src/shell/` owns product chrome, module selection, placeholders, and the module viewport.
-- `frontend/src/platform/` owns module registry/persistence and the reusable adaptive sync controller.
+- `frontend/src/shell/` mounts the modules and owns the inventory switcher.
+- `frontend/src/platform/` owns the module registry, the adaptive sync controller, the shared footer, and the updater UI/state.
 - `frontend/src/modules/te-test-equipment/` owns the implemented TE UI, hooks, types, and desktop lifecycle.
 - `frontend/src/modules/te-lab-components/` owns the implemented Lab UI, hooks, types, and desktop lifecycle.
 - `frontend/src/modules/te-storage/` owns the implemented EVCS Storage inventory, with independent persistence and team sync.
-- `frontend/src/modules/me-storage/` remains a placeholder host.
-- `backend/src/inventory_stores.rs` owns the isolated TE/Lab/Storage FeOx handles; `backend/src/platform/` resolves module IDs and roots; runtime sync/watcher state is keyed by module.
+- The backend mirrors the frontend. `backend/src/platform/` holds what every inventory shares: the one local database (`database.rs`), the generic store (`store/`), the entry sync engine (`sync/`), module ids and roots, the sync coordinator and watcher (`runtime/`), and native dialogs. `backend/src/modules/<inventory>/` holds each inventory's model, store, mutations, sync plug-in, and workbook export (TE also owns the calibration roster import). `backend/src/inventory_stores.rs` opens each module's namespace.
 - `backend/src/api/commands.rs` receives every command with a `module_id` and routes it to the right module.
-- The sync engine is **copied** per module, not shared: `backend/src/sync/` (TE), `backend/src/modules/te_lab_components/sync/` (Lab legacy v1), `backend/src/modules/te_storage/sync/` (Storage). Lab's active catalog sync is separate (`catalog_sync.rs`). Check every copy when fixing a sync bug.
+- `backend/src/platform/store/` is the one storage layer (`ModuleStore<R>`, generic over the module's record type) and `backend/src/platform/sync/` is the one entry sync engine, used by TE Test Equipment and EVCS Storage. Each inventory plugs in through `SyncRecord` (its constants, field copy, validation, and `MergeRule`); the merge rules and the serialized entry-state fields stay exactly as 0.1.4 shipped them so mixed 0.1.4/0.2 teams converge. Lab's catalog sync is separate (`catalog_sync.rs`).
 - Full file map: `docs/engineering/PROJECT_FOLDER_BREAKDOWN.md`.
 
 ## Priorities
@@ -77,9 +75,10 @@ Modules stay **separate** under the hood (own DBs, shared roots, domain types, a
 | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` | `0`/`false`/`no`/`off` to disable (all modules) |
 | `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` | Optional HMAC (≥16 bytes), all modules |
 | `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` | Absolute copied-data DB root for diagnostics/rehearsals only |
-| `INVENTORY_MANAGEMENT_LAB_DEMO_SEED` | `1`/`true`/`yes`/`on` seeds demo parts into an empty Lab catalog (layout review only) |
 
-Live-data test helpers (ignored or opt-in; never run without owner approval): `REPAIR_TE_LEGACY=1`, `REPAIR_LAB_OUTBOX=1`, `TE_LOAD_LIVE_LOCAL=1`.
+**Developer builds are isolated.** Any debug build (`bun run dev:desktop`, `cargo test`) uses `.tmp/dev-data` for databases and `.tmp/dev-share` for shared roots unless an env override above is set, and the footer shows `DEV build`. Only release builds touch `%LOCALAPPDATA%` and S:.
+
+The only live-data tool left is the shared-snapshot restore in `backend/src/sync/snapshot/restore.rs` (ignored test, dry run unless `RESTORE_TE_CONFIRM=publish`); never run it without owner approval.
 
 **Sync is not a backup. One writer per shared root:** do not run either standalone against its pilot share while Inventory Management is open.
 
