@@ -6,9 +6,6 @@ pub(super) const ENTRY_RANGE_END: &str = "entry:\u{10ffff}";
 pub(super) const ENTRY_ID_PREFIX: &str = "entry_id:";
 pub(super) const ENTRY_SCAN_BATCH_LIMIT: usize = 512;
 pub(super) const META_NEXT_ID: &[u8] = b"__meta:next_entry_id";
-pub(super) const IMPORT_PREVIEW_PREFIX: &str = "import:preview:";
-pub(super) const IMPORT_COMPLETED_PREFIX: &str = "import:completed:";
-pub(super) const IMPORT_ROW_PREFIX: &str = "import:row:";
 pub(super) const CALIBRATION_ROSTER_PREVIEW_PREFIX: &str = "calibration_roster:preview:";
 pub(super) const CALIBRATION_ROSTER_COMMIT_PREFIX: &str = "calibration_roster:commit:";
 pub(super) const CALIBRATION_ROSTER_COMPLETED_PREFIX: &str = "calibration_roster:completed:";
@@ -42,22 +39,6 @@ pub(super) fn entry_key(entry_uuid: &str) -> String {
 
 pub(super) fn entry_id_key(entry_id: &str) -> String {
     format!("{ENTRY_ID_PREFIX}{entry_id}")
-}
-
-pub(super) fn import_preview_key(batch_id: &str) -> CommandResult<String> {
-    import_key(IMPORT_PREVIEW_PREFIX, batch_id)
-}
-
-pub(super) fn import_completed_key(batch_id: &str) -> CommandResult<String> {
-    import_key(IMPORT_COMPLETED_PREFIX, batch_id)
-}
-
-pub(super) fn import_row_key(batch_id: &str, source_row: u64) -> CommandResult<String> {
-    if source_row == 0 {
-        return Err("source_row must be greater than zero".to_string());
-    }
-    let batch_id = normalized_import_batch_id(batch_id)?;
-    Ok(format!("{IMPORT_ROW_PREFIX}{batch_id}:{source_row:012}"))
 }
 
 pub(super) fn calibration_roster_preview_key(batch_id: &str) -> CommandResult<String> {

@@ -4,7 +4,6 @@ Windows desktop app that unifies multiple inventory systems in **one install**, 
 
 - **TE Test Equipment** (implemented)
 - **TE Lab Components** (implemented)
-- **ME Storage** (placeholder)
 - **EVCS Storage** (implemented; internal id `te-storage`)
 
 Stack: Tauri 2, React 19, TypeScript, Vite, Tailwind v4, Bun, Rust, FeOxDB.
@@ -26,7 +25,7 @@ TE Lab Components is a generalized electronic-parts catalog: flexible specificat
 | Import source workbooks | `source-data\` (calibration roster: `source-data\calibration\`) |
 | TE Test Equipment module sync | `modules\TE_Test_Equipment\shared\inventory\` |
 | TE Lab Components module | `modules\TE_Lab_Components\shared\catalog-v2\` (active catalog stream; the older `shared\inventory\` v1 stream is blocked after cutover) |
-| ME Storage module | `modules\ME_Storage\shared\inventory\` |
+| ME Storage (reserved, not built) | `modules\ME_Storage\` |
 | EVCS Storage module | `modules\TE_Storage_Room\shared\inventory\` |
 | Legacy standalone pointers | `legacy-pointers\README.md` |
 
@@ -57,7 +56,6 @@ Do **not** run old + new clients against the same live shared root at once.
 | Env sync enable | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` (`0`/`false`/`no`/`off` off; applies to all modules) |
 | Sync signing env | `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` (optional, ≥16 bytes; set on every client or none) |
 | Copied-data DB root env | `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` (absolute path; diagnostics/rehearsals only) |
-| Lab demo seed env | `INVENTORY_MANAGEMENT_LAB_DEMO_SEED=1` seeds demo parts into an **empty** Lab catalog (layout review only; never on live data) |
 
 Updater is **configured for this product** (public key + GitHub `latest.json` endpoint). Sign builds with the private key on the release machine — see `docs/engineering/UPDATER_AND_RELEASE.md`. Do not reuse TE/ME updater keys.
 
@@ -95,12 +93,11 @@ Normal `bun run desktop` uses the product's real Local AppData databases. Copied
 
 Sync design and folder layout: `docs/engineering/FEOXDB_SYNC_MIGRATION_PLAN.md`. Where code lives: `docs/engineering/PROJECT_FOLDER_BREAKDOWN.md`.
 
-## Intentional limits in 0.1.4
+## Developer builds
 
-- **TE Import:** the Excel import backend exists, but the Import button is deliberately not shown (cutover is operator-driven).
-- **TE Export → HTML:** placeholder only; it reports "HTML export is not implemented yet." Excel export works.
-- **Window size/position:** not restored between launches; restore was disabled because it broke layout on some monitors.
-- **ME Storage:** placeholder module.
+`bun run dev:desktop` and `cargo test` are developer builds. They keep databases in `.tmp/dev-data` and sync through `.tmp/dev-share` (same `modules\<folder>` layout as S:), never `%LOCALAPPDATA%` or the live share, unless one of the env overrides above is set. The footer shows **DEV build** in place of the author credit.
+
+Removed features and ideas not yet built (ME Storage, HTML export, window-size restore, the old TE spreadsheet import): `docs/engineering/REMOVED_AND_FUTURE.md`.
 
 ## Cutover (ops sketch)
 

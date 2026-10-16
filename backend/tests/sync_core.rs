@@ -37,12 +37,6 @@ fn shared_root_prefers_env_override_and_defaults_to_the_te_module_folder() {
             .join("TE_Test_Equipment")
     ));
     assert_eq!(
-        platform::team_shared_root(platform::ModuleId::TeTestEquipment),
-        PathBuf::from(
-            r"S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Test_Equipment",
-        )
-    );
-    assert_eq!(
         resolve_shared_root_from_env_value(Some(OsString::from("  C:\\Inventory Shared Root  "))),
         PathBuf::from("C:\\Inventory Shared Root")
     );

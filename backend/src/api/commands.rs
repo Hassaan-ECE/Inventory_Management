@@ -15,9 +15,6 @@ use crate::{
         self, CalibrationRosterCommitInput, CalibrationRosterCommitResult,
         CalibrationRosterPreviewReport, CALIBRATION_ROSTER_FILE_EXTENSIONS,
     },
-    inventory_import::{
-        self, ImportCommitInput, ImportCommitResult, ImportDryRunReport, IMPORT_FILE_EXTENSIONS,
-    },
     inventory_stores::InventoryStores,
     model::{
         CommandResult, InventoryEntryEditContext, InventoryEntryInput, InventoryQueryInput,
@@ -782,69 +779,6 @@ pub(crate) fn commit_lab_shared_cutover(
 }
 
 #[tauri::command]
-pub(crate) async fn pick_import_file(
-    app: AppHandle,
-    module_id: String,
-) -> CommandResult<Option<String>> {
-    require_te_module(parse_module_id(&module_id)?)?;
-    let selected = app
-        .dialog()
-        .file()
-        .set_title("Select TE Test Equipment Import")
-        .add_filter("Inventory data", IMPORT_FILE_EXTENSIONS)
-        .blocking_pick_file();
-
-    selected
-        .map(|file_path| {
-            file_path
-                .simplified()
-                .into_path()
-                .map(|path| path.to_string_lossy().to_string())
-                .map_err(|error| format!("Could not read the selected import path: {error}"))
-        })
-        .transpose()
-}
-
-#[tauri::command]
-pub(crate) fn preview_import(
-    module_id: String,
-    path: String,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<ImportDryRunReport> {
-    let module = parse_module_id(&module_id)?;
-    require_te_module(module)?;
-    coordinator.run_exclusive(module, "inventory import preview", || {
-        inventory_import::preview_import_from_path(
-            std::path::Path::new(&path),
-            stores.te_test_equipment(),
-        )
-    })
-}
-
-#[tauri::command]
-pub(crate) fn commit_import(
-    app: AppHandle,
-    module_id: String,
-    input: ImportCommitInput,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<ImportCommitResult> {
-    let module = parse_module_id(&module_id)?;
-    require_te_module(module)?;
-    validate_v0_1_import_policy(&input)?;
-    let coordinator = coordinator.inner().clone();
-    let db = stores.te_test_equipment();
-    let result = coordinator.run_exclusive(module, "inventory import commit", || {
-        inventory_import::commit_import_from_store(input, db)
-    })?;
-    if result.entries_changed {
-        schedule_te_shared_publish(app, db.clone(), coordinator);
-    }
-    Ok(result)
-}
-
-#[tauri::command]
 pub(crate) async fn pick_calibration_roster_file(
     app: AppHandle,
     module_id: String,
@@ -945,16 +879,6 @@ fn parse_optional_command_input<T: DeserializeOwned>(
 fn command_value<T: Serialize>(value: T) -> CommandResult<Value> {
     serde_json::to_value(value)
         .map_err(|error| format!("Could not serialize command result: {error}"))
-}
-
-fn validate_v0_1_import_policy(input: &ImportCommitInput) -> CommandResult<()> {
-    if input.allow_partial {
-        return Err(
-            "v0.1 desktop import is full-batch-only; partial commit is reserved for internal tests."
-                .to_string(),
-        );
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -1153,24 +1077,6 @@ mod tests {
             "Background shared publish failed: permission denied"
         );
         assert_eq!(queried.shared.has_local_only_changes, Some(true));
-    }
-
-    #[test]
-    fn desktop_import_policy_rejects_partial_commit_requests() {
-        let partial = ImportCommitInput {
-            batch_id: "batch-partial".to_string(),
-            confirmed: true,
-            allow_partial: true,
-        };
-        let error = validate_v0_1_import_policy(&partial).unwrap_err();
-        assert!(error.contains("full-batch-only"));
-
-        let full = ImportCommitInput {
-            batch_id: "batch-full".to_string(),
-            confirmed: true,
-            allow_partial: false,
-        };
-        assert_eq!(validate_v0_1_import_policy(&full), Ok(()));
     }
 
     fn test_input(description: &str) -> InventoryEntryInput {

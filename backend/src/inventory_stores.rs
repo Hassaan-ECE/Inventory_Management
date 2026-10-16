@@ -12,7 +12,7 @@ pub(crate) struct InventoryStores {
 impl InventoryStores {
     pub(crate) fn open(paths: &InventoryAppPaths) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            te_test_equipment: InventoryDb::open(paths.local_data_dir(), paths.roaming_data_dir())?,
+            te_test_equipment: InventoryDb::open(paths.local_data_dir())?,
             te_lab_components: LabComponentsDb::open(paths.local_data_dir())?,
             te_storage: crate::modules::te_storage::store::InventoryDb::open(
                 paths.local_data_dir(),

@@ -6,5 +6,3 @@ mod shared_root;
 pub(crate) use local_data_paths::InventoryAppPaths;
 pub(crate) use module_id::ModuleId;
 pub(crate) use shared_root::default_shared_root;
-#[cfg(test)]
-pub(crate) use shared_root::team_shared_root;

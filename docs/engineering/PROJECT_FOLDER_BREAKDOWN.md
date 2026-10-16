@@ -2,6 +2,8 @@
 
 Last updated: 2026-10-15 (regenerated from the working tree at `7d81e17`, package `0.1.3`)
 
+> **0.2 branch note (2026-10-16):** this map describes the 0.1.4 layout. On `feature/0.2-cleanup` the items listed in `REMOVED_AND_FUTURE.md` are gone, the footer and updater UI moved to `frontend/src/platform/`, and `backend/src/platform/dev_build.rs` was added. The map is regenerated after the Phase 4 backend restructure.
+
 This document maps the project files to their responsibilities. It covers tracked source, config, docs, scripts, and tests. Generated folders such as `node_modules/`, `backend/target/`, `backend/gen/`, `frontend/dist/`, and `.tmp/` are summarized instead of expanded.
 
 ## How the pieces fit

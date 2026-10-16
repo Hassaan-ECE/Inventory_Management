@@ -10,9 +10,7 @@ mod sync;
 
 pub(crate) use api::commands;
 pub(crate) use domain::{model, query};
-pub(crate) use integrations::{
-    calibration_roster_import, deprecated_db_cleanup, export, inventory_import, native,
-};
+pub(crate) use integrations::{calibration_roster_import, export, native};
 pub(crate) use runtime::{shared_sync, shared_watcher};
 pub(crate) use storage as store;
 
@@ -29,7 +27,6 @@ pub fn run() {
             let stores = inventory_stores::InventoryStores::open(&app_paths)?;
             let te_db = stores.te_test_equipment();
             let lab_db = stores.te_lab_components();
-            let _ = deprecated_db_cleanup::quarantine_deprecated_databases_once(&app_paths, te_db);
             // Recovery must never prevent the window from opening: unknown/future outbox
             // op kinds (or mixed catalog vs inventory rows) should not brick launches or
             // block in-app updates from an older install.
@@ -87,9 +84,6 @@ pub fn run() {
             commands::commit_lab_catalog_migration,
             commands::preview_lab_shared_cutover,
             commands::commit_lab_shared_cutover,
-            commands::pick_import_file,
-            commands::preview_import,
-            commands::commit_import,
             commands::pick_calibration_roster_file,
             commands::preview_calibration_roster,
             commands::commit_calibration_roster,
