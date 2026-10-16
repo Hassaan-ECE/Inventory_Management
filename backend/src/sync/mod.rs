@@ -1,6 +1,8 @@
 mod apply;
 mod auth;
 mod conflicts;
+#[cfg(test)]
+mod flow_tests;
 mod identity;
 mod operation_file;
 mod queue;

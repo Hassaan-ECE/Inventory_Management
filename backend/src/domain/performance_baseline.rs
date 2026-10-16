@@ -1,17 +1,13 @@
-#[path = "support/core_backend.rs"]
-mod backend;
-pub(crate) use backend::{model, platform, query, store};
-
 use std::{
     env, fs,
     hint::black_box,
     time::{Duration, Instant},
 };
 
-use model::{FilterState, InventoryEntry, InventoryQueryInput, SortState};
-use query::{get_inventory_counts, query_entries};
+use crate::model::{FilterState, InventoryEntry, InventoryQueryInput, SortState};
+use crate::query::{get_inventory_counts, query_entries};
+use crate::store::InventoryDb;
 use serde::Serialize;
-use store::InventoryDb;
 use uuid::Uuid;
 
 const PERF_DB_SIZE: u64 = 128 * 1024 * 1024;
@@ -222,7 +218,7 @@ fn synthetic_entry(index: usize) -> InventoryEntry {
         } else {
             "Good".to_string()
         },
-        calibration_requirement: model::CalibrationRequirement::Unknown,
+        calibration_requirement: crate::model::CalibrationRequirement::Unknown,
         out_to_calibration: false,
         last_calibrated_at: None,
         calibration_due_at: None,

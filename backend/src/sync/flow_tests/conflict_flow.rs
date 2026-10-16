@@ -1,23 +1,17 @@
-#[path = "support/backend.rs"]
-mod backend;
-pub(crate) use backend::{model, platform, store, sync};
-#[path = "support/sync_fixtures.rs"]
-mod sync_fixtures;
-
 use std::fs;
 
-use model::InventoryEntry;
-use store::InventoryDb;
-use sync::test_support::{
-    canonical_operation_checksum, canonical_operation_json, operation_file_path,
-    run_shared_sync_with_root, SharedSyncPaths, SyncEntryState, SyncTombstoneRecord,
-};
-use sync::{queue_delete_operation, queue_entry_operation, SyncOperationType};
-use sync_fixtures::{
+use super::fixtures::{
     conflict_count, corrupt_remote_count, existing_shared_root, first_outbox_operation,
     remote_delete_operation, remote_upsert_operation, remote_upsert_operation_with_fields,
     sample_entry, test_db, unique_test_dir, write_remote_operation,
 };
+use crate::model::InventoryEntry;
+use crate::store::InventoryDb;
+use crate::sync::test_support::{
+    canonical_operation_checksum, canonical_operation_json, operation_file_path,
+    run_shared_sync_with_root, SharedSyncPaths, SyncEntryState, SyncTombstoneRecord,
+};
+use crate::sync::{queue_delete_operation, queue_entry_operation, SyncOperationType};
 
 #[test]
 fn conflicting_existing_operation_file_keeps_local_operation_pending() {
@@ -320,7 +314,7 @@ fn concurrent_disjoint_calibration_dates_that_form_invalid_range_are_conflicted_
     let shared_root = existing_shared_root("sync-invalid-calibration-merge-root");
     let base_version = "2026-07-01T00:00:00.000Z".to_string();
     let mut local_entry = sample_entry("1", "entry-invalid-calibration-merge", "Meter");
-    local_entry.calibration_requirement = model::CalibrationRequirement::Required;
+    local_entry.calibration_requirement = crate::model::CalibrationRequirement::Required;
     local_entry.last_calibrated_at = Some("2026-07-10".to_string());
     local_entry.calibration_due_at = None;
     local_entry.updated_at = "2026-07-13T13:00:00.000Z".to_string();
@@ -341,7 +335,7 @@ fn concurrent_disjoint_calibration_dates_that_form_invalid_range_are_conflicted_
     db.flush();
 
     let mut remote_entry = sample_entry("1", "entry-invalid-calibration-merge", "Meter");
-    remote_entry.calibration_requirement = model::CalibrationRequirement::Required;
+    remote_entry.calibration_requirement = crate::model::CalibrationRequirement::Required;
     remote_entry.last_calibrated_at = None;
     remote_entry.calibration_due_at = Some("2026-07-09".to_string());
     let remote_operation = remote_upsert_operation_with_fields(
@@ -395,7 +389,7 @@ fn concurrent_legacy_verified_alias_keeps_approximation_label_during_merge() {
 
     let mut remote = sample_entry("1", "entry-legacy-verified-merge", "Meter");
     remote.verified_at = Some("2026-07-12T12:00:00Z".to_string());
-    remote.verified_by = Some(model::LEGACY_VERIFIED_APPROXIMATION_LABEL.to_string());
+    remote.verified_by = Some(crate::model::LEGACY_VERIFIED_APPROXIMATION_LABEL.to_string());
     let operation = remote_upsert_operation_with_fields(
         "remote-legacy-verified-client",
         1,
@@ -415,7 +409,7 @@ fn concurrent_legacy_verified_alias_keeps_approximation_label_during_merge() {
     assert_eq!(merged.verified_at.as_deref(), Some("2026-07-12T12:00:00Z"));
     assert_eq!(
         merged.verified_by.as_deref(),
-        Some(model::LEGACY_VERIFIED_APPROXIMATION_LABEL)
+        Some(crate::model::LEGACY_VERIFIED_APPROXIMATION_LABEL)
     );
 }
 

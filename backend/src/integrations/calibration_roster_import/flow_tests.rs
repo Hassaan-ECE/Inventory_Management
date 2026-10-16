@@ -1,42 +1,14 @@
-#![allow(dead_code)]
-
-#[path = "../src/domain/entry_changes.rs"]
-pub(crate) mod entry_changes_impl;
-#[path = "../src/domain/model.rs"]
-pub(crate) mod model;
-#[allow(dead_code, unused_imports)]
-#[path = "../src/platform/mod.rs"]
-pub(crate) mod platform;
-#[path = "../src/storage/mod.rs"]
-pub(crate) mod store;
-#[allow(dead_code, unused_imports)]
-#[path = "../src/sync/mod.rs"]
-pub(crate) mod sync;
-
-pub(crate) mod domain {
-    pub(crate) use crate::entry_changes_impl as entry_changes;
-}
-
-#[path = "../src/api/mutations.rs"]
-pub(crate) mod mutations_impl;
-pub(crate) mod api {
-    pub(crate) use crate::mutations_impl as mutations;
-}
-
-#[path = "../src/integrations/calibration_roster_import/mod.rs"]
-pub(crate) mod calibration_roster_import;
-
 use std::{collections::BTreeMap, fs, path::PathBuf};
 
-use calibration_roster_import::{
+use crate::calibration_roster_import::{
     commit_calibration_roster_from_store, commit_calibration_roster_with_test_failure_after,
     preview_calibration_roster_from_path, CalibrationRosterClassification,
     CalibrationRosterCommitInput, CalibrationRosterResolution, CalibrationRosterResolutionAction,
     CalibrationRosterRowOutcome, CalibrationRosterSemanticFlag,
 };
-use model::{CalibrationRequirement, ImportProvenance, InventoryEntryInput};
+use crate::model::{CalibrationRequirement, ImportProvenance, InventoryEntryInput};
+use crate::store::InventoryDb;
 use rust_xlsxwriter::{ExcelDateTime, Format, Workbook, Worksheet};
-use store::InventoryDb;
 use uuid::Uuid;
 
 #[test]
@@ -892,7 +864,7 @@ fn hint_only_workbook() -> PathBuf {
 }
 
 fn commit_input_for_report(
-    report: &calibration_roster_import::CalibrationRosterPreviewReport,
+    report: &crate::calibration_roster_import::CalibrationRosterPreviewReport,
 ) -> CalibrationRosterCommitInput {
     let resolutions = report
         .row_outcomes
@@ -954,7 +926,7 @@ fn use_existing_resolution(row: &CalibrationRosterRowOutcome) -> CalibrationRost
 }
 
 fn row<'a>(
-    report: &'a calibration_roster_import::CalibrationRosterPreviewReport,
+    report: &'a crate::calibration_roster_import::CalibrationRosterPreviewReport,
     sheet: &str,
     source_row: u64,
 ) -> &'a CalibrationRosterRowOutcome {
@@ -965,8 +937,8 @@ fn row<'a>(
         .unwrap()
 }
 
-fn create_entry(db: &InventoryDb, input: InventoryEntryInput) -> model::InventoryEntry {
-    api::mutations::create_entry_in_store(input, db)
+fn create_entry(db: &InventoryDb, input: InventoryEntryInput) -> crate::model::InventoryEntry {
+    crate::api::mutations::create_entry_in_store(input, db)
         .unwrap()
         .entry
 }
@@ -990,7 +962,10 @@ fn equipment_input(
     }
 }
 
-fn find_asset<'a>(entries: &'a [model::InventoryEntry], asset: &str) -> &'a model::InventoryEntry {
+fn find_asset<'a>(
+    entries: &'a [crate::model::InventoryEntry],
+    asset: &str,
+) -> &'a crate::model::InventoryEntry {
     entries
         .iter()
         .find(|entry| entry.asset_number == asset)
@@ -998,9 +973,9 @@ fn find_asset<'a>(entries: &'a [model::InventoryEntry], asset: &str) -> &'a mode
 }
 
 fn find_uuid<'a>(
-    entries: &'a [model::InventoryEntry],
+    entries: &'a [crate::model::InventoryEntry],
     entry_uuid: &str,
-) -> &'a model::InventoryEntry {
+) -> &'a crate::model::InventoryEntry {
     entries
         .iter()
         .find(|entry| entry.entry_uuid == entry_uuid)

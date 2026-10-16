@@ -1,4 +1,6 @@
 mod commit;
+#[cfg(test)]
+mod flow_tests;
 mod parser;
 mod reconcile;
 mod types;

@@ -8,7 +8,7 @@ Historical note: these numbers describe the last recorded baseline. Rerun the ig
 
 ```powershell
 Push-Location backend
-cargo test --test performance_baseline -- --ignored --nocapture
+cargo test --lib performance_baseline -- --ignored --nocapture
 Pop-Location
 
 $env:RUN_PERF_BASELINE = "1"

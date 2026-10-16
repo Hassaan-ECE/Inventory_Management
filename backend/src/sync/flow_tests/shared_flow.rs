@@ -1,22 +1,18 @@
-#[path = "support/backend.rs"]
-mod backend;
-pub(crate) use backend::{model, platform, store, sync};
-#[path = "support/sync_fixtures.rs"]
-mod sync_fixtures;
-
 use std::{
     env, fs,
     path::{Path, PathBuf},
 };
 
-use store::InventoryDb;
-use sync::test_support::{run_shared_sync_with_root, set_test_hmac_key, SyncTombstoneRecord};
-use sync::{queue_delete_operation, queue_entry_operation, SyncOperationType};
-use sync_fixtures::{
+use super::fixtures::{
     conflict_count, existing_shared_root, first_snapshot_path, manifest_path, operation_file_count,
     outbox_count, read_outbox_operation, remote_upsert_operation, remove_json_field, sample_entry,
     snapshot_file_count, test_db, unique_test_dir, write_remote_operation,
 };
+use crate::store::InventoryDb;
+use crate::sync::test_support::{
+    run_shared_sync_with_root, set_test_hmac_key, SyncTombstoneRecord,
+};
+use crate::sync::{queue_delete_operation, queue_entry_operation, SyncOperationType};
 
 #[test]
 fn unavailable_shared_root_bootstraps_local_outbox_without_creating_root() {
@@ -68,11 +64,11 @@ fn fresh_database_hydrates_from_snapshot_then_newer_operations() {
     let db_source = test_db("sync-snapshot-source");
     let shared_root = existing_shared_root("sync-snapshot-root");
     let mut entry = sample_entry("1", "entry-snapshot", "Snapshot seed");
-    entry.calibration_requirement = model::CalibrationRequirement::Required;
+    entry.calibration_requirement = crate::model::CalibrationRequirement::Required;
     entry.calibration_due_at = Some("2027-04-26".to_string());
     entry.verified_at = Some("2026-04-26T08:00:00.000Z".to_string());
     entry.verified_by = Some("Snapshot verifier".to_string());
-    entry.import_provenance = Some(model::ImportProvenance {
+    entry.import_provenance = Some(crate::model::ImportProvenance {
         batch_id: "sha256:snapshot-batch".to_string(),
         source_filename: "synthetic.xlsx".to_string(),
         source_sheet: Some("Equipment".to_string()),
@@ -110,7 +106,7 @@ fn fresh_database_hydrates_from_snapshot_then_newer_operations() {
     assert_eq!(hydrated.description, "Newer operation after snapshot");
     assert_eq!(
         hydrated.calibration_requirement,
-        model::CalibrationRequirement::Required
+        crate::model::CalibrationRequirement::Required
     );
     assert_eq!(hydrated.calibration_due_at.as_deref(), Some("2027-04-26"));
     assert_eq!(

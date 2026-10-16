@@ -3,19 +3,15 @@
 //! every other client refused its snapshots, and a stale client later overwrote the
 //! shared manifest. These tests replay that sequence against the current sync loop.
 
-#[path = "support/backend.rs"]
-mod backend;
-pub(crate) use backend::{model, platform, store, sync};
-#[path = "support/sync_fixtures.rs"]
-mod sync_fixtures;
-
 use std::{fs, path::Path};
 
+use super::fixtures::{existing_shared_root, manifest_path, sample_entry, test_db};
+use crate::store::InventoryDb;
+use crate::sync::test_support::{
+    maybe_publish_snapshot, run_shared_sync_with_root, SharedSyncPaths,
+};
+use crate::sync::{queue_entry_operation, SyncOperationType};
 use serde_json::Value;
-use store::InventoryDb;
-use sync::test_support::{maybe_publish_snapshot, run_shared_sync_with_root, SharedSyncPaths};
-use sync::{queue_entry_operation, SyncOperationType};
-use sync_fixtures::{existing_shared_root, manifest_path, sample_entry, test_db};
 
 fn create_entry(db: &InventoryDb, id: &str, entry_uuid: &str, description: &str) {
     let entry = sample_entry(id, entry_uuid, description);

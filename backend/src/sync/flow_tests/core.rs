@@ -1,14 +1,9 @@
-#[path = "support/backend.rs"]
-mod backend;
-pub(crate) use backend::{model, platform, store, sync};
-#[path = "support/sync_fixtures.rs"]
-mod sync_fixtures;
-
 use std::{collections::HashMap, ffi::OsString, fs, path::PathBuf};
 
-use model::InventoryEntry;
-use store::InventoryDb;
-use sync::test_support::{
+use super::fixtures::unique_test_dir;
+use crate::model::InventoryEntry;
+use crate::store::InventoryDb;
+use crate::sync::test_support::{
     allocate_local_sequence, build_delete_operation, build_entry_operation,
     canonical_operation_checksum, canonical_operation_json, corrupt_remote_record_id,
     ensure_operation_log_layout, get_or_create_client_identity, operation_file_name,
@@ -19,8 +14,7 @@ use sync::test_support::{
     SyncEntryState, SyncOperationEnvelope, SyncOperationPayload, SyncOperationType,
     SyncTombstoneRecord, SNAPSHOT_APPLY_PENDING_KEY, SYNC_SCHEMA_VERSION,
 };
-use sync::{last_local_recovery_message, queue_entry_operation, recover_local_sync_state};
-use sync_fixtures::unique_test_dir;
+use crate::sync::{last_local_recovery_message, queue_entry_operation, recover_local_sync_state};
 
 #[test]
 fn shared_root_prefers_env_override_and_defaults_to_the_te_module_folder() {
@@ -28,7 +22,7 @@ fn shared_root_prefers_env_override_and_defaults_to_the_te_module_folder() {
     let default_root = resolve_shared_root_from_env_value(None);
     assert_eq!(
         default_root,
-        platform::default_shared_root(platform::ModuleId::TeTestEquipment)
+        crate::platform::default_shared_root(crate::platform::ModuleId::TeTestEquipment)
     );
     assert!(default_root.ends_with(
         PathBuf::from(".tmp")
@@ -86,12 +80,12 @@ fn sync_schema_v2_operation_payload_preserves_calibration_verification_and_prove
         device_id: "device-contract".to_string(),
     };
     let mut entry = sample_entry("entry-contract");
-    entry.calibration_requirement = model::CalibrationRequirement::Required;
+    entry.calibration_requirement = crate::model::CalibrationRequirement::Required;
     entry.out_to_calibration = true;
     entry.calibration_due_at = Some("2027-07-13".to_string());
     entry.verified_at = Some("2026-07-13T12:00:00Z".to_string());
     entry.verified_by = Some("Taylor".to_string());
-    entry.import_provenance = Some(model::ImportProvenance {
+    entry.import_provenance = Some(crate::model::ImportProvenance {
         batch_id: "sha256:contract".to_string(),
         source_filename: "synthetic.csv".to_string(),
         source_sheet: None,
@@ -981,7 +975,7 @@ fn sample_entry(entry_uuid: &str) -> InventoryEntry {
         lifecycle_status: "active".to_string(),
         working_status: "unknown".to_string(),
         condition: String::new(),
-        calibration_requirement: model::CalibrationRequirement::Unknown,
+        calibration_requirement: crate::model::CalibrationRequirement::Unknown,
         out_to_calibration: false,
         last_calibrated_at: None,
         calibration_due_at: None,
