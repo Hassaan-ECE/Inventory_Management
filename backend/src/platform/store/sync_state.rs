@@ -1,11 +1,10 @@
 use serde::{de::DeserializeOwned, Serialize};
 
-use super::{codec::decode_u64_value, keys, InventoryDb};
-use crate::model::{db_error, CommandResult};
+use super::{codec::decode_u64_value, keys, ModuleStore};
+use crate::platform::common::{db_error, CommandResult};
 
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-// Returned by metadata helpers and asserted in storage tests.
-#[allow(dead_code)]
 pub(crate) struct SyncMetadata {
     pub schema_version: Option<u32>,
     pub sync_schema_version: Option<u32>,
@@ -29,6 +28,11 @@ pub(crate) enum SyncKeyspace {
     CorruptRemote,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct SyncStateBackup {
+    records: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
 impl SyncKeyspace {
     fn prefix(self) -> &'static str {
         match self {
@@ -44,9 +48,68 @@ impl SyncKeyspace {
     }
 }
 
-// Sync storage exposes recovery/test maintenance helpers in addition to runtime hot paths.
-#[allow(dead_code)]
-impl InventoryDb {
+impl<R> ModuleStore<R> {
+    pub(crate) fn backup_sync_state(&self) -> CommandResult<SyncStateBackup> {
+        let mut records = Vec::new();
+        self.scan_prefix_from(
+            keys::SYNC_STATE_PREFIX,
+            keys::SYNC_STATE_PREFIX.as_bytes().to_vec(),
+            usize::MAX,
+            |key, value| {
+                records.push((key.to_vec(), value.to_vec()));
+                Ok(true)
+            },
+        )?;
+        for key in [
+            keys::META_SYNC_SCHEMA_VERSION,
+            keys::META_NEXT_LOCAL_SEQ,
+            keys::META_SYNC_REVISION,
+            keys::META_LAST_SNAPSHOT_ID,
+            b"meta:sync_bootstrap_complete",
+            b"meta:snapshot_apply_pending",
+        ] {
+            if self.store.contains_key(key) {
+                records.push((key.to_vec(), self.store.get(key).map_err(db_error)?));
+            }
+        }
+        Ok(SyncStateBackup { records })
+    }
+
+    pub(crate) fn restore_sync_state(&self, backup: SyncStateBackup) -> CommandResult<()> {
+        self.clear_sync_state()?;
+        for (key, value) in backup.records {
+            self.put_bytes(&key, &value)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn clear_sync_state(&self) -> CommandResult<()> {
+        let mut keys_to_delete = Vec::new();
+        self.scan_prefix_from(
+            keys::SYNC_STATE_PREFIX,
+            keys::SYNC_STATE_PREFIX.as_bytes().to_vec(),
+            usize::MAX,
+            |key, _| {
+                keys_to_delete.push(key.to_vec());
+                Ok(true)
+            },
+        )?;
+        for key in keys_to_delete {
+            self.delete_key(&key)?;
+        }
+        for key in [
+            keys::META_SYNC_SCHEMA_VERSION,
+            keys::META_NEXT_LOCAL_SEQ,
+            keys::META_SYNC_REVISION,
+            keys::META_LAST_SNAPSHOT_ID,
+            b"meta:sync_bootstrap_complete",
+            b"meta:snapshot_apply_pending",
+        ] {
+            self.delete_key(key)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn sync_watermark(&self, client_id: &str) -> CommandResult<Option<u64>> {
         let key = keys::sync_watermark_key(client_id)?;
         self.get_u64(key.as_bytes(), "sync_watermark")
@@ -58,6 +121,7 @@ impl InventoryDb {
         self.put_bytes(key.as_bytes(), local_seq.to_string().as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn clear_sync_watermark(&self, client_id: &str) -> CommandResult<()> {
         let key = keys::sync_watermark_key(client_id)?;
         self.delete_key(key.as_bytes())
@@ -67,7 +131,7 @@ impl InventoryDb {
     where
         F: FnMut(String, u64) -> CommandResult<bool>,
     {
-        self.scan_sync_prefix_from(
+        self.scan_prefix_from(
             keys::SYNC_WATERMARK_PREFIX,
             keys::SYNC_WATERMARK_PREFIX.as_bytes().to_vec(),
             limit,
@@ -89,6 +153,7 @@ impl InventoryDb {
         self.put_json(key.as_bytes(), record)
     }
 
+    #[cfg(test)]
     pub(crate) fn sync_outbox_record<T: DeserializeOwned>(
         &self,
         local_seq: u64,
@@ -97,6 +162,7 @@ impl InventoryDb {
         self.get_json(key.as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn delete_sync_outbox_record(&self, local_seq: u64) -> CommandResult<()> {
         let key = keys::sync_outbox_key(local_seq)?;
         self.delete_key(key.as_bytes())
@@ -129,13 +195,11 @@ impl InventoryDb {
         F: FnMut(u64, &[u8]) -> CommandResult<bool>,
     {
         let start_key = match start_after_local_seq {
-            Some(local_seq) => {
-                keys::next_entry_range_start(keys::sync_outbox_key(local_seq)?.into_bytes())
-            }
+            Some(local_seq) => keys::next_key_after(keys::sync_outbox_key(local_seq)?.into_bytes()),
             None => keys::SYNC_OUTBOX_PREFIX.as_bytes().to_vec(),
         };
 
-        self.scan_sync_prefix_from(keys::SYNC_OUTBOX_PREFIX, start_key, limit, |key, value| {
+        self.scan_prefix_from(keys::SYNC_OUTBOX_PREFIX, start_key, limit, |key, value| {
             let local_seq = keys::parse_local_seq_from_key(keys::SYNC_OUTBOX_PREFIX, key)?;
             visit(local_seq, value)
         })
@@ -150,6 +214,7 @@ impl InventoryDb {
         self.put_json(key.as_bytes(), marker)
     }
 
+    #[cfg(test)]
     pub(crate) fn sync_applied_marker<T: DeserializeOwned>(
         &self,
         op_id: &str,
@@ -163,6 +228,7 @@ impl InventoryDb {
         Ok(self.store.contains_key(key.as_bytes()))
     }
 
+    #[cfg(test)]
     pub(crate) fn delete_sync_applied_marker(&self, op_id: &str) -> CommandResult<()> {
         let key = keys::sync_applied_key(op_id)?;
         self.delete_key(key.as_bytes())
@@ -187,6 +253,7 @@ impl InventoryDb {
         self.get_json(key.as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn delete_sync_client_seq_marker(
         &self,
         client_id: &str,
@@ -228,7 +295,7 @@ impl InventoryDb {
         T: DeserializeOwned,
         F: FnMut(String, T) -> CommandResult<bool>,
     {
-        self.scan_sync_prefix_from(
+        self.scan_prefix_from(
             keys::SYNC_TOMBSTONE_PREFIX,
             keys::SYNC_TOMBSTONE_PREFIX.as_bytes().to_vec(),
             limit,
@@ -272,7 +339,7 @@ impl InventoryDb {
         T: DeserializeOwned,
         F: FnMut(String, T) -> CommandResult<bool>,
     {
-        self.scan_sync_prefix_from(
+        self.scan_prefix_from(
             keys::SYNC_ENTRY_STATE_PREFIX,
             keys::SYNC_ENTRY_STATE_PREFIX.as_bytes().to_vec(),
             limit,
@@ -294,19 +361,7 @@ impl InventoryDb {
         self.put_json(key.as_bytes(), record)
     }
 
-    pub(crate) fn sync_conflict_record<T: DeserializeOwned>(
-        &self,
-        conflict_id: &str,
-    ) -> CommandResult<Option<T>> {
-        let key = keys::sync_conflict_key(conflict_id)?;
-        self.get_json(key.as_bytes())
-    }
-
-    pub(crate) fn delete_sync_conflict_record(&self, conflict_id: &str) -> CommandResult<()> {
-        let key = keys::sync_conflict_key(conflict_id)?;
-        self.delete_key(key.as_bytes())
-    }
-
+    #[cfg(test)]
     pub(crate) fn scan_sync_conflict_records<T, F>(
         &self,
         limit: usize,
@@ -316,7 +371,7 @@ impl InventoryDb {
         T: DeserializeOwned,
         F: FnMut(String, T) -> CommandResult<bool>,
     {
-        self.scan_sync_prefix_from(
+        self.scan_prefix_from(
             keys::SYNC_CONFLICT_PREFIX,
             keys::SYNC_CONFLICT_PREFIX.as_bytes().to_vec(),
             limit,
@@ -338,6 +393,7 @@ impl InventoryDb {
         self.put_json(key.as_bytes(), record)
     }
 
+    #[cfg(test)]
     pub(crate) fn sync_corrupt_record<T: DeserializeOwned>(
         &self,
         record_id: &str,
@@ -346,11 +402,13 @@ impl InventoryDb {
         self.get_json(key.as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn delete_sync_corrupt_record(&self, record_id: &str) -> CommandResult<()> {
         let key = keys::sync_corrupt_remote_key(record_id)?;
         self.delete_key(key.as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn scan_sync_corrupt_records<T, F>(
         &self,
         limit: usize,
@@ -360,7 +418,7 @@ impl InventoryDb {
         T: DeserializeOwned,
         F: FnMut(String, T) -> CommandResult<bool>,
     {
-        self.scan_sync_prefix_from(
+        self.scan_prefix_from(
             keys::SYNC_CORRUPT_REMOTE_PREFIX,
             keys::SYNC_CORRUPT_REMOTE_PREFIX.as_bytes().to_vec(),
             limit,
@@ -386,7 +444,7 @@ impl InventoryDb {
         F: FnMut(&[u8], &[u8]) -> CommandResult<bool>,
     {
         let prefix = keyspace.prefix();
-        self.scan_sync_prefix_from(prefix, prefix.as_bytes().to_vec(), limit, visit)
+        self.scan_prefix_from(prefix, prefix.as_bytes().to_vec(), limit, visit)
     }
 
     pub(crate) fn clear_sync_keyspace(&self, keyspace: SyncKeyspace) -> CommandResult<()> {

@@ -5,6 +5,7 @@ mod legacy_databases;
 mod local_data_paths;
 mod module_id;
 mod shared_root;
+pub(crate) mod store;
 
 #[cfg(test)]
 pub(crate) use database::DATABASE_FILE_NAME;

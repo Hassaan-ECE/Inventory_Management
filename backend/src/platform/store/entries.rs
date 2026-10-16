@@ -1,9 +1,30 @@
 use std::{cmp::Ordering, collections::HashSet};
 
-use super::{codec::decode_entry, keys, InventoryDb};
-use crate::model::{db_error, numeric_id, CommandResult, InventoryEntry};
+use super::{keys, ModuleStore, StoredEntry};
+use crate::platform::common::{db_error, numeric_id, CommandResult};
 
-impl InventoryDb {
+impl<R: StoredEntry> ModuleStore<R> {
+    /// Next free numeric display id: the stored counter, or one past the highest id in use.
+    pub(crate) fn next_entry_id(&self) -> CommandResult<i64> {
+        if let Some(next_id) = self.stored_next_id()? {
+            return Ok(next_id);
+        }
+
+        let mut max_id = 0;
+        self.scan_entries(|entry| {
+            if let Ok(id) = entry.id().parse::<i64>() {
+                max_id = max_id.max(id);
+            }
+            Ok(true)
+        })?;
+
+        Ok(max_id + 1)
+    }
+
+    pub(crate) fn set_next_entry_id(&self, next_id: i64) -> CommandResult<()> {
+        self.set_next_id(next_id)
+    }
+
     pub(crate) fn has_entries(&self) -> CommandResult<bool> {
         Ok(!self
             .store
@@ -16,7 +37,7 @@ impl InventoryDb {
             .is_empty())
     }
 
-    pub(crate) fn load_entries(&self) -> CommandResult<Vec<InventoryEntry>> {
+    pub(crate) fn load_entries(&self) -> CommandResult<Vec<R>> {
         let mut entries = Vec::new();
         self.scan_entries(|entry| {
             entries.push(entry);
@@ -27,7 +48,7 @@ impl InventoryDb {
         Ok(entries)
     }
 
-    pub(crate) fn find_entry(&self, entry_id: &str) -> CommandResult<Option<InventoryEntry>> {
+    pub(crate) fn find_entry(&self, entry_id: &str) -> CommandResult<Option<R>> {
         let entry_id = entry_id.trim();
         if entry_id.is_empty() {
             return Ok(None);
@@ -39,7 +60,7 @@ impl InventoryDb {
             }
         }
 
-        if keys::is_numeric_entry_id(entry_id) {
+        if keys::is_numeric_id(entry_id) {
             if let Some(entry) = self.find_entry_by_id(entry_id)? {
                 return Ok(Some(entry));
             }
@@ -49,37 +70,34 @@ impl InventoryDb {
             return Ok(Some(entry));
         }
 
-        if keys::is_numeric_entry_id(entry_id) {
+        if keys::is_numeric_id(entry_id) {
             Ok(None)
         } else {
             self.find_entry_by_id(entry_id)
         }
     }
 
-    pub(crate) fn put_entry(&self, entry: &InventoryEntry) -> CommandResult<bool> {
-        let inserted = self.put_json(keys::entry_key(&entry.entry_uuid).as_bytes(), entry)?;
+    pub(crate) fn put_entry(&self, entry: &R) -> CommandResult<bool> {
+        let inserted = self.put_json(keys::entry_key(entry.entry_uuid()).as_bytes(), entry)?;
         self.put_entry_id_index(entry)?;
         Ok(inserted)
     }
 
-    pub(crate) fn delete_entry(&self, entry: &InventoryEntry) -> CommandResult<()> {
+    pub(crate) fn delete_entry(&self, entry: &R) -> CommandResult<()> {
         self.store
-            .delete(keys::entry_key(&entry.entry_uuid).as_bytes())
+            .delete(keys::entry_key(entry.entry_uuid()).as_bytes())
             .map_err(db_error)?;
-        self.delete_entry_id_index(&entry.id)?;
+        self.delete_entry_id_index(entry.id())?;
         Ok(())
     }
 
-    pub(crate) fn replace_entries_snapshot(
-        &self,
-        entries: &[InventoryEntry],
-    ) -> CommandResult<bool> {
+    pub(crate) fn replace_entries_snapshot(&self, entries: &[R]) -> CommandResult<bool> {
         let existing = self.load_entries()?;
         let changed = existing.len() != entries.len()
             || existing.iter().any(|entry| {
                 entries
                     .iter()
-                    .find(|incoming| incoming.entry_uuid == entry.entry_uuid)
+                    .find(|incoming| incoming.entry_uuid() == entry.entry_uuid())
                     .map(|incoming| incoming != entry)
                     .unwrap_or(true)
             });
@@ -91,10 +109,10 @@ impl InventoryDb {
         let mut seen_ids = HashSet::new();
         let mut max_id = 0;
         for entry in entries {
-            if !seen_ids.insert(entry.entry_uuid.clone()) {
+            if !seen_ids.insert(entry.entry_uuid().to_string()) {
                 continue;
             }
-            if let Ok(id) = entry.id.parse::<i64>() {
+            if let Ok(id) = entry.id().parse::<i64>() {
                 max_id = max_id.max(id);
             }
             self.put_entry(entry)?;
@@ -104,30 +122,29 @@ impl InventoryDb {
         Ok(changed)
     }
 
-    pub(super) fn get_entry_by_uuid(
-        &self,
-        entry_uuid: &str,
-    ) -> CommandResult<Option<InventoryEntry>> {
+    pub(super) fn get_entry_by_uuid(&self, entry_uuid: &str) -> CommandResult<Option<R>> {
         self.get_entry_by_key(keys::entry_key(entry_uuid).as_bytes())
     }
 
-    fn get_entry_by_key(&self, key: &[u8]) -> CommandResult<Option<InventoryEntry>> {
+    fn get_entry_by_key(&self, key: &[u8]) -> CommandResult<Option<R>> {
         if !self.store.contains_key(key) {
             return Ok(None);
         }
 
         let value = self.store.get(key).map_err(db_error)?;
-        decode_entry(&value).map(Some)
+        serde_json::from_slice::<R>(&value)
+            .map_err(db_error)
+            .map(Some)
     }
 
-    fn find_entry_by_id(&self, entry_id: &str) -> CommandResult<Option<InventoryEntry>> {
+    fn find_entry_by_id(&self, entry_id: &str) -> CommandResult<Option<R>> {
         if let Some(entry) = self.find_entry_by_id_index(entry_id)? {
             return Ok(Some(entry));
         }
 
         let mut found = None;
         self.scan_entries(|entry| {
-            if entry.id == entry_id {
+            if entry.id() == entry_id {
                 self.put_entry_id_index(&entry)?;
                 found = Some(entry);
                 Ok(false)
@@ -139,7 +156,7 @@ impl InventoryDb {
         Ok(found)
     }
 
-    fn find_entry_by_id_index(&self, entry_id: &str) -> CommandResult<Option<InventoryEntry>> {
+    fn find_entry_by_id_index(&self, entry_id: &str) -> CommandResult<Option<R>> {
         let key = keys::entry_id_key(entry_id);
         if !self.store.contains_key(key.as_bytes()) {
             return Ok(None);
@@ -151,17 +168,17 @@ impl InventoryDb {
             return Ok(None);
         };
 
-        Ok((entry.id == entry_id).then_some(entry))
+        Ok((entry.id() == entry_id).then_some(entry))
     }
 
-    fn put_entry_id_index(&self, entry: &InventoryEntry) -> CommandResult<()> {
-        if entry.id.is_empty() {
+    fn put_entry_id_index(&self, entry: &R) -> CommandResult<()> {
+        if entry.id().is_empty() {
             return Ok(());
         }
 
         self.put_bytes(
-            keys::entry_id_key(&entry.id).as_bytes(),
-            entry.entry_uuid.as_bytes(),
+            keys::entry_id_key(entry.id()).as_bytes(),
+            entry.entry_uuid().as_bytes(),
         )
     }
 
@@ -180,7 +197,7 @@ impl InventoryDb {
 
     pub(super) fn scan_entries<F>(&self, mut visit: F) -> CommandResult<()>
     where
-        F: FnMut(InventoryEntry) -> CommandResult<bool>,
+        F: FnMut(R) -> CommandResult<bool>,
     {
         let mut start_key = keys::ENTRY_PREFIX.as_bytes().to_vec();
 
@@ -201,7 +218,7 @@ impl InventoryDb {
             let last_key = batch.last().map(|(key, _)| key.clone());
 
             for (_, value) in batch {
-                if !visit(decode_entry(&value)?)? {
+                if !visit(serde_json::from_slice::<R>(&value).map_err(db_error)?)? {
                     return Ok(());
                 }
             }
@@ -211,15 +228,15 @@ impl InventoryDb {
             }
 
             if let Some(last_key) = last_key {
-                start_key = keys::next_entry_range_start(last_key);
+                start_key = keys::next_key_after(last_key);
             }
         }
     }
 }
 
-fn compare_default_entries(left: &InventoryEntry, right: &InventoryEntry) -> Ordering {
+fn compare_default_entries<R: StoredEntry>(left: &R, right: &R) -> Ordering {
     right
-        .updated_at
-        .cmp(&left.updated_at)
-        .then_with(|| numeric_id(&right.id).cmp(&numeric_id(&left.id)))
+        .updated_at()
+        .cmp(left.updated_at())
+        .then_with(|| numeric_id(right.id()).cmp(&numeric_id(left.id())))
 }

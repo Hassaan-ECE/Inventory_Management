@@ -1,57 +1,36 @@
-#[cfg(test)]
-use std::path::PathBuf;
+//! TE Test Equipment's store: the shared [`ModuleStore`] holding TE entries, plus the
+//! calibration roster batches kept beside them.
 
-use crate::platform::Namespace;
-#[cfg(test)]
-use crate::platform::{LocalDatabase, ModuleId};
+use crate::{
+    model::InventoryEntry,
+    platform::{
+        store::{ModuleRecord, ModuleStore, StoredEntry},
+        ModuleId,
+    },
+};
 
 mod calibration_roster;
-mod codec;
-mod entries;
-mod keys;
-mod metadata;
-mod sync_state;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use sync_state::SyncKeyspace;
+pub(crate) use crate::platform::store::SyncKeyspace;
 
-#[cfg(test)]
-const TEST_DB_SIZE: u64 = 2 * 1024 * 1024;
+pub(crate) type InventoryDb = ModuleStore<InventoryEntry>;
 
-/// This inventory's records, stored in its own namespace of the shared local database.
-#[derive(Clone)]
-pub(crate) struct InventoryDb {
-    store: Namespace,
+impl ModuleRecord for InventoryEntry {
+    const MODULE: ModuleId = ModuleId::TeTestEquipment;
 }
 
-impl InventoryDb {
-    pub(crate) fn new(store: Namespace) -> Self {
-        Self { store }
+impl StoredEntry for InventoryEntry {
+    fn id(&self) -> &str {
+        &self.id
     }
 
-    /// Opens a standalone database file for tests, using this inventory's namespace.
-    #[cfg(test)]
-    pub(crate) fn open_at(db_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::open_at_with_size(db_path, TEST_DB_SIZE)
+    fn entry_uuid(&self) -> &str {
+        &self.entry_uuid
     }
 
-    #[cfg(test)]
-    // Used by path-included integration tests, not by the library test crate.
-    #[allow(dead_code)]
-    pub(crate) fn open_at_with_size(
-        db_path: PathBuf,
-        file_size: u64,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let database = LocalDatabase::open_file(db_path, file_size)?;
-        Ok(Self::new(database.namespace(ModuleId::TeTestEquipment)))
-    }
-
-    pub(crate) fn flush(&self) {
-        self.store.flush_all();
-    }
-
-    pub(crate) fn db_path_string(&self) -> String {
-        self.store.path().to_string_lossy().into_owned()
+    fn updated_at(&self) -> &str {
+        &self.updated_at
     }
 }

@@ -1,4 +1,4 @@
-use crate::model::{db_error, CommandResult};
+use crate::platform::common::{db_error, CommandResult};
 
 pub(super) const KEY_RANGE_SENTINEL: &str = "\u{10ffff}";
 pub(super) const ENTRY_PREFIX: &str = "entry:";
@@ -6,14 +6,8 @@ pub(super) const ENTRY_RANGE_END: &str = "entry:\u{10ffff}";
 pub(super) const ENTRY_ID_PREFIX: &str = "entry_id:";
 pub(super) const ENTRY_SCAN_BATCH_LIMIT: usize = 512;
 pub(super) const META_NEXT_ID: &[u8] = b"__meta:next_entry_id";
-pub(super) const CALIBRATION_ROSTER_PREVIEW_PREFIX: &str = "calibration_roster:preview:";
-pub(super) const CALIBRATION_ROSTER_COMMIT_PREFIX: &str = "calibration_roster:commit:";
-pub(super) const CALIBRATION_ROSTER_COMPLETED_PREFIX: &str = "calibration_roster:completed:";
-pub(super) const CALIBRATION_ROSTER_OPERATION_PREFIX: &str = "calibration_roster:operation:";
 pub(super) const SYNC_META_PREFIX: &str = "meta:";
 pub(super) const SYNC_STATE_PREFIX: &str = "sync:";
-// Schema metadata is exercised by tests and migration-safe storage helpers.
-#[allow(dead_code)]
 pub(super) const META_SCHEMA_VERSION: &[u8] = b"meta:schema_version";
 pub(super) const META_SYNC_SCHEMA_VERSION: &[u8] = b"meta:sync_schema_version";
 pub(super) const META_CLIENT_ID: &[u8] = b"meta:client_id";
@@ -39,59 +33,6 @@ pub(super) fn entry_key(entry_uuid: &str) -> String {
 
 pub(super) fn entry_id_key(entry_id: &str) -> String {
     format!("{ENTRY_ID_PREFIX}{entry_id}")
-}
-
-pub(super) fn calibration_roster_preview_key(batch_id: &str) -> CommandResult<String> {
-    import_key(CALIBRATION_ROSTER_PREVIEW_PREFIX, batch_id)
-}
-
-pub(super) fn calibration_roster_commit_key(batch_id: &str) -> CommandResult<String> {
-    import_key(CALIBRATION_ROSTER_COMMIT_PREFIX, batch_id)
-}
-
-pub(super) fn calibration_roster_completed_key(batch_id: &str) -> CommandResult<String> {
-    import_key(CALIBRATION_ROSTER_COMPLETED_PREFIX, batch_id)
-}
-
-pub(super) fn calibration_roster_operation_key(
-    batch_id: &str,
-    operation_id: &str,
-) -> CommandResult<String> {
-    let batch_id = normalized_import_batch_id(batch_id)?;
-    let operation_id = normalized_calibration_operation_id(operation_id)?;
-    Ok(format!(
-        "{CALIBRATION_ROSTER_OPERATION_PREFIX}{batch_id}:{operation_id}"
-    ))
-}
-
-fn import_key(prefix: &str, batch_id: &str) -> CommandResult<String> {
-    Ok(format!("{prefix}{}", normalized_import_batch_id(batch_id)?))
-}
-
-fn normalized_import_batch_id(batch_id: &str) -> CommandResult<String> {
-    let value = batch_id.trim();
-    if value.len() < 16
-        || value.len() > 96
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
-    {
-        return Err("import batch_id has an invalid format".to_string());
-    }
-    Ok(value.to_string())
-}
-
-fn normalized_calibration_operation_id(operation_id: &str) -> CommandResult<String> {
-    let value = operation_id.trim();
-    if value.len() < 8
-        || value.len() > 96
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-    {
-        return Err("calibration roster operation_id has an invalid format".to_string());
-    }
-    Ok(value.to_string())
 }
 
 pub(super) fn sync_outbox_key(local_seq: u64) -> CommandResult<String> {
@@ -138,7 +79,7 @@ fn sync_segment_key(prefix: &str, label: &str, value: &str) -> CommandResult<Str
     Ok(format!("{prefix}{segment}"))
 }
 
-pub(super) fn normalized_sync_key_segment(label: &str, value: &str) -> CommandResult<String> {
+pub(crate) fn normalized_sync_key_segment(label: &str, value: &str) -> CommandResult<String> {
     let trimmed = value.trim();
     validate_sync_key_segment(label, trimmed)?;
     Ok(trimmed.to_string())
@@ -212,13 +153,13 @@ pub(super) fn parse_segment_from_key(
     Ok(segment.to_string())
 }
 
-pub(super) fn range_end_for_prefix(prefix: &str) -> Vec<u8> {
+pub(crate) fn range_end_for_prefix(prefix: &str) -> Vec<u8> {
     let mut range_end = prefix.as_bytes().to_vec();
     range_end.extend_from_slice(KEY_RANGE_SENTINEL.as_bytes());
     range_end
 }
 
-pub(super) fn is_numeric_entry_id(entry_id: &str) -> bool {
+pub(crate) fn is_numeric_id(entry_id: &str) -> bool {
     entry_id.parse::<i64>().is_ok()
 }
 
@@ -232,7 +173,7 @@ pub(super) fn validate_sync_key(key: &str) -> CommandResult<()> {
     }
 }
 
-pub(super) fn next_entry_range_start(mut key: Vec<u8>) -> Vec<u8> {
+pub(crate) fn next_key_after(mut key: Vec<u8>) -> Vec<u8> {
     key.push(0);
     key
 }

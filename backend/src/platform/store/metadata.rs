@@ -1,37 +1,22 @@
-use super::{keys, sync_state::SyncMetadata, InventoryDb};
-use crate::modules::te_storage::model::CommandResult;
+#[cfg(test)]
+use super::sync_state::SyncMetadata;
+use super::{keys, ModuleStore};
+use crate::platform::common::CommandResult;
 
-// Metadata accessors intentionally cover migration/test state beyond the current runtime path.
-#[allow(dead_code)]
-impl InventoryDb {
-    pub(crate) fn next_entry_id(&self) -> CommandResult<i64> {
-        if self.store.contains_key(keys::META_NEXT_ID) {
-            let bytes = self
-                .store
-                .get(keys::META_NEXT_ID)
-                .map_err(crate::modules::te_storage::model::db_error)?;
-            let text =
-                String::from_utf8(bytes).map_err(crate::modules::te_storage::model::db_error)?;
-            if let Ok(next_id) = text.parse::<i64>() {
-                return Ok(next_id.max(1));
-            }
-        }
-
-        let mut max_id = 0;
-        self.scan_entries(|entry| {
-            if let Ok(id) = entry.id.parse::<i64>() {
-                max_id = max_id.max(id);
-            }
-            Ok(true)
-        })?;
-
-        Ok(max_id + 1)
+impl<R> ModuleStore<R> {
+    /// The stored next display id, if one has been recorded.
+    pub(crate) fn stored_next_id(&self) -> CommandResult<Option<i64>> {
+        Ok(self
+            .get_string(keys::META_NEXT_ID)?
+            .and_then(|text| text.parse::<i64>().ok())
+            .map(|next_id| next_id.max(1)))
     }
 
-    pub(crate) fn set_next_entry_id(&self, next_id: i64) -> CommandResult<()> {
+    pub(crate) fn set_next_id(&self, next_id: i64) -> CommandResult<()> {
         self.put_bytes(keys::META_NEXT_ID, next_id.to_string().as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn sync_metadata(&self) -> CommandResult<SyncMetadata> {
         Ok(SyncMetadata {
             schema_version: self.schema_version()?,
@@ -51,6 +36,7 @@ impl InventoryDb {
         self.put_u32(keys::META_SCHEMA_VERSION, "schema_version", version)
     }
 
+    #[cfg(test)]
     pub(crate) fn sync_schema_version(&self) -> CommandResult<Option<u32>> {
         self.get_u32(keys::META_SYNC_SCHEMA_VERSION, "sync_schema_version")
     }
@@ -155,6 +141,7 @@ impl InventoryDb {
         self.put_bytes(keys::META_LAST_SNAPSHOT_ID, snapshot_id.as_bytes())
     }
 
+    #[cfg(test)]
     pub(crate) fn clear_last_snapshot_id(&self) -> CommandResult<()> {
         self.delete_key(keys::META_LAST_SNAPSHOT_ID)
     }

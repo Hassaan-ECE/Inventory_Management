@@ -1,6 +1,6 @@
 use crate::{
     modules::{te_lab_components::store::InventoryDb as LabComponentsDb, te_storage},
-    platform::{InventoryAppPaths, LocalDatabase, ModuleId},
+    platform::{InventoryAppPaths, LocalDatabase},
     store::InventoryDb,
 };
 
@@ -26,11 +26,9 @@ impl InventoryStores {
 
     fn from_database(database: LocalDatabase) -> Self {
         Self {
-            te_test_equipment: InventoryDb::new(database.namespace(ModuleId::TeTestEquipment)),
-            te_lab_components: LabComponentsDb::new(database.namespace(ModuleId::TeLabComponents)),
-            te_storage: te_storage::store::InventoryDb::new(
-                database.namespace(ModuleId::TeStorage),
-            ),
+            te_test_equipment: InventoryDb::open_in(&database),
+            te_lab_components: LabComponentsDb::open_in(&database),
+            te_storage: te_storage::store::InventoryDb::open_in(&database),
             database,
         }
     }

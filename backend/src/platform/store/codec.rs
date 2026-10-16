@@ -1,20 +1,22 @@
 use serde::{de::DeserializeOwned, Serialize};
 
-use super::{keys, InventoryDb};
-use crate::model::{db_error, CommandResult, InventoryEntry};
+use super::{keys, ModuleStore};
+use crate::platform::common::{db_error, CommandResult};
 
-impl InventoryDb {
-    pub(super) fn put_json<T: Serialize>(&self, key: &[u8], value: &T) -> CommandResult<bool> {
+/// Raw key/value access for this module's namespace. Module-specific storage (the TE
+/// calibration roster, the Lab catalog) builds on these.
+impl<R> ModuleStore<R> {
+    pub(crate) fn put_json<T: Serialize>(&self, key: &[u8], value: &T) -> CommandResult<bool> {
         let bytes = serde_json::to_vec(value).map_err(db_error)?;
         self.store.insert(key, &bytes).map_err(db_error)
     }
 
-    pub(super) fn put_bytes(&self, key: &[u8], value: &[u8]) -> CommandResult<()> {
+    pub(crate) fn put_bytes(&self, key: &[u8], value: &[u8]) -> CommandResult<()> {
         self.store.insert(key, value).map_err(db_error)?;
         Ok(())
     }
 
-    pub(super) fn get_json<T: DeserializeOwned>(&self, key: &[u8]) -> CommandResult<Option<T>> {
+    pub(crate) fn get_json<T: DeserializeOwned>(&self, key: &[u8]) -> CommandResult<Option<T>> {
         if !self.store.contains_key(key) {
             return Ok(None);
         }
@@ -23,7 +25,7 @@ impl InventoryDb {
         serde_json::from_slice(&value).map(Some).map_err(db_error)
     }
 
-    pub(super) fn get_string(&self, key: &[u8]) -> CommandResult<Option<String>> {
+    pub(crate) fn get_string(&self, key: &[u8]) -> CommandResult<Option<String>> {
         if !self.store.contains_key(key) {
             return Ok(None);
         }
@@ -32,8 +34,6 @@ impl InventoryDb {
         String::from_utf8(value).map(Some).map_err(db_error)
     }
 
-    // Used by schema metadata helpers that are exercised by tests and migrations.
-    #[allow(dead_code)]
     pub(super) fn get_u32(&self, key: &[u8], label: &str) -> CommandResult<Option<u32>> {
         self.get_string(key)?
             .map(|value| {
@@ -62,7 +62,7 @@ impl InventoryDb {
             .transpose()
     }
 
-    pub(super) fn delete_key(&self, key: &[u8]) -> CommandResult<()> {
+    pub(crate) fn delete_key(&self, key: &[u8]) -> CommandResult<()> {
         if self.store.contains_key(key) {
             self.store.delete(key).map_err(db_error)?;
         }
@@ -70,7 +70,34 @@ impl InventoryDb {
         Ok(())
     }
 
-    pub(super) fn scan_sync_prefix_from<F>(
+    pub(crate) fn contains_key(&self, key: &[u8]) -> bool {
+        self.store.contains_key(key)
+    }
+
+    pub(crate) fn has_key_with_prefix(&self, prefix: &str) -> CommandResult<bool> {
+        let mut found = false;
+        self.scan_prefix_from(prefix, prefix.as_bytes().to_vec(), 1, |_, _| {
+            found = true;
+            Ok(false)
+        })?;
+        Ok(found)
+    }
+
+    pub(crate) fn delete_prefix(&self, prefix: &str) -> CommandResult<()> {
+        let mut keys = Vec::new();
+        self.scan_prefix_from(prefix, prefix.as_bytes().to_vec(), usize::MAX, |key, _| {
+            keys.push(key.to_vec());
+            Ok(true)
+        })?;
+        for key in keys {
+            self.delete_key(&key)?;
+        }
+        Ok(())
+    }
+
+    /// Visits keys under `prefix` in order, starting at `start_key`, until `visit` returns
+    /// false or `limit` keys have been seen.
+    pub(crate) fn scan_prefix_from<F>(
         &self,
         prefix: &str,
         mut start_key: Vec<u8>,
@@ -121,14 +148,10 @@ impl InventoryDb {
             }
 
             if let Some(last_key) = last_key {
-                start_key = keys::next_entry_range_start(last_key);
+                start_key = keys::next_key_after(last_key);
             }
         }
     }
-}
-
-pub(super) fn decode_entry(value: &[u8]) -> CommandResult<InventoryEntry> {
-    serde_json::from_slice(value).map_err(db_error)
 }
 
 pub(super) fn decode_u64_value(value: &[u8], label: &str) -> CommandResult<u64> {

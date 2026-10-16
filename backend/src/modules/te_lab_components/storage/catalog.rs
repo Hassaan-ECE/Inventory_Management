@@ -16,12 +16,7 @@ impl InventoryDb {
             keys::STORAGE_CONTAINER_PREFIX,
             keys::STOCK_PLACEMENT_PREFIX,
         ] {
-            if !self
-                .store
-                .range_query(prefix.as_bytes(), &keys::range_end_for_prefix(prefix), 1)
-                .map_err(db_error)?
-                .is_empty()
-            {
+            if self.has_key_with_prefix(prefix)? {
                 return Ok(true);
             }
         }
@@ -366,12 +361,7 @@ impl InventoryDb {
     }
 
     fn get_index_uuid(&self, key: &[u8]) -> CommandResult<Option<String>> {
-        if !self.store.contains_key(key) {
-            return Ok(None);
-        }
-        String::from_utf8(self.store.get(key).map_err(db_error)?)
-            .map(Some)
-            .map_err(db_error)
+        self.get_string(key)
     }
 
     fn delete_part_indexes(&self, part: &Part) -> CommandResult<()> {
@@ -401,7 +391,7 @@ impl InventoryDb {
 
     fn load_placements_from_index(&self, prefix: &str) -> CommandResult<Vec<StockPlacement>> {
         let mut placement_uuids = Vec::new();
-        self.scan_sync_prefix_from(
+        self.scan_prefix_from(
             prefix,
             prefix.as_bytes().to_vec(),
             usize::MAX,
@@ -422,7 +412,7 @@ impl InventoryDb {
 
     fn load_json_prefix<T: DeserializeOwned>(&self, prefix: &str) -> CommandResult<Vec<T>> {
         let mut values = Vec::new();
-        self.scan_sync_prefix_from(
+        self.scan_prefix_from(
             prefix,
             prefix.as_bytes().to_vec(),
             usize::MAX,
