@@ -79,6 +79,8 @@ Modules stay **separate** under the hood (own DBs, shared roots, domain types, a
 | `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` | Absolute copied-data DB root for diagnostics/rehearsals only |
 | `INVENTORY_MANAGEMENT_LAB_DEMO_SEED` | `1`/`true`/`yes`/`on` seeds demo parts into an empty Lab catalog (layout review only) |
 
+**Developer builds are isolated.** Any debug build (`bun run dev:desktop`, `cargo test`) uses `.tmp/dev-data` for databases and `.tmp/dev-share` for shared roots unless an env override above is set, and the footer shows `DEV build`. Only release builds touch `%LOCALAPPDATA%` and S:.
+
 Live-data test helpers (ignored or opt-in; never run without owner approval): `REPAIR_TE_LEGACY=1`, `REPAIR_LAB_OUTBOX=1`, `TE_LOAD_LIVE_LOCAL=1`.
 
 **Sync is not a backup. One writer per shared root:** do not run either standalone against its pilot share while Inventory Management is open.

@@ -2426,7 +2426,7 @@ mod tests {
     #[ignore = "live shared Lab cutover; set SEED_LAB_SHARED=1"]
     fn seed_live_lab_shared_demo_catalog() {
         use crate::modules::te_lab_components::catalog_demo_seed::seed_demo_catalog_if_empty;
-        use crate::platform::DEFAULT_LAB_COMPONENTS_SHARED_ROOT;
+        use crate::platform::{team_shared_root, ModuleId};
 
         if env::var("SEED_LAB_SHARED").ok().as_deref() != Some("1") {
             eprintln!("skip: set SEED_LAB_SHARED=1 to seed shared Lab catalog");
@@ -2443,7 +2443,7 @@ mod tests {
             lab_path.display()
         );
 
-        let shared_root = PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT);
+        let shared_root = team_shared_root(ModuleId::TeLabComponents);
         assert!(
             shared_root.is_dir(),
             "shared root missing at {}",
@@ -2508,7 +2508,7 @@ mod tests {
             "expected shared ready after cutover"
         );
         assert!(
-            PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT)
+            team_shared_root(ModuleId::TeLabComponents)
                 .join("shared")
                 .join("catalog-v2")
                 .join("cutover.json")
@@ -2646,7 +2646,7 @@ mod tests {
     #[ignore = "live reseed Lab demo catalog; set RESEED_LAB_DEMO=1"]
     fn reseed_live_lab_demo_catalog() {
         use crate::modules::te_lab_components::catalog_demo_seed::reseed_demo_catalog;
-        use crate::platform::DEFAULT_LAB_COMPONENTS_SHARED_ROOT;
+        use crate::platform::{team_shared_root, ModuleId};
 
         if env::var("RESEED_LAB_DEMO").ok().as_deref() != Some("1") {
             eprintln!("skip: set RESEED_LAB_DEMO=1 to reseed Lab demo catalog");
@@ -2657,7 +2657,7 @@ mod tests {
         let lab_path = PathBuf::from(local)
             .join("com.inventory.management")
             .join("te-lab-components.feox");
-        let shared_root = PathBuf::from(DEFAULT_LAB_COMPONENTS_SHARED_ROOT);
+        let shared_root = team_shared_root(ModuleId::TeLabComponents);
         let db = InventoryDb::open_at(lab_path).expect("open local Lab DB");
         ensure_catalog_initialized(&db).expect("init catalog v2");
 

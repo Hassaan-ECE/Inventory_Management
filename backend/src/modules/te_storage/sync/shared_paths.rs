@@ -174,14 +174,14 @@ pub(super) fn build_shared_status(
 #[cfg(test)]
 mod tests {
     use super::{resolve_shared_root_from_env_value, shared_sync_enabled_from_env_value};
-    use crate::platform::DEFAULT_TE_STORAGE_SHARED_ROOT;
+    use crate::platform::{default_shared_root, ModuleId};
     use std::{ffi::OsString, path::PathBuf};
 
     #[test]
     fn storage_room_root_defaults_and_overrides_are_module_scoped() {
         assert_eq!(
             resolve_shared_root_from_env_value(None),
-            PathBuf::from(DEFAULT_TE_STORAGE_SHARED_ROOT)
+            default_shared_root(ModuleId::TeStorage)
         );
         assert_eq!(
             resolve_shared_root_from_env_value(Some(OsString::from(r"S:\Storage\Override"))),

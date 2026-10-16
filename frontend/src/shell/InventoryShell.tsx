@@ -6,7 +6,7 @@ import { readTheme, THEME_STORAGE_KEY } from "@/platform/ui/theme";
 
 import { InventorySystemPlaceholder } from "./InventorySystemPlaceholder";
 import { ShellHeader } from "./ShellHeader";
-import { ShellStatusStrip } from "./ShellStatusStrip";
+import { StatusFooter } from "@/platform/ui/StatusFooter";
 import { useShellActiveModule } from "./useShellActiveModule";
 
 export function InventoryShell() {
@@ -63,7 +63,7 @@ export function InventoryShell() {
             <div className="flex min-h-0 flex-1 overflow-hidden px-2 py-1.5 sm:px-3">
               <InventorySystemPlaceholder system={activeHost.definition} />
             </div>
-            <ShellStatusStrip message={placeholderMessage} resultsLabel={activeHost.definition.label} />
+            <StatusFooter message={placeholderMessage} resultsLabel={activeHost.definition.label} />
           </>
         ) : null}
       </main>

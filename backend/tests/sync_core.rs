@@ -17,21 +17,27 @@ use sync::test_support::{
     scan_operation_files_after_watermarks, set_test_hmac_key, sha256_hex, write_operation_file,
     CorruptRemoteFile, CorruptRemoteReason, SharedSyncPaths, SyncClientIdentity, SyncCoreErrorKind,
     SyncEntryState, SyncOperationEnvelope, SyncOperationPayload, SyncOperationType,
-    SyncTombstoneRecord, DEFAULT_SHARED_ROOT, SNAPSHOT_APPLY_PENDING_KEY, SYNC_SCHEMA_VERSION,
+    SyncTombstoneRecord, SNAPSHOT_APPLY_PENDING_KEY, SYNC_SCHEMA_VERSION,
 };
 use sync::{last_local_recovery_message, queue_entry_operation, recover_local_sync_state};
 use sync_fixtures::unique_test_dir;
 
 #[test]
-fn shared_root_prefers_env_override_and_defaults_to_inventory_management_te_module_path() {
+fn shared_root_prefers_env_override_and_defaults_to_the_te_module_folder() {
+    // Tests run as a developer build, which defaults to the repo's dev share, never S:.
+    let default_root = resolve_shared_root_from_env_value(None);
     assert_eq!(
-        resolve_shared_root_from_env_value(None),
-        PathBuf::from(
-            r"S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Test_Equipment",
-        )
+        default_root,
+        platform::default_shared_root(platform::ModuleId::TeTestEquipment)
     );
+    assert!(default_root.ends_with(
+        PathBuf::from(".tmp")
+            .join("dev-share")
+            .join("modules")
+            .join("TE_Test_Equipment")
+    ));
     assert_eq!(
-        PathBuf::from(DEFAULT_SHARED_ROOT),
+        platform::team_shared_root(platform::ModuleId::TeTestEquipment),
         PathBuf::from(
             r"S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App\modules\TE_Test_Equipment",
         )

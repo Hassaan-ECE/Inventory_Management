@@ -7,6 +7,8 @@ use std::{
 
 use tauri::Manager;
 
+use super::dev_build::{dev_local_data_dir, is_dev_build};
+
 pub(crate) const LOCAL_DATA_ROOT_ENV: &str = "INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT";
 
 #[derive(Debug, Clone)]
@@ -20,6 +22,9 @@ impl InventoryAppPaths {
     pub(crate) fn resolve(app: &tauri::AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
         if let Some(root) = validated_override_path(env::var_os(LOCAL_DATA_ROOT_ENV))? {
             return Ok(Self::isolated(root));
+        }
+        if is_dev_build() {
+            return Ok(Self::isolated(dev_local_data_dir()));
         }
 
         Ok(Self {

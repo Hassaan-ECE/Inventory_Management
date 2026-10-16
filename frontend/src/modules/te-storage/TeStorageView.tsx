@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BoxesIcon, MoonIcon, PlusIcon, SearchIcon, SunIcon } from "lucide-react";
 import type { DesktopModuleViewProps } from "@/platform/modules/types";
 import { InventorySystemSwitcher } from "@/shell/InventorySystemSwitcher";
-import { ShellStatusStrip } from "@/shell/ShellStatusStrip";
+import { StatusFooter } from "@/platform/ui/StatusFooter";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { getStorageBridge } from "./storageBridge";
@@ -120,7 +120,7 @@ export function TeStorageView({ active, activeViewId, onViewChange, theme, onThe
           </table>
         </div>
       </div>
-      <ShellStatusStrip resultsLabel={`${rows.length} ${rows.length === 1 ? "item" : "items"}`} message={message} />
+      <StatusFooter resultsLabel={`${rows.length} ${rows.length === 1 ? "item" : "items"}`} message={message} />
       {columnMenu ? <StorageColumnMenu anchor={columnMenu} visibility={visibility}
         onToggle={key => setVisibility(current => ({ ...current, [key]: !current[key] }))}
         onClose={() => setColumnMenu(null)} /> : null}

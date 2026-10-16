@@ -54,7 +54,6 @@ pub(crate) mod test_support {
         SyncOperationEnvelope, SyncOperationPayload, SyncOperationType, SyncTombstoneRecord,
         SHARED_ROOT_ENV, SHARED_SYNC_ENABLED_ENV, SYNC_SCHEMA_VERSION,
     };
-    pub(crate) use crate::platform::DEFAULT_TE_STORAGE_SHARED_ROOT;
 }
 
 use self::types::{
