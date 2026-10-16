@@ -19,9 +19,7 @@ New chat: owner pastes `docs/SESSION_START_PROMPT.md`. See also `docs/CHAT_HANDO
 | Name | Inventory Management |
 | Package | `inventory-management` `0.1.4` |
 | Tauri id | `com.inventory.management` |
-| Local DB — TE Test Equipment | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
-| Local DB — TE Lab Components | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
-| Local DB - EVCS Storage | `%LOCALAPPDATA%\com.inventory.management\te-storage-room.feox` |
+| Local DB (all inventories, from 0.2) | `%LOCALAPPDATA%\com.inventory.management\inventory-management.feox`, one namespace per module id. On first 0.2 launch the 0.1.x files (`inventory.feox`, `te-lab-components.feox`, `te-storage-room.feox`) are merged in and moved to `pre-0.2-databases\` |
 | Product share (installers + modules) | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
 | Default TE shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
 | Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |
@@ -42,7 +40,7 @@ One installer; in-app switcher between inventories:
 
 ME Storage and other unbuilt ideas live in `docs/engineering/REMOVED_AND_FUTURE.md`, not in code.
 
-Modules stay **separate** under the hood (own DBs, shared roots, domain types, and sync streams). Do not merge row types.
+Modules stay **separate** under the hood: each has its own namespace in the one local database, its own shared root and sync stream on S:, and its own domain types. Do not merge row types.
 
 ## Current code layout
 
@@ -51,7 +49,7 @@ Modules stay **separate** under the hood (own DBs, shared roots, domain types, a
 - `frontend/src/modules/te-test-equipment/` owns the implemented TE UI, hooks, types, and desktop lifecycle.
 - `frontend/src/modules/te-lab-components/` owns the implemented Lab UI, hooks, types, and desktop lifecycle.
 - `frontend/src/modules/te-storage/` owns the implemented EVCS Storage inventory, with independent persistence and team sync.
-- `backend/src/inventory_stores.rs` owns the isolated TE/Lab/Storage FeOx handles; `backend/src/platform/` resolves module IDs and roots; runtime sync/watcher state is keyed by module.
+- `backend/src/platform/database.rs` opens the one local database and hands each module a namespace (`backend/src/inventory_stores.rs` wires them up); `backend/src/platform/` resolves module IDs and roots; runtime sync/watcher state is keyed by module.
 - `backend/src/api/commands.rs` receives every command with a `module_id` and routes it to the right module.
 - The sync engine is **copied** per module, not shared: `backend/src/sync/` (TE), `backend/src/modules/te_lab_components/sync/` (Lab legacy v1), `backend/src/modules/te_storage/sync/` (Storage). Lab's active catalog sync is separate (`catalog_sync.rs`). Check every copy when fixing a sync bug.
 - Full file map: `docs/engineering/PROJECT_FOLDER_BREAKDOWN.md`.

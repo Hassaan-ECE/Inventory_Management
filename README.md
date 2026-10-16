@@ -8,7 +8,7 @@ Windows desktop app that unifies multiple inventory systems in **one install**, 
 
 Stack: Tauri 2, React 19, TypeScript, Vite, Tailwind v4, Bun, Rust, FeOxDB.
 
-EVCS Storage (formerly TE Storage) starts empty and supports adding, editing, deleting, searching and sorting items. Columns are PN #, PR #, PO #, Manufacturer, Model, Description, Qty, Location and Notes; PR # and Description are hidden by default. It uses its own `te-storage-room.feox` database and `modules/TE_Storage_Room` shared folder. Override that folder with `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT`. Right-click any column header to show or hide columns. Team sync runs automatically; local edits queue while the share is unavailable. As with the other inventories, synchronization is not a backup.
+EVCS Storage (formerly TE Storage) starts empty and supports adding, editing, deleting, searching and sorting items. Columns are PN #, PR #, PO #, Manufacturer, Model, Description, Qty, Location and Notes; PR # and Description are hidden by default. It keeps its records in its own namespace of the local database and syncs through the `modules/TE_Storage_Room` shared folder. Override that folder with `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT`. Right-click any column header to show or hide columns. Team sync runs automatically; local edits queue while the share is unavailable. As with the other inventories, synchronization is not a backup.
 
 TE Lab Components is a generalized electronic-parts catalog: flexible specifications, separate stock placements, area/desk → container → Excel-style bin locations, multiple locations per part, shared-bin warnings, physical counts/moves, reviewed legacy migration, Lab-only sync schema v2, and a six-sheet audit workbook. Live Lab migration remains an owner-coordinated cutover; see `docs/runbooks/te-lab-components-catalog-v2-migration.md`.
 
@@ -47,9 +47,7 @@ Do **not** run old + new clients against the same live shared root at once.
 |------|--------|
 | Display | Inventory Management |
 | Tauri id | `com.inventory.management` |
-| TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
-| TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
-| EVCS Storage DB | `%LOCALAPPDATA%\com.inventory.management\te-storage-room.feox` |
+| Local database (0.2+) | `%LOCALAPPDATA%\com.inventory.management\inventory-management.feox` (all inventories; 0.1.x files are merged in once and kept in `pre-0.2-databases\`) |
 | TE shared-root env | `INVENTORY_MANAGEMENT_SHARED_ROOT` |
 | Lab shared-root env | `INVENTORY_MANAGEMENT_LAB_COMPONENTS_SHARED_ROOT` |
 | Storage shared-root env | `INVENTORY_MANAGEMENT_TE_STORAGE_SHARED_ROOT` |

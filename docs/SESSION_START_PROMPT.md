@@ -49,9 +49,7 @@ Prefer live code and these current documents over older TE/ME planning copies.
 | Display | Inventory Management |
 | Package | `inventory-management` `0.1.4` |
 | Tauri id | `com.inventory.management` |
-| TE Test Equipment DB | `%LOCALAPPDATA%\com.inventory.management\inventory.feox` |
-| TE Lab Components DB | `%LOCALAPPDATA%\com.inventory.management\te-lab-components.feox` |
-| EVCS Storage DB | `%LOCALAPPDATA%\com.inventory.management\te-storage-room.feox` |
+| Local database (0.2+) | `%LOCALAPPDATA%\com.inventory.management\inventory-management.feox` (all inventories; 0.1.x files are merged in once and kept in `pre-0.2-databases\`) |
 | Product share | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
 | Default TE shared root | `...\Inventory_Management_App\modules\TE_Test_Equipment` |
 | Default Lab shared root | `...\Inventory_Management_App\modules\TE_Lab_Components` |

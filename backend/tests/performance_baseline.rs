@@ -1,6 +1,6 @@
 #[path = "support/core_backend.rs"]
 mod backend;
-pub(crate) use backend::{model, query, store};
+pub(crate) use backend::{model, platform, query, store};
 
 use std::{
     env, fs,
