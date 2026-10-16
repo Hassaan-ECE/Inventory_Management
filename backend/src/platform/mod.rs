@@ -6,6 +6,7 @@ mod local_data_paths;
 mod module_id;
 mod shared_root;
 pub(crate) mod store;
+pub(crate) mod sync;
 
 #[cfg(test)]
 pub(crate) use database::DATABASE_FILE_NAME;

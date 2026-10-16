@@ -1,6 +1,5 @@
-use super::{
-    model::*, mutations::*, store::InventoryDb, sync::test_support::run_shared_sync_with_root,
-};
+use super::{model::*, mutations::*, store::InventoryDb};
+use crate::platform::sync::test_support::run_shared_sync_with_root;
 use std::{fs, path::PathBuf};
 use uuid::Uuid;
 
@@ -160,8 +159,8 @@ fn merged_peer_fields_survive_startup_recovery() {
     run_shared_sync_with_root(&a, &shared).unwrap();
     run_shared_sync_with_root(&b, &shared).unwrap();
     assert_eq!(a.load_entries().unwrap()[0].location, "B2");
-    super::sync::recover_local_sync_state(&a).unwrap();
-    super::sync::recover_local_sync_state(&b).unwrap();
+    crate::platform::sync::recover_local_sync_state(&a).unwrap();
+    crate::platform::sync::recover_local_sync_state(&b).unwrap();
     run_shared_sync_with_root(&a, &shared).unwrap();
     run_shared_sync_with_root(&b, &shared).unwrap();
     for db in [&a, &b] {
@@ -224,7 +223,7 @@ fn repeated_offline_edits_preserve_other_clients_fields() {
     run_shared_sync_with_root(&a, &shared).unwrap();
     run_shared_sync_with_root(&b, &shared).unwrap();
     for db in [&a, &b] {
-        super::sync::recover_local_sync_state(db).unwrap();
+        crate::platform::sync::recover_local_sync_state(db).unwrap();
         let row = db.load_entries().unwrap().remove(0);
         assert_eq!(row.qty, Some(9.0));
         assert_eq!(row.notes, "keep these notes");
@@ -274,20 +273,20 @@ fn failed_mutations_cannot_reappear_through_recovery_or_sync() {
     fs::create_dir_all(&shared).unwrap();
     let a = InventoryDb::open_at(root.join("a.feox")).unwrap();
     let b = InventoryDb::open_at(root.join("b.feox")).unwrap();
-    super::sync::test_support::fail_next_outbox_write();
+    crate::platform::sync::test_support::fail_next_outbox_write();
     assert!(create_entry_in_store(input(), &a).is_err());
-    super::sync::recover_local_sync_state(&a).unwrap();
+    crate::platform::sync::recover_local_sync_state(&a).unwrap();
     assert!(a.load_entries().unwrap().is_empty());
     let entry = create_entry_in_store(input(), &a).unwrap().entry;
-    super::sync::test_support::fail_next_outbox_write();
+    crate::platform::sync::test_support::fail_next_outbox_write();
     let mut edit = input();
     edit.location = "Should not save".into();
     assert!(update_entry_in_store(&entry.entry_uuid, edit, None, &a).is_err());
-    super::sync::recover_local_sync_state(&a).unwrap();
+    crate::platform::sync::recover_local_sync_state(&a).unwrap();
     assert_eq!(a.load_entries().unwrap()[0].location, "A1");
-    super::sync::test_support::fail_next_outbox_write();
+    crate::platform::sync::test_support::fail_next_outbox_write();
     assert!(delete_entry_in_store(&entry.entry_uuid, &a).is_err());
-    super::sync::recover_local_sync_state(&a).unwrap();
+    crate::platform::sync::recover_local_sync_state(&a).unwrap();
     run_shared_sync_with_root(&a, &shared).unwrap();
     run_shared_sync_with_root(&b, &shared).unwrap();
     assert_eq!(b.load_entries().unwrap().len(), 1);

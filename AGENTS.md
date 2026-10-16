@@ -51,7 +51,7 @@ Modules stay **separate** under the hood: each has its own namespace in the one 
 - `frontend/src/modules/te-storage/` owns the implemented EVCS Storage inventory, with independent persistence and team sync.
 - `backend/src/platform/database.rs` opens the one local database and hands each module a namespace (`backend/src/inventory_stores.rs` wires them up); `backend/src/platform/` resolves module IDs and roots; runtime sync/watcher state is keyed by module.
 - `backend/src/api/commands.rs` receives every command with a `module_id` and routes it to the right module.
-- The sync engine is **copied** per module, not shared: `backend/src/sync/` (TE), `backend/src/modules/te_lab_components/sync/` (Lab legacy v1), `backend/src/modules/te_storage/sync/` (Storage). Lab's active catalog sync is separate (`catalog_sync.rs`). Check every copy when fixing a sync bug.
+- `backend/src/platform/store/` is the one storage layer (`ModuleStore<R>`, generic over the module's record type) and `backend/src/platform/sync/` is the one entry sync engine, used by TE Test Equipment and EVCS Storage. Each inventory plugs in through `SyncRecord` (its constants, field copy, validation, and `MergeRule`); the merge rules and the serialized entry-state fields stay exactly as 0.1.4 shipped them so mixed 0.1.4/0.2 teams converge. Lab's catalog sync is separate (`catalog_sync.rs`).
 - Full file map: `docs/engineering/PROJECT_FOLDER_BREAKDOWN.md`.
 
 ## Priorities

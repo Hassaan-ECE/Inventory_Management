@@ -6,11 +6,11 @@ pub(crate) mod modules;
 pub(crate) mod platform;
 pub(crate) mod runtime;
 pub(crate) mod storage;
-mod sync;
 
 pub(crate) use api::commands;
 pub(crate) use domain::{model, query};
 pub(crate) use integrations::{calibration_roster_import, export, native};
+pub(crate) use platform::sync;
 pub(crate) use runtime::{shared_sync, shared_watcher};
 pub(crate) use storage as store;
 
@@ -38,9 +38,7 @@ pub fn run() {
             {
                 eprintln!("Lab local sync recovery failed (continuing startup): {error}");
             }
-            if let Err(error) =
-                modules::te_storage::sync::recover_local_sync_state(stores.te_storage())
-            {
+            if let Err(error) = sync::recover_local_sync_state(stores.te_storage()) {
                 eprintln!("EVCS Storage local sync recovery failed (continuing startup): {error}");
             }
             app.manage(stores);

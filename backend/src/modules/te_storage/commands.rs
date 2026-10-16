@@ -1,8 +1,8 @@
 use tauri::AppHandle;
 
-use super::{model::*, store::InventoryDb, sync};
+use super::{model::*, store::InventoryDb};
 use crate::{
-    platform::ModuleId,
+    platform::{sync, ModuleId},
     shared_sync::SharedSyncCoordinator,
     shared_watcher::{self, SharedSyncWatcher},
 };
@@ -45,7 +45,7 @@ pub(crate) async fn synchronize(
             app,
             module,
             &session_id,
-            &sync::resolved_shared_sync_paths().ops_dir,
+            &sync::resolved_shared_sync_paths::<InventoryEntry>().ops_dir,
         )?
     } else {
         watcher.complete_sync_without_watcher_for(module, &session_id)?

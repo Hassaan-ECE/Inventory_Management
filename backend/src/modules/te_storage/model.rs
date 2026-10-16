@@ -2,9 +2,7 @@ use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub(crate) use crate::platform::common::{
-    db_error, now_timestamp, numeric_id, CommandResult, InventorySharedStatus,
-};
+pub(crate) use crate::platform::common::{now_timestamp, CommandResult, InventorySharedStatus};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InventoryEntry {

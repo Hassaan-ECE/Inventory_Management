@@ -578,7 +578,10 @@ mod tests {
         );
     }
 
-    fn read_outbox_operation(db: &InventoryDb, local_seq: u64) -> SyncOperationEnvelope {
+    fn read_outbox_operation(
+        db: &InventoryDb,
+        local_seq: u64,
+    ) -> SyncOperationEnvelope<InventoryEntry> {
         db.sync_outbox_record(local_seq).unwrap().unwrap()
     }
 

@@ -137,7 +137,7 @@ pub(crate) async fn sync_inventory(
 
             let mut result = result;
             let completion = if result.shared.enabled && result.shared.available {
-                let paths = sync::resolved_shared_sync_paths();
+                let paths = sync::resolved_shared_sync_paths::<crate::model::InventoryEntry>();
                 watcher.complete_sync_for(app, module, &session_id, &paths.ops_dir)?
             } else {
                 watcher.complete_sync_without_watcher_for(module, &session_id)?
@@ -761,7 +761,7 @@ fn load_inventory_from_store_with_status(
     let shared = latest_background_status.unwrap_or_else(|| {
         let message = sync::last_local_recovery_message(db)
             .unwrap_or_else(|| "FeOxDB local store ready. Shared sync starting.".to_string());
-        sync::startup_inventory_status(message)
+        sync::startup_inventory_status::<crate::model::InventoryEntry>(message)
     });
     let entries = db.load_entries()?;
 
@@ -921,10 +921,14 @@ mod tests {
 
     fn outbox_count(db: &InventoryDb) -> usize {
         let mut count = 0;
-        db.scan_sync_outbox_records::<SyncOperationEnvelope, _>(None, usize::MAX, |_, _| {
-            count += 1;
-            Ok(true)
-        })
+        db.scan_sync_outbox_records::<SyncOperationEnvelope<crate::model::InventoryEntry>, _>(
+            None,
+            usize::MAX,
+            |_, _| {
+                count += 1;
+                Ok(true)
+            },
+        )
         .unwrap();
         count
     }

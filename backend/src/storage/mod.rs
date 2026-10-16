@@ -13,8 +13,6 @@ mod calibration_roster;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use crate::platform::store::SyncKeyspace;
-
 pub(crate) type InventoryDb = ModuleStore<InventoryEntry>;
 
 impl ModuleRecord for InventoryEntry {

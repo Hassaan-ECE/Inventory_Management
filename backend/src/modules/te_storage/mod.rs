@@ -3,7 +3,6 @@ pub(crate) mod entry_changes;
 pub(crate) mod model;
 pub(crate) mod mutations;
 pub(crate) mod store;
-#[allow(dead_code)]
-pub(crate) mod sync;
+mod sync_record;
 #[cfg(test)]
 mod tests;

@@ -10,8 +10,8 @@ use crate::modules::te_storage::{
         InventoryEntryInput, InventoryEntryMutationResult, InventorySharedStatus,
     },
     store::InventoryDb,
-    sync::{self, SyncOperationType},
 };
+use crate::platform::sync::{self, SyncOperationType};
 
 fn create_entry_in_store_inner(
     input: InventoryEntryInput,

@@ -6,7 +6,7 @@ use url::Url;
 use uuid::Uuid;
 
 pub(crate) use crate::platform::common::{
-    db_error, now_timestamp, numeric_id, CommandResult, InventorySharedStatus,
+    now_timestamp, numeric_id, CommandResult, InventorySharedStatus,
 };
 
 pub(crate) const MAX_QUERY_LIMIT: usize = 10_000;

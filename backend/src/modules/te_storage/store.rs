@@ -6,8 +6,6 @@ use crate::platform::{
     ModuleId,
 };
 
-pub(crate) use crate::platform::store::SyncKeyspace;
-
 pub(crate) type InventoryDb = ModuleStore<InventoryEntry>;
 
 impl ModuleRecord for InventoryEntry {
