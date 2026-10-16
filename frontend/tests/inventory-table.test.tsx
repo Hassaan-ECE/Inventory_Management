@@ -7,13 +7,13 @@ import { OVERSCAN_ROWS, ROW_HEIGHT, getVisibleRange } from "@/modules/te-test-eq
 import { buildDefaultColumnVisibility } from "@/modules/te-test-equipment/lib";
 import {
   CALIBRATION_COLUMNS,
-  INVENTORY_COLUMNS,
+  EQUIPMENT_COLUMNS,
   type ColumnConfig,
   type InventoryEntry,
 } from "@/modules/te-test-equipment/types";
 import { InventoryShell } from "@/shell/InventoryShell";
 
-function tableExtras(columns: readonly ColumnConfig[] = INVENTORY_COLUMNS) {
+function tableExtras(columns: readonly ColumnConfig[] = EQUIPMENT_COLUMNS) {
   return {
     allColumns: columns,
     columnVisibility: buildDefaultColumnVisibility(columns),
@@ -70,7 +70,7 @@ describe("InventoryShell table controls", () => {
       <InventoryTable
         canModifyEntries
         colorRows={false}
-        columns={INVENTORY_COLUMNS}
+        columns={EQUIPMENT_COLUMNS}
         entries={[unsafeEntry]}
         sortState={{ column: "manufacturer", direction: "asc" }}
         onOpenContextMenu={() => undefined}
@@ -119,7 +119,7 @@ describe("InventoryShell table controls", () => {
       <InventoryTable
         canModifyEntries
         colorRows={false}
-        columns={INVENTORY_COLUMNS}
+        columns={EQUIPMENT_COLUMNS}
         entries={[entry]}
         sortState={{ column: "manufacturer", direction: "asc" }}
         onOpenContextMenu={() => undefined}
@@ -151,7 +151,7 @@ describe("InventoryShell table controls", () => {
       <InventoryTable
         canModifyEntries
         colorRows={false}
-        columns={INVENTORY_COLUMNS}
+        columns={EQUIPMENT_COLUMNS}
         entries={[entry]}
         sortState={{ column: "manufacturer", direction: "asc" }}
         onOpenContextMenu={onOpenContextMenu}

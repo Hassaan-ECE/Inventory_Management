@@ -12,13 +12,13 @@ import { SearchCard } from "@/modules/te-test-equipment/components/SearchCard";
 import { StatusStrip } from "@/modules/te-test-equipment/components/StatusStrip";
 import { buildDefaultStatusMessage } from "@/modules/te-test-equipment/components/shell/helpers";
 import { useDesktopInventory } from "@/modules/te-test-equipment/components/shell/useDesktopInventory";
-import { useDesktopUpdates } from "@/modules/te-test-equipment/components/shell/useDesktopUpdates";
+import { useDesktopUpdates } from "@/platform/updates/useDesktopUpdates";
 import { useInventoryEntryMutations } from "@/modules/te-test-equipment/components/shell/useInventoryEntryMutations";
 import { useInventoryExportActions } from "@/modules/te-test-equipment/components/shell/useInventoryExportActions";
 import { useInventoryExternalActions } from "@/modules/te-test-equipment/components/shell/useInventoryExternalActions";
 import { useInventoryPreferences } from "@/modules/te-test-equipment/components/shell/useInventoryPreferences";
 import { useInventoryViewModel } from "@/modules/te-test-equipment/components/shell/useInventoryViewModel";
-import { useStatusAnnouncer } from "@/modules/te-test-equipment/components/shell/useStatusAnnouncer";
+import { useStatusAnnouncer } from "@/shared/hooks/useStatusAnnouncer";
 import {
   cycleSortState,
   getColumnsForWorkspace,
@@ -158,7 +158,7 @@ export function TeTestEquipmentView({
     setSharedStatus,
     sharedStatus,
   });
-  const { handleExportExcel, handleExportHtml } = useInventoryExportActions({ announceStatus });
+  const { handleExportExcel } = useInventoryExportActions({ announceStatus });
   const { handleOpenEntryLink, handleOpenExternalLink, handleSearchOnline } = useInventoryExternalActions({
     announceStatus,
     entriesById,
@@ -292,7 +292,6 @@ export function TeTestEquipmentView({
         onExportExcel={() => {
           void handleExportExcel();
         }}
-        onExportHtml={handleExportHtml}
         onInitializeCalibrationRoster={() => setRosterDialogOpen(true)}
         onScopeChange={setScope}
         onThemeToggle={onThemeToggle}

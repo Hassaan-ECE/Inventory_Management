@@ -153,8 +153,8 @@ describe("InventoryShell shared sync", () => {
     expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "session-1");
   });
 
-  it("does not activate or load TE when a placeholder is selected at launch", async () => {
-    localStorage.setItem("inventory.activeSystem", "me-storage");
+  it("does not activate or load TE when another inventory is selected at launch", async () => {
+    localStorage.setItem("inventory.activeSystem", "te-storage");
     const activateInventorySync = vi.fn().mockResolvedValue("unused-session");
     const deactivateInventorySync = vi.fn().mockResolvedValue(true);
     const loadInventory = vi.fn().mockResolvedValue(buildDesktopSyncResult(CONNECTED_SHARED_STATUS));
@@ -171,7 +171,7 @@ describe("InventoryShell shared sync", () => {
     render(<InventoryShell />);
     await flushAsyncWork();
 
-    expect(screen.getByText(/ME Storage — module not connected yet/i)).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "EVCS Storage inventory" })).toBeInTheDocument();
     expect(activateInventorySync).not.toHaveBeenCalled();
     expect(loadInventory).not.toHaveBeenCalled();
     expect(onSharedInventoryChanged).not.toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe("InventoryShell shared sync", () => {
     expect(syncInventory).not.toHaveBeenCalled();
   });
 
-  it("keeps cached TE rows visible across placeholder switch and ignores the stale subscription", async () => {
+  it("keeps cached TE rows visible across an inventory switch and ignores the stale subscription", async () => {
     const user = userEvent.setup();
     const cachedEntry = buildTestEntry({ description: "Cached TE row" });
     const secondLoad = createDeferred<InventorySyncResult>();
@@ -283,8 +283,8 @@ describe("InventoryShell shared sync", () => {
     expect(await screen.findByText("Cached TE row")).toBeInTheDocument();
     await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(1));
 
-    await switchInventory(user, "ME Storage");
-    expect(screen.getByText(/ME Storage — module not connected yet/i)).toBeInTheDocument();
+    await switchInventory(user, "EVCS Storage");
+    expect(screen.getByRole("table", { name: "EVCS Storage inventory" })).toBeInTheDocument();
     await waitFor(() =>
       expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "session-1"),
     );
@@ -343,7 +343,7 @@ describe("InventoryShell shared sync", () => {
     });
     await waitFor(() => expect(syncInventory).toHaveBeenCalledTimes(2));
 
-    await switchInventory(user, "ME Storage");
+    await switchInventory(user, "EVCS Storage");
     await waitFor(() =>
       expect(deactivateInventorySync).toHaveBeenCalledWith("te-test-equipment", "session-1"),
     );
@@ -361,7 +361,7 @@ describe("InventoryShell shared sync", () => {
     });
 
     expect(syncInventory).toHaveBeenCalledTimes(2);
-    expect(screen.getByText(/ME Storage — module not connected yet/i)).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "EVCS Storage inventory" })).toBeInTheDocument();
   });
 
   it("cancels the 75 ms mutation sync when TE is deselected", async () => {
@@ -397,7 +397,7 @@ describe("InventoryShell shared sync", () => {
       fireEvent.click(screen.getByRole("button", { name: /Verify Deselect mutation row/i }));
       await flushAsyncWork();
       fireEvent.click(screen.getByRole("button", { name: "Switch inventory system" }));
-      fireEvent.click(screen.getByRole("option", { name: "ME Storage" }));
+      fireEvent.click(screen.getByRole("option", { name: "EVCS Storage" }));
       await flushAsyncWork();
       await vi.advanceTimersByTimeAsync(75);
 
@@ -658,7 +658,7 @@ describe("InventoryShell shared sync", () => {
 
 async function switchInventory(
   user: ReturnType<typeof userEvent.setup>,
-  label: "ME Storage" | "TE Test Equipment",
+  label: "EVCS Storage" | "TE Test Equipment",
 ): Promise<void> {
   await user.click(screen.getByRole("button", { name: "Switch inventory system" }));
   await user.click(screen.getByRole("option", { name: label }));

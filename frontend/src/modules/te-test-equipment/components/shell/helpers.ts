@@ -1,4 +1,3 @@
-import { APP_VERSION } from "@/app/branding";
 import {
   buildDefaultColumnVisibility,
   getColumnsForWorkspace,
@@ -10,15 +9,12 @@ import type {
   InventoryEntryInput,
   InventorySharedStatus,
   TeTestEquipmentWorkspace,
-  UpdateState,
 } from "@/modules/te-test-equipment/types";
 
-export { THEME_STORAGE_KEY, readTheme } from "@/platform/ui/theme";
 export const COLOR_ROWS_STORAGE_KEY = "teTestEquipmentInventory.colorRows";
 export const COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.columnVisibility";
 // Bumped when default calibration columns change so 1080p-friendly defaults replace old wide layouts.
 export const CALIBRATION_COLUMN_VISIBILITY_STORAGE_KEY = "teTestEquipmentInventory.calibrationColumnVisibility.v4";
-export const UPDATE_CHECK_INTERVAL_MS = 5 * 60_000;
 
 export const MOCK_SHARED_STATUS: InventorySharedStatus = {
   available: true,
@@ -35,45 +31,6 @@ export const DESKTOP_SHARED_PENDING_STATUS: InventorySharedStatus = {
   message: "Checking shared workspace...",
   mutationMode: "local",
 };
-
-export function buildIdleUpdateState(): UpdateState {
-  return {
-    available: false,
-    currentVersion: APP_VERSION,
-    status: "idle",
-  };
-}
-
-export function chooseFreshUpdateState(current: UpdateState, next: UpdateState): UpdateState {
-  if (current.latestVersion && current.latestVersion === next.latestVersion) {
-    return getUpdateStatusRank(current.status) > getUpdateStatusRank(next.status) ? current : next;
-  }
-
-  return next;
-}
-
-function getUpdateStatusRank(status: UpdateState["status"]): number {
-  switch (status) {
-    case "idle":
-      return 0;
-    case "checking":
-      return 1;
-    case "not-available":
-      return 2;
-    case "available":
-      return 3;
-    case "downloading":
-      return 4;
-    case "ready":
-      return 5;
-    case "installing":
-      return 6;
-    case "error":
-      return 7;
-    default:
-      return 0;
-  }
-}
 
 export function sharedStatusesMatch(left: InventorySharedStatus, right: InventorySharedStatus): boolean {
   return (

@@ -1,6 +1,6 @@
 import { CheckCircle2Icon, DownloadIcon, LoaderCircleIcon } from "lucide-react";
 
-import type { UpdateState } from "@/modules/te-test-equipment/types";
+import type { UpdateState } from "./updateState";
 
 interface UpdateActionButtonProps {
   onClick: () => void;

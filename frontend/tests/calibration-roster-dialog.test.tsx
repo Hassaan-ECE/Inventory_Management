@@ -214,9 +214,6 @@ function desktopBridge(
     updateEntry: vi.fn(),
     setArchivedEntry: vi.fn(),
     deleteEntry: vi.fn(),
-    pickImportFile: vi.fn().mockResolvedValue(null),
-    previewImport: vi.fn(),
-    commitImport: vi.fn(),
     pickCalibrationRosterFile: vi.fn().mockResolvedValue("C:/calibration.xlsx"),
     previewCalibrationRoster: vi.fn().mockResolvedValue(report),
     commitCalibrationRoster: commitCalibrationRoster as NonNullable<

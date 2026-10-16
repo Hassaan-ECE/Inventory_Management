@@ -68,16 +68,6 @@ describe("InventoryShell views and exports", () => {
     expect(screen.getByText("Verified state updated locally.")).toBeInTheDocument();
   });
 
-  it("shows the HTML export placeholder message", async () => {
-    const user = userEvent.setup();
-    render(<InventoryShell />);
-
-    await user.click(screen.getByRole("button", { name: /Export/i }));
-    await user.click(screen.getByRole("menuitem", { name: "HTML" }));
-
-    expect(screen.getByText("HTML export is not implemented yet.")).toBeInTheDocument();
-  });
-
   it("runs desktop Excel export when available", async () => {
     const user = userEvent.setup();
     const exportExcel = vi.fn().mockResolvedValue({
@@ -107,9 +97,6 @@ describe("InventoryShell views and exports", () => {
       openExternal: vi.fn().mockResolvedValue(true),
       openPath: vi.fn().mockResolvedValue(true),
       pickPicturePath: vi.fn().mockResolvedValue(null),
-      pickImportFile: vi.fn().mockResolvedValue(null),
-      previewImport: vi.fn(),
-      commitImport: vi.fn(),
       exportExcel,
     };
 

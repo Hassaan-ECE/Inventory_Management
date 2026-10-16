@@ -8,8 +8,8 @@ import type {
   StorageContainer,
 } from "@/modules/te-lab-components/types";
 
-export const SIMPLE_PREVIEW_AREA_NAME = "TE Lab";
-export const SIMPLE_PREVIEW_CONTAINER_NAME = "Shelf";
+const SIMPLE_PREVIEW_AREA_NAME = "TE Lab";
+const SIMPLE_PREVIEW_CONTAINER_NAME = "Shelf";
 
 export function resolveSimplePickerTarget(
   catalog: CatalogSyncResult,
@@ -92,7 +92,7 @@ const RECOGNIZED_UNITS = Array.from(
 
 export const COMPONENT_TYPE_OPTIONS: readonly string[] = Object.keys(COMPONENT_PROFILES);
 
-export type SimpleReviewReason =
+type SimpleReviewReason =
   | "multiple_placements"
   | "mixed_units"
   | "non_piece_unit"

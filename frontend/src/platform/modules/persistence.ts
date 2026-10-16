@@ -1,15 +1,14 @@
 import { listInventoryViewDefinitions } from "./registry";
 import type { InventoryViewId } from "./types";
 
-export const DEFAULT_INVENTORY_VIEW_ID: InventoryViewId = "te-test-equipment";
+const DEFAULT_INVENTORY_VIEW_ID: InventoryViewId = "te-test-equipment";
 
 const STORAGE_KEY = "inventory.activeSystem";
 const LEGACY_VIEW_IDS: Record<string, InventoryViewId> = {
   "te-parts": "te-lab-components",
-  "me-inventory": "me-storage",
 };
 
-export function isInventoryViewId(value: string): value is InventoryViewId {
+function isInventoryViewId(value: string): value is InventoryViewId {
   return listInventoryViewDefinitions().some((definition) => definition.id === value);
 }
 

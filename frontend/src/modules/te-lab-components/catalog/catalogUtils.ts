@@ -45,7 +45,7 @@ export function gridCoordinateLabel(
   return `${columnLabel(columnIndex)}${container.rowStart + rowIndex}`;
 }
 
-export function columnIndexFromLabel(label: string): number | null {
+function columnIndexFromLabel(label: string): number | null {
   const letters = label.trim().toUpperCase();
   if (!/^[A-Z]+$/.test(letters)) {
     return null;
@@ -92,7 +92,7 @@ export function placementPath(placement: StockPlacement, lookups: CatalogLookups
     .join(" / ");
 }
 
-export function formatQuantity(quantity: number): string {
+function formatQuantity(quantity: number): string {
   return Number.isInteger(quantity)
     ? quantity.toLocaleString()
     : quantity.toLocaleString(undefined, { maximumFractionDigits: 4 });

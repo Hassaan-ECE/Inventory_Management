@@ -2,11 +2,7 @@ import type { ComponentType } from "react";
 
 import type { ThemeMode } from "@/platform/ui/theme";
 
-export type ModuleId =
-  | "te-test-equipment"
-  | "te-lab-components"
-  | "me-storage"
-  | "te-storage";
+export type ModuleId = "te-test-equipment" | "te-lab-components" | "te-storage";
 
 export const TE_TEST_EQUIPMENT_CALIBRATION_VIEW_ID = "te-test-equipment-calibration" as const;
 
@@ -15,8 +11,6 @@ export type InventoryViewId = ModuleId | typeof TE_TEST_EQUIPMENT_CALIBRATION_VI
 export interface InventoryModuleDefinition {
   id: ModuleId;
   label: string;
-  implemented: boolean;
-  sharedFolderName: string;
 }
 
 export interface InventoryViewDefinition {
@@ -25,7 +19,7 @@ export interface InventoryViewDefinition {
   moduleId: ModuleId;
 }
 
-/** Shell chrome passed into implemented modules so each can render its own top bar with the shared switcher and theme toggle. */
+/** Shell chrome passed into each module so it can render its own top bar with the shared switcher and theme toggle. */
 export interface DesktopModuleViewProps {
   active: boolean;
   activeViewId: InventoryViewId;
@@ -34,16 +28,7 @@ export interface DesktopModuleViewProps {
   theme: ThemeMode;
 }
 
-export type InventoryModuleHost =
-  | { kind: "placeholder"; definition: InventoryModuleDefinition }
-  | {
-      kind: "desktop";
-      definition: InventoryModuleDefinition;
-      MainView: ComponentType<DesktopModuleViewProps>;
-    };
-
-export function placeholderHost(
-  definition: InventoryModuleDefinition,
-): InventoryModuleHost {
-  return { kind: "placeholder", definition };
+export interface InventoryModuleHost {
+  definition: InventoryModuleDefinition;
+  MainView: ComponentType<DesktopModuleViewProps>;
 }

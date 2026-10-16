@@ -39,8 +39,8 @@ import {
 import { PartsTable } from "@/modules/te-lab-components/catalog/PartsTable";
 import { SharedCutoverDialog } from "@/modules/te-lab-components/catalog/SharedCutoverDialog";
 import { useLabCatalog } from "@/modules/te-lab-components/catalog/useLabCatalog";
-import { useDesktopUpdates } from "@/modules/te-lab-components/components/shell/useDesktopUpdates";
-import { useStatusAnnouncer } from "@/modules/te-lab-components/components/shell/useStatusAnnouncer";
+import { useDesktopUpdates } from "@/platform/updates/useDesktopUpdates";
+import { useStatusAnnouncer } from "@/shared/hooks/useStatusAnnouncer";
 import { StatusStrip } from "@/modules/te-lab-components/components/StatusStrip";
 import type {
   CatalogMigrationPreview,

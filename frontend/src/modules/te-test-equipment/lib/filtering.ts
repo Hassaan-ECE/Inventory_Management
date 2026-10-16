@@ -18,7 +18,7 @@ export const DEFAULT_FILTERS: FilterState = {
   dueWindow: "all",
 };
 
-export const CALIBRATION_DEFAULT_FILTERS: FilterState = {
+const CALIBRATION_DEFAULT_FILTERS: FilterState = {
   ...DEFAULT_FILTERS,
   calibrationRequirement: "required",
 };
@@ -27,7 +27,7 @@ export function getDefaultFilters(workspace: TeTestEquipmentWorkspace): FilterSt
   return workspace === "calibration" ? CALIBRATION_DEFAULT_FILTERS : DEFAULT_FILTERS;
 }
 
-export const INVENTORY_GLOBAL_SEARCH_FIELDS = [
+const INVENTORY_GLOBAL_SEARCH_FIELDS = [
   "assetNumber",
   "serialNumber",
   "manufacturer",
@@ -49,8 +49,6 @@ export const INVENTORY_GLOBAL_SEARCH_FIELDS = [
   "calibrationNotes",
   "verifiedBy",
 ] as const satisfies readonly (keyof InventoryEntry)[];
-
-export type InventoryGlobalSearchField = (typeof INVENTORY_GLOBAL_SEARCH_FIELDS)[number];
 
 export function hasActiveFilters(
   filters: FilterState,
@@ -125,7 +123,7 @@ export function filterEntries(
   });
 }
 
-export function getEntrySearchValues(entry: InventoryEntry): Array<string | undefined> {
+function getEntrySearchValues(entry: InventoryEntry): Array<string | undefined> {
   return [
     ...INVENTORY_GLOBAL_SEARCH_FIELDS.map((field) => entry[field] as string | undefined),
     entry.outToCalibration ? "out to calibration" : undefined,

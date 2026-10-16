@@ -1,35 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { getModuleHost, listModuleDefinitions } from "@/platform/modules/registry";
+import { INVENTORY_MODULE_HOSTS, listInventoryViewDefinitions } from "@/platform/modules/registry";
 
 describe("platform module registry", () => {
-  it("lists implemented inventories and the ME placeholder", () => {
-    const definitions = listModuleDefinitions();
-
-    expect(definitions).toHaveLength(4);
-    expect(definitions.map((definition) => definition.id)).toEqual([
-      "te-test-equipment",
-      "te-lab-components",
-      "me-storage",
-      "te-storage",
-    ]);
-    expect(definitions.filter((definition) => definition.implemented)).toEqual([
-      expect.objectContaining({
-        id: "te-test-equipment",
-        sharedFolderName: "TE_Test_Equipment",
-      }),
-      expect.objectContaining({
-        id: "te-lab-components",
-        sharedFolderName: "TE_Lab_Components",
-      }),
-      expect.objectContaining({ id: "te-storage", sharedFolderName: "TE_Storage_Room" }),
+  it("lists the three inventories in switcher order", () => {
+    expect(INVENTORY_MODULE_HOSTS.map((host) => host.definition)).toEqual([
+      { id: "te-test-equipment", label: "TE Test Equipment" },
+      { id: "te-lab-components", label: "TE Lab Components" },
+      { id: "te-storage", label: "EVCS Storage" },
     ]);
   });
 
-  it("returns desktop hosts for TE, Lab and EVCS Storage", () => {
-    expect(getModuleHost("me-storage").kind).toBe("placeholder");
-    expect(getModuleHost("te-storage").kind).toBe("desktop");
-    expect(getModuleHost("te-test-equipment").kind).toBe("desktop");
-    expect(getModuleHost("te-lab-components").kind).toBe("desktop");
+  it("adds the Calibration view under TE Test Equipment", () => {
+    expect(listInventoryViewDefinitions().map((view) => [view.id, view.moduleId])).toEqual([
+      ["te-test-equipment", "te-test-equipment"],
+      ["te-test-equipment-calibration", "te-test-equipment"],
+      ["te-lab-components", "te-lab-components"],
+      ["te-storage", "te-storage"],
+    ]);
   });
 });

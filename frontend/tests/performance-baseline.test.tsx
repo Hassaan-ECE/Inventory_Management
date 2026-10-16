@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { InventoryTable } from "@/modules/te-test-equipment/components/InventoryTable";
 import { MOCK_INVENTORY } from "@/modules/te-test-equipment/data/mockInventory";
 import { DEFAULT_FILTERS, filterEntries, sortEntries } from "@/modules/te-test-equipment/lib";
-import { INVENTORY_COLUMNS, type InventoryEntry } from "@/modules/te-test-equipment/types";
+import { EQUIPMENT_COLUMNS, type InventoryEntry } from "@/modules/te-test-equipment/types";
 
 interface DurationMetric {
   dataset: string;
@@ -162,11 +162,11 @@ async function measureTableScroll(dataset: string, entries: readonly InventoryEn
 function BenchmarkTable({ entries }: { entries: readonly InventoryEntry[] }) {
   return (
     <InventoryTable
-      allColumns={INVENTORY_COLUMNS}
+      allColumns={EQUIPMENT_COLUMNS}
       canModifyEntries
       colorRows
-      columnVisibility={Object.fromEntries(INVENTORY_COLUMNS.map((column) => [column.key, true])) as never}
-      columns={INVENTORY_COLUMNS}
+      columnVisibility={Object.fromEntries(EQUIPMENT_COLUMNS.map((column) => [column.key, true])) as never}
+      columns={EQUIPMENT_COLUMNS}
       entries={[...entries]}
       sortState={{ column: "manufacturer", direction: "asc" }}
       onOpenContextMenu={() => undefined}

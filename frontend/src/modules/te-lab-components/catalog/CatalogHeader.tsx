@@ -2,8 +2,9 @@ import { useState } from "react";
 import { MapPinnedIcon, MoonIcon, PlusIcon, SunIcon, WifiIcon } from "lucide-react";
 
 import { ExportMenu } from "@/modules/te-lab-components/components/header/ExportMenu";
-import { UpdateActionButton } from "@/modules/te-lab-components/components/header/UpdateActionButton";
-import type { CatalogCounts, CatalogScope, InventorySharedStatus, UpdateState } from "@/modules/te-lab-components/types";
+import { UpdateActionButton } from "@/platform/updates/UpdateActionButton";
+import type { CatalogCounts, CatalogScope, InventorySharedStatus } from "@/modules/te-lab-components/types";
+import type { UpdateState } from "@/platform/updates/updateState";
 import type { InventoryViewId } from "@/platform/modules/types";
 import type { ThemeMode } from "@/platform/ui/theme";
 import { Button } from "@/shared/components/ui/button";

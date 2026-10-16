@@ -12,8 +12,6 @@ import {
   parseExcelExportResult,
   parseInventoryQueryResult,
   parseInventorySyncResult,
-  parseImportCommitResult,
-  parseImportDryRunReport,
   parseNonemptyString,
   parseNullableString,
   parseUpdateState,
@@ -37,8 +35,6 @@ import {
 } from "@/integrations/tauri/labBridgeGuards";
 import type {
   CalibrationRosterCommitInput,
-  ImportCommitInput,
-  UpdateState,
 } from "@/modules/te-test-equipment/types";
 import type {
   CatalogMigrationCommitInput,
@@ -64,12 +60,11 @@ import type {
   InventorySharedChangedPayload,
   InventorySyncResult,
 } from "@/integrations/tauri/desktop-bridge";
+import type { UpdateState } from "@/platform/updates/updateState";
 
 const updateStateListeners = new Set<(state: UpdateState) => void>();
 let pendingUpdate: Update | null = null;
 let pendingUpdateState: UpdateState | null = null;
-
-// Window geometry restore is intentionally disabled — it was breaking window layout on some monitors.
 
 if (typeof window !== "undefined" && isTauri()) {
   const bridge: InventoryDesktopBridge = {
@@ -148,12 +143,6 @@ if (typeof window !== "undefined" && isTauri()) {
     },
     pickPicturePath: () =>
       invoke("pick_picture_path").then((value) => parseNullableString(value, "picked picture path")),
-    pickImportFile: (moduleId: "te-test-equipment") =>
-      invoke("pick_import_file", { moduleId }).then((value) => parseNullableString(value, "picked import path")),
-    previewImport: (moduleId: "te-test-equipment", path: string) =>
-      invoke("preview_import", { moduleId, path }).then(parseImportDryRunReport),
-    commitImport: (moduleId: "te-test-equipment", input: ImportCommitInput) =>
-      invoke("commit_import", { input, moduleId }).then(parseImportCommitResult),
     pickCalibrationRosterFile: (moduleId: "te-test-equipment") =>
       invoke("pick_calibration_roster_file", { moduleId }).then((value) =>
         parseNullableString(value, "picked calibration roster path"),

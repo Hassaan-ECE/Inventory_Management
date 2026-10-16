@@ -134,7 +134,7 @@ export function ContextRow({ label, value }: ContextRowProps) {
 }
 
 /** Soft amber archive control — less intense than full warning solid. */
-export const ARCHIVE_BUTTON_CLASS =
+const ARCHIVE_BUTTON_CLASS =
   "border-warning/30 bg-warning/12 text-warning-foreground hover:bg-warning/18";
 
 interface DialogActionsProps {

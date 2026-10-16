@@ -18,7 +18,7 @@
     "lint": "eslint .",
     "preview": "vite preview --config frontend/vite.config.ts",
     "tauri": "cd backend && bun ../node_modules/@tauri-apps/cli/tauri.js",
-    "test": "vitest --run --config frontend/vite.config.ts",
+    "test": "vitest --run --config frontend/vite.config.ts && bun test scripts",
     "bun:direct": "node scripts/run-bun.mjs",
     "audit:frontend": "node scripts/run-bun.mjs audit",
     "audit:backend": "cd backend && cargo audit",

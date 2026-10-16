@@ -27,9 +27,5 @@ export function useInventoryExportActions({ announceStatus }: UseInventoryExport
     }
   }
 
-  function handleExportHtml(): void {
-    announceStatus("HTML export is not implemented yet.");
-  }
-
-  return { handleExportExcel, handleExportHtml };
+  return { handleExportExcel };
 }

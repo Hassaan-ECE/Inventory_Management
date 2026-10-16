@@ -1,4 +1,3 @@
-import { APP_VERSION } from "@/app/branding";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 import {
   LIFECYCLE_OPTIONS,
@@ -18,7 +17,6 @@ import {
   type InventoryEntryMutationResult,
   type InventoryQueryResult,
   type InventorySharedStatus,
-  type ExcelExportResult,
   type LifecycleStatus,
   type MigrationDuplicateGroup,
   type Part,
@@ -29,21 +27,8 @@ import {
   type StockStatus,
   type StorageArea,
   type StorageContainer,
-  type UpdateState,
-  type UpdateStatus,
   type WorkingStatus,
 } from "@/modules/te-lab-components/types";
-
-const UPDATE_STATUSES = new Set<UpdateStatus>([
-  "idle",
-  "checking",
-  "available",
-  "not-available",
-  "downloading",
-  "ready",
-  "installing",
-  "error",
-]);
 
 export function parseLabInventorySyncResult(value: unknown): InventorySyncResult<"te-lab-components"> {
   const record = requireRecord(value, "inventory sync payload");
@@ -224,62 +209,6 @@ export function parseLabDeleteMutationResult(value: unknown): InventoryDeleteMut
     message: optionalString(record.message) ?? "Inventory entry deleted.",
     mutationMode: record.mutationMode === "shared" ? "shared" : "local",
     shared: parseSharedStatus(record.shared),
-  };
-}
-
-export function parseLabExcelExportResult(value: unknown): ExcelExportResult {
-  const record = requireRecord(value, "Excel export payload");
-  if (typeof record.canceled !== "boolean") {
-    throw new Error("Invalid Excel export payload: missing canceled flag.");
-  }
-
-  return {
-    canceled: record.canceled,
-    error: optionalString(record.error),
-    outputPath: optionalString(record.outputPath),
-  };
-}
-
-export function parseNullableString(value: unknown, label: string): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value !== "string") {
-    throw new Error(`Invalid ${label}: expected a string or null.`);
-  }
-  return value;
-}
-
-export function parseBoolean(value: unknown, label: string): boolean {
-  if (typeof value !== "boolean") {
-    throw new Error(`Invalid ${label}: expected a boolean.`);
-  }
-  return value;
-}
-
-export function parseUpdateState(value: unknown): UpdateState {
-  const record = requireRecord(value, "update state");
-  const status = UPDATE_STATUSES.has(record.status as UpdateStatus)
-    ? (record.status as UpdateStatus)
-    : "error";
-  return {
-    available: record.available === true,
-    currentVersion: optionalString(record.currentVersion) ?? APP_VERSION,
-    downloadPhase:
-      record.downloadPhase === "copying" ||
-      record.downloadPhase === "verifying" ||
-      record.downloadPhase === "ready"
-        ? record.downloadPhase
-        : undefined,
-    downloadProgress: optionalFiniteNumber(record.downloadProgress),
-    downloadedInstallerPath: optionalString(record.downloadedInstallerPath),
-    error: optionalString(record.error),
-    installLogPath: optionalString(record.installLogPath),
-    installerPid: optionalFiniteNumber(record.installerPid),
-    latestVersion: optionalString(record.latestVersion),
-    notes: optionalString(record.notes),
-    publishedAt: optionalString(record.publishedAt),
-    status,
   };
 }
 

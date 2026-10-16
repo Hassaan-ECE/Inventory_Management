@@ -57,7 +57,6 @@ describe("tauri inventory bridge", () => {
       isTauri: () => true,
     }));
     vi.doMock("@tauri-apps/api/event", () => ({ listen }));
-    mockWindowStatePersistence();
 
     try {
       await import("@/integrations/tauri/tauriInventoryBridge");
@@ -72,7 +71,7 @@ describe("tauri inventory bridge", () => {
       sharedChangeHandlerRef.current?.({
         event: "inventory:shared-changed",
         id: 2,
-        payload: { systemId: "me-storage" },
+        payload: { systemId: "te-storage" },
       });
       expect(callback).not.toHaveBeenCalled();
 
@@ -99,7 +98,6 @@ describe("tauri inventory bridge", () => {
     } finally {
       vi.doUnmock("@tauri-apps/api/core");
       vi.doUnmock("@tauri-apps/api/event");
-      vi.doUnmock("@/integrations/tauri/windowState");
       vi.resetModules();
     }
   });
@@ -287,7 +285,6 @@ describe("tauri inventory bridge", () => {
       isTauri: () => true,
     }));
     vi.doMock("@tauri-apps/api/event", () => ({ listen }));
-    mockWindowStatePersistence();
 
     try {
       await import("@/integrations/tauri/tauriInventoryBridge");
@@ -306,7 +303,6 @@ describe("tauri inventory bridge", () => {
     } finally {
       vi.doUnmock("@tauri-apps/api/core");
       vi.doUnmock("@tauri-apps/api/event");
-      vi.doUnmock("@/integrations/tauri/windowState");
       vi.resetModules();
     }
   });
@@ -327,7 +323,6 @@ describe("tauri inventory bridge", () => {
     vi.doMock("@tauri-apps/api/event", () => ({
       listen: vi.fn(() => Promise.resolve(() => undefined)),
     }));
-    mockWindowStatePersistence();
 
     try {
       await import("@/integrations/tauri/tauriInventoryBridge");
@@ -337,7 +332,6 @@ describe("tauri inventory bridge", () => {
     } finally {
       vi.doUnmock("@tauri-apps/api/core");
       vi.doUnmock("@tauri-apps/api/event");
-      vi.doUnmock("@/integrations/tauri/windowState");
       vi.resetModules();
     }
   });
@@ -375,7 +369,6 @@ describe("tauri inventory bridge", () => {
     vi.doMock("@tauri-apps/api/event", () => ({
       listen: vi.fn(() => Promise.resolve(() => undefined)),
     }));
-    mockWindowStatePersistence();
 
     try {
       await import("@/integrations/tauri/tauriInventoryBridge");
@@ -415,7 +408,6 @@ describe("tauri inventory bridge", () => {
     } finally {
       vi.doUnmock("@tauri-apps/api/core");
       vi.doUnmock("@tauri-apps/api/event");
-      vi.doUnmock("@/integrations/tauri/windowState");
       vi.resetModules();
     }
   });
@@ -446,7 +438,6 @@ describe("tauri inventory bridge", () => {
     vi.doMock("@tauri-apps/api/event", () => ({
       listen: vi.fn(() => Promise.resolve(() => undefined)),
     }));
-    mockWindowStatePersistence();
 
     try {
       await import("@/integrations/tauri/tauriInventoryBridge");
@@ -466,7 +457,6 @@ describe("tauri inventory bridge", () => {
     } finally {
       vi.doUnmock("@tauri-apps/api/core");
       vi.doUnmock("@tauri-apps/api/event");
-      vi.doUnmock("@/integrations/tauri/windowState");
       vi.resetModules();
     }
   });
@@ -487,7 +477,6 @@ describe("tauri inventory bridge", () => {
     vi.doMock("@tauri-apps/api/event", () => ({
       listen: vi.fn(() => Promise.resolve(() => undefined)),
     }));
-    mockWindowStatePersistence();
 
     try {
       await import("@/integrations/tauri/tauriInventoryBridge");
@@ -506,7 +495,6 @@ describe("tauri inventory bridge", () => {
     } finally {
       vi.doUnmock("@tauri-apps/api/core");
       vi.doUnmock("@tauri-apps/api/event");
-      vi.doUnmock("@/integrations/tauri/windowState");
       vi.resetModules();
     }
   });
@@ -581,86 +569,6 @@ describe("tauri inventory bridge", () => {
         verifiedAt: "2026-07-13T12:00:00Z",
       }],
     });
-  });
-
-  it("invokes picker, preview, and commit commands and validates import accounting", async () => {
-    const report = validImportReport();
-    const invoke = vi.fn((command: string) => {
-      if (command === "pick_import_file") return Promise.resolve("C:/imports/equipment.csv");
-      if (command === "preview_import") return Promise.resolve(report);
-      if (command === "commit_import") {
-        return Promise.resolve({
-          batchId: report.batchId,
-          inserted: 1,
-          matched: 0,
-          conflicted: 0,
-          rejected: 0,
-          ignored: 0,
-          remaining: 0,
-          noop: 0,
-          entriesChanged: true,
-          message: "Import committed.",
-        });
-      }
-      return Promise.reject(new Error(`Unexpected command: ${command}`));
-    });
-    const desktopBridge = await registerDesktopBridge(invoke);
-
-    await expect(desktopBridge.pickImportFile?.(TE_TEST_EQUIPMENT_MODULE_ID)).resolves.toBe(
-      "C:/imports/equipment.csv",
-    );
-    await expect(
-      desktopBridge.previewImport?.(TE_TEST_EQUIPMENT_MODULE_ID, "C:/imports/equipment.csv"),
-    ).resolves.toEqual(report);
-    await expect(
-      desktopBridge.commitImport?.(TE_TEST_EQUIPMENT_MODULE_ID, { batchId: report.batchId, confirmed: true }),
-    ).resolves.toMatchObject({
-      entriesChanged: true,
-      noop: 0,
-    });
-    expect(invoke).toHaveBeenNthCalledWith(1, "pick_import_file", {
-      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
-    });
-    expect(invoke).toHaveBeenNthCalledWith(2, "preview_import", {
-      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
-      path: "C:/imports/equipment.csv",
-    });
-    expect(invoke).toHaveBeenNthCalledWith(3, "commit_import", {
-      input: { batchId: report.batchId, confirmed: true },
-      moduleId: TE_TEST_EQUIPMENT_MODULE_ID,
-    });
-  });
-
-  it.each([
-    ["mismatched total", { totalRows: 2 }],
-    ["row classification", { rowOutcomes: [{ ...validImportReport().rowOutcomes[0], classification: "other" }] }],
-    ["column accounting", { columns: [{ ...validImportReport().columns[0], nonblankCount: -1 }] }],
-    ["blocking flag", { blocking: "no" }],
-  ])("rejects malformed import preview %s", async (_label, override) => {
-    const desktopBridge = await registerDesktopBridge(vi.fn().mockResolvedValue({ ...validImportReport(), ...override }));
-
-    await expect(
-      desktopBridge.previewImport?.(TE_TEST_EQUIPMENT_MODULE_ID, "C:/imports/equipment.csv"),
-    ).rejects.toThrow("Invalid import dry-run report");
-  });
-
-  it("rejects malformed numeric noop and entriesChanged commit fields", async () => {
-    const desktopBridge = await registerDesktopBridge(vi.fn().mockResolvedValue({
-      batchId: "batch-1",
-      inserted: 0,
-      matched: 0,
-      conflicted: 0,
-      rejected: 0,
-      ignored: 0,
-      remaining: 0,
-      noop: false,
-      entriesChanged: 1,
-      message: "bad",
-    }));
-
-    await expect(
-      desktopBridge.commitImport?.(TE_TEST_EQUIPMENT_MODULE_ID, { batchId: "batch-1", confirmed: true }),
-    ).rejects.toThrow("Invalid import commit result");
   });
 
   it("invokes and parses calibration roster pick, preview, and commit commands", async () => {
@@ -768,50 +676,10 @@ async function registerDesktopBridge(invoke: ReturnType<typeof vi.fn>): Promise<
   vi.doMock("@tauri-apps/api/event", () => ({
     listen: vi.fn(() => Promise.resolve(() => undefined)),
   }));
-  mockWindowStatePersistence();
   await import("@/integrations/tauri/tauriInventoryBridge");
   const bridge = Reflect.get(window, "inventoryDesktop") as NonNullable<Window["inventoryDesktop"]> | undefined;
   if (!bridge) throw new Error("Desktop bridge did not register.");
   return bridge;
-}
-
-function validImportReport() {
-  return {
-    batchId: "sha256:batch-1",
-    sourceFingerprint: "sha256:source-1",
-    sourceFilename: "equipment.csv",
-    selectedSheet: "equipment.csv",
-    mappingVersion: "te-test-equipment-v1",
-    totalRows: 1,
-    inserted: 1,
-    matched: 0,
-    conflicted: 0,
-    rejected: 0,
-    ignored: 0,
-    columns: [
-      {
-        originalHeader: "Asset Number",
-        normalizedTarget: "assetNumber",
-        treatment: "mapped",
-        nonblankCount: 1,
-        reason: "Mapped by header alias.",
-      },
-    ],
-    rowOutcomes: [
-      {
-        sourceRow: 2,
-        classification: "inserted",
-        issues: [],
-        originalId: "88",
-        originalAssetNumber: "TE-88",
-        originalSerialNumber: "SN-88",
-        candidateEntryUuid: null,
-        rawValues: { "Asset Number": "TE-88" },
-      },
-    ],
-    blocking: false,
-    reconciliationBasis: "inventory-revision-1",
-  } as const;
 }
 
 function validCalibrationRosterReport() {
@@ -881,17 +749,6 @@ function validCalibrationRosterReport() {
     reconciliationBasis: "basis-1",
     blocking: false,
   } as const;
-}
-
-function mockWindowStatePersistence() {
-  const installWindowStatePersistence = vi.fn();
-  const saveCurrentWindowState = vi.fn().mockResolvedValue(undefined);
-  vi.doMock("@/integrations/tauri/windowState", () => ({
-    installWindowStatePersistence,
-    saveCurrentWindowState,
-  }));
-
-  return { installWindowStatePersistence, saveCurrentWindowState };
 }
 
 function validBridgeEntry(overrides: Record<string, unknown> = {}): Record<string, unknown> {

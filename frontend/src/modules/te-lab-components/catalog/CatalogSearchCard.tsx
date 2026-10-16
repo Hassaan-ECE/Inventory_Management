@@ -1,6 +1,5 @@
 import { ListFilterIcon, XIcon } from "lucide-react";
 
-import type { CatalogColumnKey } from "@/modules/te-lab-components/catalog/catalogColumns";
 import type { CatalogFilters } from "@/modules/te-lab-components/catalog/catalogFilters";
 import type { StockStatus, StorageArea } from "@/modules/te-lab-components/types";
 import { DropdownSelect } from "@/shared/components/ui/DropdownMenu";
@@ -236,4 +235,3 @@ export function CatalogSearchCard({
 }
 
 // Re-export for callers that still type against column keys via this module path.
-export type { CatalogColumnKey };

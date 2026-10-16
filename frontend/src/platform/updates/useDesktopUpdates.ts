@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { UpdateState } from "@/modules/te-lab-components/types";
+import type { UpdateState } from "./updateState";
 
-import { UPDATE_CHECK_INTERVAL_MS, buildIdleUpdateState, chooseFreshUpdateState } from "./helpers";
+import { UPDATE_CHECK_INTERVAL_MS, buildIdleUpdateState, chooseFreshUpdateState } from "./updateState";
 
 interface UseDesktopUpdatesOptions {
   active: boolean;
