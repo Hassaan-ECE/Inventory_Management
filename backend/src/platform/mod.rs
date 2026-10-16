@@ -4,6 +4,8 @@ mod dev_build;
 mod legacy_databases;
 mod local_data_paths;
 mod module_id;
+pub(crate) mod native;
+pub(crate) mod runtime;
 mod shared_root;
 pub(crate) mod store;
 pub(crate) mod sync;

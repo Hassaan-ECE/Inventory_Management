@@ -1,18 +1,14 @@
 pub(crate) mod api;
-pub(crate) mod domain;
-pub(crate) mod integrations;
 mod inventory_stores;
 pub(crate) mod modules;
 pub(crate) mod platform;
-pub(crate) mod runtime;
-pub(crate) mod storage;
 
-pub(crate) use api::commands;
-pub(crate) use domain::{model, query};
-pub(crate) use integrations::{calibration_roster_import, export, native};
-pub(crate) use platform::sync;
-pub(crate) use runtime::{shared_sync, shared_watcher};
-pub(crate) use storage as store;
+use api::{commands, export};
+use platform::{
+    native,
+    runtime::{shared_sync, shared_watcher},
+    sync,
+};
 
 use tauri::{Manager, RunEvent};
 

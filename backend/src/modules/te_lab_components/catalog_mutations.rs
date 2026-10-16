@@ -1,4 +1,4 @@
-use crate::modules::te_lab_components::{
+use super::{
     catalog_model::{
         create_part, create_stock_placement, create_storage_area, create_storage_container,
         indistinguishable_placement_key, normalize_part_input, normalize_stock_placement_input,

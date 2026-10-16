@@ -1,3 +1,5 @@
+//! EVCS Storage (module id `te-storage`): the storage-room inventory.
+
 pub(crate) mod commands;
 pub(crate) mod entry_changes;
 pub(crate) mod model;

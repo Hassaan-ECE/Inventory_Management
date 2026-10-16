@@ -1,10 +1,10 @@
 use tauri::AppHandle;
 
 use super::{model::*, store::InventoryDb};
-use crate::{
-    platform::{sync, ModuleId},
-    shared_sync::SharedSyncCoordinator,
-    shared_watcher::{self, SharedSyncWatcher},
+use crate::platform::{
+    runtime::shared_sync::SharedSyncCoordinator,
+    runtime::shared_watcher::{self, SharedSyncWatcher},
+    sync, ModuleId,
 };
 
 pub(crate) fn load(

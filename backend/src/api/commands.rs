@@ -6,31 +6,34 @@ use serde_json::Value;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use super::mutations::{
+use crate::modules::te_test_equipment::mutations::{
     create_entry_in_store, delete_entry_in_store, set_archived_entry_in_store,
     toggle_verified_entry_in_store, update_entry_in_store,
 };
 use crate::{
-    calibration_roster_import::{
-        self, CalibrationRosterCommitInput, CalibrationRosterCommitResult,
-        CalibrationRosterPreviewReport, CALIBRATION_ROSTER_FILE_EXTENSIONS,
-    },
     inventory_stores::InventoryStores,
-    model::{
-        CommandResult, InventoryEntryEditContext, InventoryEntryInput, InventoryQueryInput,
-        InventoryQueryResult, InventorySharedStatus, InventorySyncResult,
-    },
     modules::te_lab_components::{
         catalog_model as lab_catalog_model, catalog_mutations as lab_catalog_mutations,
         catalog_query as lab_catalog_query, catalog_sync as lab_catalog_sync,
         simple_workflow as lab_simple_workflow, store::InventoryDb as LabInventoryDb,
     },
-    platform::ModuleId,
-    query::{get_inventory_counts, query_entries},
-    shared_sync::SharedSyncCoordinator,
-    shared_watcher::{self, SharedSyncWatcher},
-    store::InventoryDb,
-    sync,
+    modules::te_test_equipment::{
+        calibration_roster_import::{
+            self, CalibrationRosterCommitInput, CalibrationRosterCommitResult,
+            CalibrationRosterPreviewReport, CALIBRATION_ROSTER_FILE_EXTENSIONS,
+        },
+        model::{
+            CommandResult, InventoryEntryEditContext, InventoryEntryInput, InventoryQueryInput,
+            InventoryQueryResult, InventorySharedStatus, InventorySyncResult,
+        },
+        query::{get_inventory_counts, query_entries},
+        store::InventoryDb,
+    },
+    platform::{
+        runtime::shared_sync::SharedSyncCoordinator,
+        runtime::shared_watcher::{self, SharedSyncWatcher},
+        sync, ModuleId,
+    },
 };
 
 const LAB_USES_CATALOG_COMMANDS: &str =
@@ -137,7 +140,9 @@ pub(crate) async fn sync_inventory(
 
             let mut result = result;
             let completion = if result.shared.enabled && result.shared.available {
-                let paths = sync::resolved_shared_sync_paths::<crate::model::InventoryEntry>();
+                let paths = sync::resolved_shared_sync_paths::<
+                    crate::modules::te_test_equipment::model::InventoryEntry,
+                >();
                 watcher.complete_sync_for(app, module, &session_id, &paths.ops_dir)?
             } else {
                 watcher.complete_sync_without_watcher_for(module, &session_id)?
@@ -761,7 +766,9 @@ fn load_inventory_from_store_with_status(
     let shared = latest_background_status.unwrap_or_else(|| {
         let message = sync::last_local_recovery_message(db)
             .unwrap_or_else(|| "FeOxDB local store ready. Shared sync starting.".to_string());
-        sync::startup_inventory_status::<crate::model::InventoryEntry>(message)
+        sync::startup_inventory_status::<crate::modules::te_test_equipment::model::InventoryEntry>(
+            message,
+        )
     });
     let entries = db.load_entries()?;
 
@@ -848,8 +855,8 @@ fn schedule_lab_catalog_shared_publish(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{create_entry_from_input, InventoryEntryInput};
-    use crate::sync::test_support::SyncOperationEnvelope;
+    use crate::modules::te_test_equipment::model::{create_entry_from_input, InventoryEntryInput};
+    use crate::platform::sync::test_support::SyncOperationEnvelope;
     use std::{env, fs, path::PathBuf};
     use uuid::Uuid;
 
@@ -921,7 +928,7 @@ mod tests {
 
     fn outbox_count(db: &InventoryDb) -> usize {
         let mut count = 0;
-        db.scan_sync_outbox_records::<SyncOperationEnvelope<crate::model::InventoryEntry>, _>(
+        db.scan_sync_outbox_records::<SyncOperationEnvelope<crate::modules::te_test_equipment::model::InventoryEntry>, _>(
             None,
             usize::MAX,
             |_, _| {

@@ -1,12 +1,8 @@
-use crate::{
-    modules::te_lab_components::{
-        catalog_model::{
-            catalog_counts, summarize_part_stock, CatalogSyncResult, PartStockSummary,
-        },
-        store::InventoryDb,
-    },
-    platform::common::{CommandResult, InventorySharedStatus},
+use super::{
+    catalog_model::{catalog_counts, summarize_part_stock, CatalogSyncResult, PartStockSummary},
+    store::InventoryDb,
 };
+use crate::platform::common::{CommandResult, InventorySharedStatus};
 
 pub(crate) fn load_catalog_from_store(
     db: &InventoryDb,

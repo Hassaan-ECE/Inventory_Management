@@ -35,3 +35,12 @@ pub(crate) fn numeric_id(id: &str) -> i64 {
 pub(crate) fn now_timestamp() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
+
+/// What a workbook export wrote.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ExcelExportStats {
+    pub archived_count: usize,
+    pub inventory_count: usize,
+    pub output_path: String,
+    pub total_count: usize,
+}

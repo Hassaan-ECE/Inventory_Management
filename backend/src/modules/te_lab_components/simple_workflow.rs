@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::modules::te_lab_components::{
+use super::{
     catalog_model::{
         create_part, create_stock_placement, grid_coordinate_label, normalize_part_input,
         normalize_stock_placement_input, normalized_lookup, update_part, update_stock_placement,

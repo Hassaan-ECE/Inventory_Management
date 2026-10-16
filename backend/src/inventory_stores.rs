@@ -1,7 +1,7 @@
 use crate::{
+    modules::te_test_equipment::store::InventoryDb,
     modules::{te_lab_components::store::InventoryDb as LabComponentsDb, te_storage},
     platform::{InventoryAppPaths, LocalDatabase},
-    store::InventoryDb,
 };
 
 /// Every inventory's store, each a namespace of the one local database file.

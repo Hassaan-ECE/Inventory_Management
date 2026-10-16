@@ -22,7 +22,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use uuid::Uuid;
 
 use crate::{
-    model::InventoryEntry as TeEntry,
+    modules::te_test_equipment::model::InventoryEntry as TeEntry,
     platform::{common::now_timestamp, store::ModuleStore},
 };
 

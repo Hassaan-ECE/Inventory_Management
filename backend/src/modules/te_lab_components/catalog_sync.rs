@@ -23,9 +23,10 @@ use crate::{
     },
     platform::{
         common::{now_timestamp, CommandResult, InventorySharedStatus},
-        default_shared_root, ModuleId,
+        default_shared_root,
+        sync::{sign_canonical_bytes, verify_canonical_bytes},
+        ModuleId,
     },
-    sync::{sign_canonical_bytes, verify_canonical_bytes},
 };
 
 const CATALOG_SYNC_SCHEMA_VERSION: u16 = 2;
