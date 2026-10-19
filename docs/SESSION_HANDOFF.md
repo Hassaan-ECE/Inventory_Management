@@ -23,7 +23,6 @@
 - After the first 0.2.0 PC syncs, 0.1.4 PCs show "Click Update" and stop publishing TE/EVCS snapshots (by design); their edits still sync.
 - The release smoke run used this PC's real WebView profile (`%LOCALAPPDATA%\com.inventory.management\EBWebView`), so UI preferences such as the last active view may have changed; no inventory data was touched.
 - Still deferred on purpose: pruning `sync:applied` / `sync:seq` markers (Phase 4 note). Still pending, separate owner operations: live IM-014 Lab cutover and IM-015 roster cutover.
-- A leftover `.tmp/v014-worktree` folder may remain (gitignored scratch from the cross-version check); delete it when nothing has it open.
 
 ## TE divergence incident and 0.1.4 - 2026-10-15
 
