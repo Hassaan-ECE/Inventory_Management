@@ -1,9 +1,35 @@
+import type { CalibrationRequirement } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRequirement";
+import type { InventoryEntry } from "@/integrations/tauri/generated/te-test-equipment/InventoryEntry";
+
+// Bridge payloads are generated from the Rust types; `cargo test` regenerates them.
+export type { CalibrationRequirement, InventoryEntry };
+export type { CalibrationRosterAbsentEntry } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterAbsentEntry";
+export type { CalibrationRosterCandidateContext } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterCandidateContext";
+export type { CalibrationRosterClassification } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterClassification";
+export type { CalibrationRosterCommitInput } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterCommitInput";
+export type { CalibrationRosterCommitResult } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterCommitResult";
+export type { CalibrationRosterCounts } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterCounts";
+export type { CalibrationRosterFieldChange } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterFieldChange";
+export type { CalibrationRosterPreviewReport } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterPreviewReport";
+export type { CalibrationRosterResolution } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterResolution";
+export type { CalibrationRosterResolutionAction } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterResolutionAction";
+export type { CalibrationRosterRowOutcome } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterRowOutcome";
+export type { CalibrationRosterSemanticFlag } from "@/integrations/tauri/generated/te-test-equipment/CalibrationRosterSemanticFlag";
+export type { ImportProvenance } from "@/integrations/tauri/generated/te-test-equipment/ImportProvenance";
+export type { InventoryDeleteMutationResult } from "@/integrations/tauri/generated/te-test-equipment/InventoryDeleteMutationResult";
+export type { InventoryEntryEditContext } from "@/integrations/tauri/generated/te-test-equipment/InventoryEntryEditContext";
+export type { InventoryEntryInput } from "@/integrations/tauri/generated/te-test-equipment/InventoryEntryInput";
+export type { InventoryEntryMutationResult } from "@/integrations/tauri/generated/te-test-equipment/InventoryEntryMutationResult";
+export type { InventorySyncResult } from "@/integrations/tauri/generated/te-test-equipment/InventorySyncResult";
+export type { ExcelExportResult } from "@/integrations/tauri/generated/platform/ExcelExportResult";
+export type { InventorySharedStatus } from "@/integrations/tauri/generated/platform/InventorySharedStatus";
+
+export type LifecycleStatus = InventoryEntry["lifecycleStatus"];
+export type WorkingStatus = InventoryEntry["workingStatus"];
+
 export type InventoryScope = "inventory" | "archive";
 export type TeTestEquipmentWorkspace = "equipment" | "calibration";
 type SortDirection = "asc" | "desc";
-export type LifecycleStatus = "active" | "repair" | "scrapped" | "missing" | "rental";
-export type WorkingStatus = "working" | "limited" | "not_working" | "unknown";
-export type CalibrationRequirement = "required" | "reference_only" | "not_required" | "unknown";
 export type CalibrationHealth =
   | "missing_due"
   | "overdue"
@@ -23,90 +49,7 @@ export const CALIBRATION_REQUIREMENT_OPTIONS = [
   "unknown",
 ] as const satisfies readonly CalibrationRequirement[];
 
-export interface ImportProvenance {
-  batchId: string;
-  sourceFilename: string;
-  sourceSheet?: string;
-  sourceRow: number;
-  originalId?: string;
-  originalAssetNumber?: string;
-  originalSerialNumber?: string;
-}
-
-export interface InventoryEntry {
-  id: string;
-  databaseId?: number;
-  assetNumber: string;
-  serialNumber: string;
-  qty: number | null;
-  manufacturer: string;
-  model: string;
-  description: string;
-  projectName: string;
-  location: string;
-  assignedTo: string;
-  links: string;
-  notes: string;
-  lifecycleStatus: LifecycleStatus;
-  workingStatus: WorkingStatus;
-  condition: string;
-  calibrationRequirement: CalibrationRequirement;
-  outToCalibration: boolean;
-  lastCalibratedAt?: string;
-  calibrationDueAt?: string;
-  calibrationIntervalMonths?: number;
-  certificateRef?: string;
-  calibrationVendor?: string;
-  calibrationNotes?: string;
-  verifiedAt?: string;
-  verifiedBy?: string;
-  importProvenance?: ImportProvenance;
-  archived: boolean;
-  createdAt: string;
-  updatedAt: string;
-  entryUuid: string;
-  manualEntry: boolean;
-  picturePath: string;
-}
-
-export interface InventoryEntryInput {
-  assetNumber: string;
-  serialNumber: string;
-  qty: number | null;
-  manufacturer: string;
-  model: string;
-  description: string;
-  projectName: string;
-  location: string;
-  assignedTo: string;
-  links: string;
-  notes: string;
-  lifecycleStatus: LifecycleStatus;
-  workingStatus: WorkingStatus;
-  condition: string;
-  calibrationRequirement: CalibrationRequirement;
-  outToCalibration: boolean;
-  lastCalibratedAt?: string;
-  calibrationDueAt?: string;
-  calibrationIntervalMonths?: number;
-  certificateRef?: string;
-  calibrationVendor?: string;
-  calibrationNotes?: string;
-  verifiedAt?: string;
-  verifiedBy?: string;
-  archived: boolean;
-  picturePath?: string;
-}
-
-export interface InventoryEntryEditContext {
-  baseVersion?: string;
-  changedFields: string[];
-}
-
-import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
-
-export type { InventorySharedStatus };
-
+/** Counts the footer and filter chips show, computed in the frontend from the loaded entries. */
 export interface InventoryCounts {
   archive: number;
   dueSoon: number;
@@ -118,144 +61,6 @@ export interface InventoryCounts {
   verified: number;
 }
 
-export type CalibrationRosterClassification =
-  | "matched_update"
-  | "create_candidate"
-  | "conflict_review_required"
-  | "duplicate_source_row"
-  | "ignored_junk";
-
-export type CalibrationRosterSemanticFlag =
-  | "normal_dated"
-  | "reference_only"
-  | "needs_calibration"
-  | "out_to_calibration"
-  | "failed_calibration"
-  | "inactive_or_scrapped"
-  | "unclear";
-
-export interface CalibrationRosterCandidateContext {
-  entryUuid: string;
-  id: string;
-  assetNumber: string;
-  serialNumber: string;
-  manufacturer: string;
-  model: string;
-  description: string;
-}
-
-export interface CalibrationRosterFieldChange {
-  field: string;
-  before: string | null;
-  after: string | null;
-  destructive: boolean;
-}
-
-export interface CalibrationRosterRowOutcome {
-  sourceSheet: string;
-  sourceRow: number;
-  classification: CalibrationRosterClassification;
-  issues: string[];
-  ignoredIdentityPlaceholders: string[];
-  assetNumber: string | null;
-  serialNumber: string | null;
-  manufacturer: string | null;
-  model: string | null;
-  description: string | null;
-  candidateEntryUuid: string | null;
-  candidateEntries: CalibrationRosterCandidateContext[];
-  proposedRequirement: CalibrationRequirement;
-  proposedOutToCalibration: boolean;
-  proposedInput: InventoryEntryInput | null;
-  changes: CalibrationRosterFieldChange[];
-  semanticFlags: CalibrationRosterSemanticFlag[];
-  requiresReview: boolean;
-}
-
-export interface CalibrationRosterAbsentEntry {
-  entry: CalibrationRosterCandidateContext;
-  calibrationDueAt: string | null;
-  calibrationVendor: string | null;
-  calibrationNotes: string | null;
-}
-
-export interface CalibrationRosterCounts {
-  matchedUpdates: number;
-  createCandidates: number;
-  conflicts: number;
-  duplicateSourceRows: number;
-  ignoredJunk: number;
-  currentRequiredAbsent: number;
-}
-
-export interface CalibrationRosterPreviewReport {
-  batchId: string;
-  sourceFingerprint: string;
-  sourceFilename: string;
-  mappingVersion: string;
-  contributingSheets: string[];
-  totalSourceRows: number;
-  counts: CalibrationRosterCounts;
-  rowOutcomes: CalibrationRosterRowOutcome[];
-  currentRequiredAbsent: CalibrationRosterAbsentEntry[];
-  prospectiveRequiredCount: number;
-  reconciliationBasis: string;
-  blocking: boolean;
-}
-
-export type CalibrationRosterResolutionAction = "use_existing" | "create" | "ignore";
-
-export interface CalibrationRosterResolution {
-  sourceSheet: string;
-  sourceRow: number;
-  action: CalibrationRosterResolutionAction;
-  targetEntryUuid?: string;
-  createInput?: InventoryEntryInput;
-  confirmed: boolean;
-}
-
-export interface CalibrationRosterCommitInput {
-  batchId: string;
-  confirmed: boolean;
-  replaceActiveRequiredRoster: boolean;
-  verificationAttribution: string;
-  resolutions: CalibrationRosterResolution[];
-}
-
-export interface CalibrationRosterCommitResult {
-  batchId: string;
-  updated: number;
-  created: number;
-  reset: number;
-  ignored: number;
-  noop: number;
-  finalRequired: number;
-  entriesChanged: boolean;
-  message: string;
-}
-
-type InventoryMutationMode = "shared" | "local";
-
-export interface InventoryEntryMutationResult {
-  entry: InventoryEntry;
-  message: string;
-  mutationMode: InventoryMutationMode;
-  shared?: InventorySharedStatus;
-}
-
-export interface InventoryDeleteMutationResult {
-  entryId: string;
-  message: string;
-  mutationMode: InventoryMutationMode;
-  shared?: InventorySharedStatus;
-}
-
-export interface ExcelExportResult {
-  canceled: boolean;
-  error?: string;
-  outputPath?: string;
-}
-
 export interface FilterState {
   assetNumber: string;
   manufacturer: string;
@@ -265,23 +70,6 @@ export interface FilterState {
   calibrationRequirement: CalibrationRequirement | "all";
   calibrationHealth: CalibrationHealth | "all";
   dueWindow: DueWindow;
-}
-
-export interface InventoryQueryInput {
-  filters: FilterState;
-  limit?: number;
-  offset?: number;
-  query: string;
-  scope: InventoryScope;
-  sort: SortState;
-}
-
-export interface InventoryQueryResult {
-  counts: InventoryCounts;
-  dbPath: string;
-  entries: InventoryEntry[];
-  shared: InventorySharedStatus;
-  totalFiltered: number;
 }
 
 export type ColumnKey =

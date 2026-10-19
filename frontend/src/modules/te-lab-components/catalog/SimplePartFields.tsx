@@ -15,9 +15,8 @@ import {
 import type { CatalogSyncResult, StorageContainer } from "@/modules/te-lab-components/types";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { SELECT_CLASS } from "@/modules/te-lab-components/catalog/formControls";
 
-const SELECT_CLASS =
-  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/18 dark:bg-input/30";
 
 export interface SimplePartFieldsProps {
   catalog: CatalogSyncResult;

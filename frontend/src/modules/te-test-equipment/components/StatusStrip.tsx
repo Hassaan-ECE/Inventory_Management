@@ -6,7 +6,7 @@ interface StatusStripProps {
   counts?: InventoryCounts;
   message?: string;
   resultsLabel?: string;
-  warning?: SyncWarning;
+  warning?: SyncWarning | null;
   workspace?: TeTestEquipmentWorkspace;
 }
 

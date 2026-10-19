@@ -8,6 +8,7 @@ use std::{
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::{modules::te_test_equipment::model::CommandResult, platform::ModuleId};
@@ -15,8 +16,9 @@ use crate::{modules::te_test_equipment::model::CommandResult, platform::ModuleId
 pub(crate) const SHARED_INVENTORY_CHANGED_EVENT: &str = "inventory:shared-changed";
 const WATCHER_EMIT_DEBOUNCE: Duration = Duration::from_millis(500);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "platform/")]
 pub(crate) struct InventorySharedChangedPayload {
     pub(crate) system_id: &'static str,
 }

@@ -6,7 +6,7 @@ interface StatusStripProps {
   counts?: Pick<CatalogCounts, "lowStock" | "noStock">;
   message?: string;
   resultsLabel?: string;
-  warning?: SyncWarning;
+  warning?: SyncWarning | null;
 }
 
 export function StatusStrip({ message, counts, resultsLabel, warning }: StatusStripProps) {

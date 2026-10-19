@@ -42,3 +42,13 @@ Code that was deleted because nothing used it, or because it was a placeholder f
 | Lab v1 → v2 migration (`catalog_migration.rs`, commands `preview_/commit_lab_catalog_migration`, `MigrationPanel`) and its fixtures in `backend/tests/fixtures/te_lab_components/` | A namespace that is not on schema v2 now drops its v1 rows and starts empty, then pulls the shared catalog (`InventoryDb::ensure_catalog_schema`). The 0.1.x database file stays in `pre-0.2-databases\`. |
 | Lab shared-root cutover (commands `preview_/commit_lab_shared_cutover`, `SharedCutoverDialog`, the header's "Set Up Lab Shared Catalog" button) | The team share was cut over in 0.1.2. A brand-new shared root (for example the dev share) is now set up automatically by the first sync; a root that still holds the v1 stream stays local-only. |
 | Path-included integration test crates (`backend/tests/`) | They compiled source files by path, so any file move broke them. The same tests now run inside the crate (`sync/flow_tests/`, `calibration_roster_import/flow_tests.rs`, `domain/performance_baseline.rs`). |
+
+## Removed in 0.2 Phase 5 (2026-10-19)
+
+Restore from `b040b18` (Phase 2 commit), for example `git show b040b18:frontend/src/integrations/tauri/bridgeGuards.ts`.
+
+| What | Why |
+|------|-----|
+| Hand-written bridge guards `bridgeGuards.ts`, `labBridgeGuards.ts`, the field checks in `te-storage/storageBridge.ts`, and `parseSharedStatus` (about 1,150 lines with their tests) | The payload types are now generated from the Rust types (`ts-rs`, `frontend/src/integrations/tauri/generated/`), and the backend ships in the same installer as the frontend, so a response cannot come from another version. The legacy-data normalization the guards repeated already happens in Rust deserialization (`InventoryEntry::from_wire`, serde defaults). |
+| Hand-written payload interfaces in the TE, Lab, and EVCS Storage `types.ts` files, and the Lab v1 bridge contract (Lab `InventoryEntry`, inputs, counts, query types) | Replaced by the generated types; the Lab v1 ones had no caller since the v1 UI went. |
+| TE backend query path: command `query_inventory`, `te_test_equipment/query.rs`, `FilterState`/`SortState`/`InventoryQueryInput`/`InventoryCounts`/`InventoryQueryResult`, the bridge's `queryInventory`, and the benchmark's query metrics | The frontend filters, sorts, and counts the loaded entries itself (`te-test-equipment/lib/`); nothing called the backend query. |

@@ -2,14 +2,16 @@
 
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// Commands report failures to the frontend as plain messages.
 pub(crate) type CommandResult<T> = Result<T, String>;
 
-/// Shared-folder sync state shown in the footer and returned with every load, query, and
+/// Shared-folder sync state shown in the footer and returned with every load, sync, and
 /// mutation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "platform/", optional_fields = nullable)]
 pub(crate) struct InventorySharedStatus {
     pub available: bool,
     pub can_modify: bool,
@@ -25,12 +27,13 @@ pub(crate) struct InventorySharedStatus {
 }
 
 /// A problem the footer flags beside the status message, most serious first.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
+#[ts(export, export_to = "platform/")]
 pub(crate) enum SyncWarning {
     /// The local database is failing to write, so recent changes may be lost on restart.
     LocalSaveFailing,

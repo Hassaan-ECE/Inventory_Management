@@ -6,7 +6,6 @@ pub(crate) mod model;
 pub(crate) mod mutations;
 #[cfg(test)]
 mod performance_baseline;
-pub(crate) mod query;
 pub(crate) mod store;
 mod sync_record;
 #[cfg(test)]

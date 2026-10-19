@@ -138,19 +138,26 @@ export function buildLocalCreatedEntry(input: InventoryEntryInput): InventoryEnt
     condition: input.condition,
     calibrationRequirement: input.calibrationRequirement,
     outToCalibration: input.outToCalibration,
-    lastCalibratedAt: input.lastCalibratedAt,
-    calibrationDueAt: input.calibrationDueAt,
-    calibrationIntervalMonths: input.calibrationIntervalMonths,
-    certificateRef: input.certificateRef,
-    calibrationVendor: input.calibrationVendor,
-    calibrationNotes: input.calibrationNotes,
-    verifiedAt: input.verifiedAt,
-    verifiedBy: input.verifiedBy,
+    ...optionalEntryFields(input),
     archived: input.archived,
     manualEntry: true,
     picturePath: input.picturePath ?? "",
     createdAt: timestamp,
     updatedAt: timestamp,
+  };
+}
+
+/** An input's optional calibration and verification fields as an entry holds them: absent, not null. */
+function optionalEntryFields(input: InventoryEntryInput) {
+  return {
+    lastCalibratedAt: input.lastCalibratedAt ?? undefined,
+    calibrationDueAt: input.calibrationDueAt ?? undefined,
+    calibrationIntervalMonths: input.calibrationIntervalMonths ?? undefined,
+    certificateRef: input.certificateRef ?? undefined,
+    calibrationVendor: input.calibrationVendor ?? undefined,
+    calibrationNotes: input.calibrationNotes ?? undefined,
+    verifiedAt: input.verifiedAt ?? undefined,
+    verifiedBy: input.verifiedBy ?? undefined,
   };
 }
 
@@ -173,14 +180,7 @@ export function buildLocalUpdatedEntry(existingEntry: InventoryEntry, input: Inv
     condition: input.condition,
     calibrationRequirement: input.calibrationRequirement,
     outToCalibration: input.outToCalibration,
-    lastCalibratedAt: input.lastCalibratedAt,
-    calibrationDueAt: input.calibrationDueAt,
-    calibrationIntervalMonths: input.calibrationIntervalMonths,
-    certificateRef: input.certificateRef,
-    calibrationVendor: input.calibrationVendor,
-    calibrationNotes: input.calibrationNotes,
-    verifiedAt: input.verifiedAt,
-    verifiedBy: input.verifiedBy,
+    ...optionalEntryFields(input),
     archived: input.archived,
     picturePath: input.picturePath ?? "",
     updatedAt: new Date().toISOString(),

@@ -3,58 +3,44 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 
 import { APP_VERSION } from "@/app/branding";
-import {
-  parseBoolean,
-  parseCalibrationRosterCommitResult,
-  parseCalibrationRosterPreviewReport,
-  parseDeleteMutationResult,
-  parseEntryMutationResult,
-  parseExcelExportResult,
-  parseInventoryQueryResult,
-  parseInventorySyncResult,
-  parseNonemptyString,
-  parseNullableString,
-  parseUpdateState,
-} from "@/integrations/tauri/bridgeGuards";
-import {
-  parseLabCatalogDeleteResult,
-  parseLabDeleteMutationResult,
-  parseLabEntryMutationResult,
-  parseLabInventoryQueryResult,
-  parseLabInventorySyncResult,
-  parseLabPartMutationResult,
-  parseLabSimpleComponentMutationResult,
-  parseLabStockMoveMutationResult,
-  parseLabStockPlacementMutationResult,
-  parseLabStorageAreaMutationResult,
-  parseLabStorageContainerMutationResult,
-} from "@/integrations/tauri/labBridgeGuards";
 import type {
   CalibrationRosterCommitInput,
+  CalibrationRosterCommitResult,
+  CalibrationRosterPreviewReport,
+  ExcelExportResult,
+  InventoryDeleteMutationResult,
+  InventoryEntryEditContext,
+  InventoryEntryInput,
+  InventoryEntryMutationResult,
 } from "@/modules/te-test-equipment/types";
 import type {
+  CatalogDeleteResult,
+  CatalogMutationResult,
   LabOrderRequestLineInput,
+  Part,
   PartInput,
   SimpleComponentInput,
+  SimpleComponentValue,
   StockCountInput,
   StockMoveInput,
+  StockPlacement,
   StockPlacementInput,
+  StorageArea,
   StorageAreaInput,
+  StorageContainer,
   StorageContainerInput,
 } from "@/modules/te-lab-components/types";
 import type {
   ImplementedInventoryModuleId,
-  InventoryDeleteMutationResultFor,
   InventoryDesktopBridge,
-  InventoryEntryEditContextFor,
-  InventoryEntryInputFor,
-  InventoryEntryMutationResultFor,
-  InventoryQueryInputFor,
-  InventoryQueryResultFor,
   InventorySharedChangedPayload,
   InventorySyncResult,
 } from "@/integrations/tauri/desktop-bridge";
 import type { UpdateState } from "@/platform/updates/updateState";
+
+// Every payload type is generated from the Rust type the command returns (see
+// integrations/tauri/generated/), and the backend ships in the same build, so responses are
+// used as typed rather than re-validated here.
 
 const updateStateListeners = new Set<(state: UpdateState) => void>();
 let pendingUpdate: Update | null = null;
@@ -64,83 +50,67 @@ if (typeof window !== "undefined" && isTauri()) {
   const bridge: InventoryDesktopBridge = {
     isDesktop: true,
     activateInventorySync: (moduleId: ImplementedInventoryModuleId) =>
-      invoke("activate_inventory_sync", { moduleId }).then((value) =>
-        parseNonemptyString(value, "inventory sync session token"),
-      ),
-    loadInventory,
-    queryInventory,
-    syncInventory,
+      invoke<string>("activate_inventory_sync", { moduleId }),
+    loadInventory: <M extends ImplementedInventoryModuleId>(moduleId: M) =>
+      invoke<InventorySyncResult<M>>("load_inventory", { moduleId }),
+    syncInventory: <M extends ImplementedInventoryModuleId>(moduleId: M, sessionId: string) =>
+      invoke<InventorySyncResult<M> | null>("sync_inventory", { moduleId, sessionId }),
     deactivateInventorySync: (moduleId: ImplementedInventoryModuleId, sessionId: string) =>
-      invoke("deactivate_inventory_sync", { moduleId, sessionId }).then((value) =>
-        parseBoolean(value, "deactivate_inventory_sync result"),
-      ),
-    toggleVerifiedEntry,
-    createEntry,
-    updateEntry,
-    setArchivedEntry,
-    deleteEntry,
-    createLabPart: (input: PartInput) =>
-      invoke("create_lab_part", { input }).then(parseLabPartMutationResult),
+      invoke<boolean>("deactivate_inventory_sync", { moduleId, sessionId }),
+    toggleVerifiedEntry: (moduleId, entryId: string, nextVerified: boolean) =>
+      invoke<InventoryEntryMutationResult>("toggle_verified_entry", { entryId, moduleId, nextVerified }),
+    createEntry: (moduleId, input: InventoryEntryInput) =>
+      invoke<InventoryEntryMutationResult>("create_entry", { input, moduleId }),
+    updateEntry: (moduleId, entryId: string, input: InventoryEntryInput, editContext?: InventoryEntryEditContext) =>
+      invoke<InventoryEntryMutationResult>("update_entry", { editContext, entryId, input, moduleId }),
+    setArchivedEntry: (moduleId, entryId: string, archived: boolean) =>
+      invoke<InventoryEntryMutationResult>("set_archived_entry", { archived, entryId, moduleId }),
+    deleteEntry: (moduleId, entryId: string) =>
+      invoke<InventoryDeleteMutationResult>("delete_entry", { entryId, moduleId }),
+    createLabPart: (input: PartInput) => invoke<CatalogMutationResult<Part>>("create_lab_part", { input }),
     updateLabPart: (partId: string, input: PartInput) =>
-      invoke("update_lab_part", { input, partId }).then(parseLabPartMutationResult),
+      invoke<CatalogMutationResult<Part>>("update_lab_part", { input, partId }),
     createLabSimpleComponent: (input: SimpleComponentInput) =>
-      invoke("create_lab_simple_component", { input }).then(parseLabSimpleComponentMutationResult),
+      invoke<CatalogMutationResult<SimpleComponentValue>>("create_lab_simple_component", { input }),
     updateLabSimpleComponent: (partId: string, input: SimpleComponentInput) =>
-      invoke("update_lab_simple_component", { input, partId }).then(
-        parseLabSimpleComponentMutationResult,
-      ),
-    deleteLabPart: (partId: string) =>
-      invoke("delete_lab_part", { partId }).then(parseLabCatalogDeleteResult),
+      invoke<CatalogMutationResult<SimpleComponentValue>>("update_lab_simple_component", { input, partId }),
+    deleteLabPart: (partId: string) => invoke<CatalogDeleteResult>("delete_lab_part", { partId }),
     createLabStorageArea: (input: StorageAreaInput) =>
-      invoke("create_lab_storage_area", { input }).then(parseLabStorageAreaMutationResult),
+      invoke<CatalogMutationResult<StorageArea>>("create_lab_storage_area", { input }),
     updateLabStorageArea: (areaUuid: string, input: StorageAreaInput) =>
-      invoke("update_lab_storage_area", { areaUuid, input }).then(parseLabStorageAreaMutationResult),
-    deleteLabStorageArea: (areaUuid: string) =>
-      invoke("delete_lab_storage_area", { areaUuid }).then(parseLabCatalogDeleteResult),
+      invoke<CatalogMutationResult<StorageArea>>("update_lab_storage_area", { areaUuid, input }),
+    deleteLabStorageArea: (areaUuid: string) => invoke<CatalogDeleteResult>("delete_lab_storage_area", { areaUuid }),
     createLabStorageContainer: (input: StorageContainerInput) =>
-      invoke("create_lab_storage_container", { input }).then(parseLabStorageContainerMutationResult),
+      invoke<CatalogMutationResult<StorageContainer>>("create_lab_storage_container", { input }),
     updateLabStorageContainer: (containerUuid: string, input: StorageContainerInput) =>
-      invoke("update_lab_storage_container", { containerUuid, input }).then(
-        parseLabStorageContainerMutationResult,
-      ),
+      invoke<CatalogMutationResult<StorageContainer>>("update_lab_storage_container", { containerUuid, input }),
     deleteLabStorageContainer: (containerUuid: string) =>
-      invoke("delete_lab_storage_container", { containerUuid }).then(parseLabCatalogDeleteResult),
+      invoke<CatalogDeleteResult>("delete_lab_storage_container", { containerUuid }),
     createLabStockPlacement: (input: StockPlacementInput) =>
-      invoke("create_lab_stock_placement", { input }).then(parseLabStockPlacementMutationResult),
+      invoke<CatalogMutationResult<StockPlacement>>("create_lab_stock_placement", { input }),
     updateLabStockPlacement: (placementUuid: string, input: StockPlacementInput) =>
-      invoke("update_lab_stock_placement", { input, placementUuid }).then(
-        parseLabStockPlacementMutationResult,
-      ),
+      invoke<CatalogMutationResult<StockPlacement>>("update_lab_stock_placement", { input, placementUuid }),
     deleteLabStockPlacement: (placementUuid: string) =>
-      invoke("delete_lab_stock_placement", { placementUuid }).then(parseLabCatalogDeleteResult),
+      invoke<CatalogDeleteResult>("delete_lab_stock_placement", { placementUuid }),
     moveLabStock: (input: StockMoveInput) =>
-      invoke("move_lab_stock", { input }).then(parseLabStockMoveMutationResult),
+      invoke<CatalogMutationResult<StockPlacement[]>>("move_lab_stock", { input }),
     countLabStock: (placementUuid: string, input: StockCountInput) =>
-      invoke("count_lab_stock", { input, placementUuid }).then(parseLabStockPlacementMutationResult),
-    openExternal: async (url: string) =>
-      invoke("open_external", { url }).then((value) => parseBoolean(value, "open_external result")),
-    openPath: async (path: string) =>
-      invoke("open_path", { path }).then((value) => parseBoolean(value, "open_path result")),
+      invoke<CatalogMutationResult<StockPlacement>>("count_lab_stock", { input, placementUuid }),
+    openExternal: (url: string) => invoke<boolean>("open_external", { url }),
+    openPath: (path: string) => invoke<boolean>("open_path", { path }),
     loadPicturePreview: async (path: string) => {
-      const previewPath = await invoke("load_picture_preview", { path }).then((value) =>
-        parseNullableString(value, "picture preview path"),
-      );
+      const previewPath = await invoke<string | null>("load_picture_preview", { path });
       return previewPath ? convertFileSrc(previewPath) : null;
     },
-    pickPicturePath: () =>
-      invoke("pick_picture_path").then((value) => parseNullableString(value, "picked picture path")),
-    pickCalibrationRosterFile: (moduleId: "te-test-equipment") =>
-      invoke("pick_calibration_roster_file", { moduleId }).then((value) =>
-        parseNullableString(value, "picked calibration roster path"),
-      ),
-    previewCalibrationRoster: (moduleId: "te-test-equipment", path: string) =>
-      invoke("preview_calibration_roster", { moduleId, path }).then(parseCalibrationRosterPreviewReport),
-    commitCalibrationRoster: (moduleId: "te-test-equipment", input: CalibrationRosterCommitInput) =>
-      invoke("commit_calibration_roster", { input, moduleId }).then(parseCalibrationRosterCommitResult),
-    exportExcel: (moduleId: ImplementedInventoryModuleId) =>
-      invoke("export_excel", { moduleId }).then(parseExcelExportResult),
+    pickPicturePath: () => invoke<string | null>("pick_picture_path"),
+    pickCalibrationRosterFile: (moduleId) => invoke<string | null>("pick_calibration_roster_file", { moduleId }),
+    previewCalibrationRoster: (moduleId, path: string) =>
+      invoke<CalibrationRosterPreviewReport>("preview_calibration_roster", { moduleId, path }),
+    commitCalibrationRoster: (moduleId, input: CalibrationRosterCommitInput) =>
+      invoke<CalibrationRosterCommitResult>("commit_calibration_roster", { input, moduleId }),
+    exportExcel: (moduleId: ImplementedInventoryModuleId) => invoke<ExcelExportResult>("export_excel", { moduleId }),
     exportLabOrderRequest: (lines: LabOrderRequestLineInput[]) =>
-      invoke("export_lab_order_request", { lines }).then(parseExcelExportResult),
+      invoke<ExcelExportResult>("export_lab_order_request", { lines }),
     checkForUpdate,
     downloadUpdate,
     installUpdate,
@@ -148,114 +118,6 @@ if (typeof window !== "undefined" && isTauri()) {
     onUpdateStateChanged: listenToUpdateStateChanged,
   };
   window.inventoryDesktop = bridge;
-}
-
-function loadInventory<M extends ImplementedInventoryModuleId>(moduleId: M): Promise<InventorySyncResult<M>> {
-  return invoke("load_inventory", { moduleId }).then((value) => parseSyncResultForModule(moduleId, value));
-}
-
-function queryInventory<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  input: InventoryQueryInputFor<M>,
-): Promise<InventoryQueryResultFor<M>> {
-  return invoke("query_inventory", { input, moduleId }).then((value) => parseQueryResultForModule(moduleId, value));
-}
-
-function syncInventory<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  sessionId: string,
-): Promise<InventorySyncResult<M> | null> {
-  return invoke("sync_inventory", { moduleId, sessionId }).then((value) => {
-    if (value === null || value === undefined) {
-      return null;
-    }
-    return parseSyncResultForModule(moduleId, value);
-  });
-}
-
-function toggleVerifiedEntry<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  entryId: string,
-  nextVerified: boolean,
-): Promise<InventoryEntryMutationResultFor<M>> {
-  return invoke("toggle_verified_entry", { entryId, moduleId, nextVerified }).then((value) =>
-    parseEntryMutationResultForModule(moduleId, value),
-  );
-}
-
-function createEntry<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  input: InventoryEntryInputFor<M>,
-): Promise<InventoryEntryMutationResultFor<M>> {
-  return invoke("create_entry", { input, moduleId }).then((value) =>
-    parseEntryMutationResultForModule(moduleId, value),
-  );
-}
-
-function updateEntry<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  entryId: string,
-  input: InventoryEntryInputFor<M>,
-  editContext?: InventoryEntryEditContextFor<M>,
-): Promise<InventoryEntryMutationResultFor<M>> {
-  return invoke("update_entry", { editContext, entryId, input, moduleId }).then((value) =>
-    parseEntryMutationResultForModule(moduleId, value),
-  );
-}
-
-function setArchivedEntry<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  entryId: string,
-  archived: boolean,
-): Promise<InventoryEntryMutationResultFor<M>> {
-  return invoke("set_archived_entry", { archived, entryId, moduleId }).then((value) =>
-    parseEntryMutationResultForModule(moduleId, value),
-  );
-}
-
-function deleteEntry<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  entryId: string,
-): Promise<InventoryDeleteMutationResultFor<M>> {
-  return invoke("delete_entry", { entryId, moduleId }).then((value) =>
-    parseDeleteMutationResultForModule(moduleId, value),
-  );
-}
-
-function parseSyncResultForModule<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  value: unknown,
-): InventorySyncResult<M> {
-  return (moduleId === "te-test-equipment"
-    ? parseInventorySyncResult(value)
-    : parseLabInventorySyncResult(value)) as InventorySyncResult<M>;
-}
-
-function parseQueryResultForModule<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  value: unknown,
-): InventoryQueryResultFor<M> {
-  return (moduleId === "te-test-equipment"
-    ? parseInventoryQueryResult(value)
-    : parseLabInventoryQueryResult(value)) as InventoryQueryResultFor<M>;
-}
-
-function parseEntryMutationResultForModule<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  value: unknown,
-): InventoryEntryMutationResultFor<M> {
-  return (moduleId === "te-test-equipment"
-    ? parseEntryMutationResult(value)
-    : parseLabEntryMutationResult(value)) as InventoryEntryMutationResultFor<M>;
-}
-
-function parseDeleteMutationResultForModule<M extends ImplementedInventoryModuleId>(
-  moduleId: M,
-  value: unknown,
-): InventoryDeleteMutationResultFor<M> {
-  return (moduleId === "te-test-equipment"
-    ? parseDeleteMutationResult(value)
-    : parseLabDeleteMutationResult(value)) as InventoryDeleteMutationResultFor<M>;
 }
 
 async function checkForUpdate(): Promise<UpdateState> {
@@ -373,11 +235,8 @@ function listenToSharedInventoryChanged(
   let disposed = false;
   let unlisten: UnlistenFn | null = null;
 
-  void listen<unknown>("inventory:shared-changed", (event) => {
-    const payload = parseSharedChangedPayload(event.payload);
-    if (payload) {
-      callback(payload);
-    }
+  void listen<InventorySharedChangedPayload>("inventory:shared-changed", (event) => {
+    callback(event.payload);
   })
     .then((nextUnlisten) => {
       if (disposed) {
@@ -396,21 +255,12 @@ function listenToSharedInventoryChanged(
   };
 }
 
-function parseSharedChangedPayload(value: unknown): InventorySharedChangedPayload | null {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null;
-  }
-  const systemId = Reflect.get(value, "systemId");
-  return systemId === "te-test-equipment" || systemId === "te-lab-components" ? { systemId } : null;
-}
-
 function publishUpdateState(state: UpdateState): UpdateState {
-  const normalizedState = parseUpdateState(state);
-  pendingUpdateState = normalizedState;
+  pendingUpdateState = state;
   for (const listener of updateStateListeners) {
-    listener(normalizedState);
+    listener(state);
   }
-  return normalizedState;
+  return state;
 }
 
 function updateStateFromUpdate(

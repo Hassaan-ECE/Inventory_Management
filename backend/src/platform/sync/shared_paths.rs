@@ -5,7 +5,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::platform::{common::InventorySharedStatus, default_shared_root, store::ModuleStore};
+use crate::platform::{
+    common::InventorySharedStatus, default_shared_root, store::ModuleStore, ModuleId,
+};
 
 use super::{
     queue::count_pending_local_operations, warning::sync_warning, SharedSyncPaths, SyncCoreResult,
@@ -59,12 +61,21 @@ pub(crate) fn resolved_shared_sync_paths<R: SyncRecord>() -> SharedSyncPaths {
 pub(crate) fn resolve_shared_root_from_env_value<R: SyncRecord>(
     value: Option<OsString>,
 ) -> PathBuf {
+    shared_root_from_env_value(value, R::MODULE)
+}
+
+/// A module's shared root: its `env_var` override when set, otherwise its default root.
+pub(crate) fn module_shared_root_from_env(env_var: &str, module: ModuleId) -> PathBuf {
+    shared_root_from_env_value(env::var_os(env_var), module)
+}
+
+fn shared_root_from_env_value(value: Option<OsString>, module: ModuleId) -> PathBuf {
     value
         .and_then(|value| {
             let path = value.to_string_lossy().trim().to_string();
             (!path.is_empty()).then_some(PathBuf::from(path))
         })
-        .unwrap_or_else(|| default_shared_root(R::MODULE))
+        .unwrap_or_else(|| default_shared_root(module))
 }
 
 pub(crate) fn ensure_operation_log_layout(paths: &SharedSyncPaths) -> SyncCoreResult<()> {
@@ -86,7 +97,14 @@ pub(crate) fn shared_inventory_status<R: SyncRecord>(
     let available = paths.shared_root.exists();
     let pending_count =
         count_pending_local_operations(db, available.then_some(&paths)).unwrap_or(0);
-    build_shared_status(db, &paths, available, pending_count, 0, message.into())
+    build_shared_status(
+        db,
+        &paths.shared_root,
+        available,
+        pending_count,
+        0,
+        message.into(),
+    )
 }
 
 pub(crate) fn startup_inventory_status<R: SyncRecord>(
@@ -121,7 +139,7 @@ pub(crate) fn queued_local_status<R: SyncRecord>(db: &ModuleStore<R>) -> Invento
         count_pending_local_operations(db, available.then_some(&paths)).unwrap_or(1);
     build_shared_status(
         db,
-        &paths,
+        &paths.shared_root,
         available,
         pending_count.max(1),
         0,
@@ -133,24 +151,35 @@ pub(crate) fn disabled_shared_status<R: SyncRecord>(
     db: Option<&ModuleStore<R>>,
     message: impl Into<String>,
 ) -> InventorySharedStatus {
+    let pending_count = db.map(|db| count_pending_local_operations(db, None).unwrap_or(0));
+    sync_disabled_status(db, pending_count, message)
+}
+
+/// Status while shared sync is switched off for this process. `pending_count` is the
+/// module's count of local changes not yet on the share, when there is a database to ask.
+pub(crate) fn sync_disabled_status<R>(
+    db: Option<&ModuleStore<R>>,
+    pending_count: Option<usize>,
+    message: impl Into<String>,
+) -> InventorySharedStatus {
     InventorySharedStatus {
         available: false,
         can_modify: true,
         enabled: false,
-        has_local_only_changes: db
-            .map(|db| count_pending_local_operations(db, None).unwrap_or(0) > 0),
+        has_local_only_changes: pending_count.map(|count| count > 0),
         message: message.into(),
         mutation_mode: "local".to_string(),
         revision: db.and_then(|db| db.sync_revision().ok().map(|revision| revision.to_string())),
         last_snapshot_id: db.and_then(|db| db.last_snapshot_id().ok().flatten()),
         shared_root_path: None,
-        warning: None,
+        warning: db.and_then(sync_warning),
     }
 }
 
-pub(super) fn build_shared_status<R: SyncRecord>(
+/// Footer status for a module's shared sync, used by the entry engine and the Lab catalog.
+pub(crate) fn build_shared_status<R>(
     db: &ModuleStore<R>,
-    paths: &SharedSyncPaths,
+    shared_root: &Path,
     available: bool,
     pending_count: usize,
     corrupt_count: usize,
@@ -178,7 +207,7 @@ pub(super) fn build_shared_status<R: SyncRecord>(
         },
         revision: db.sync_revision().ok().map(|revision| revision.to_string()),
         last_snapshot_id: db.last_snapshot_id().ok().flatten(),
-        shared_root_path: Some(paths.shared_root.to_string_lossy().into_owned()),
+        shared_root_path: Some(shared_root.to_string_lossy().into_owned()),
         warning: sync_warning(db),
     }
 }

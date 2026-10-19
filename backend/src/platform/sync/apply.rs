@@ -68,7 +68,7 @@ pub(crate) fn publish_pending_local_changes<R: SyncRecord>(
             entries_changed: false,
             shared: build_shared_status(
                 db,
-                &paths,
+                &paths.shared_root,
                 false,
                 pending_count,
                 0,
@@ -83,7 +83,7 @@ pub(crate) fn publish_pending_local_changes<R: SyncRecord>(
             entries_changed: false,
             shared: build_shared_status(
                 db,
-                &paths,
+                &paths.shared_root,
                 false,
                 pending_count,
                 0,
@@ -104,7 +104,7 @@ pub(crate) fn publish_pending_local_changes<R: SyncRecord>(
 
     Ok(SharedSyncRunResult {
         entries_changed: false,
-        shared: build_shared_status(db, &paths, true, pending_count, 0, message),
+        shared: build_shared_status(db, &paths.shared_root, true, pending_count, 0, message),
     })
 }
 
@@ -121,7 +121,7 @@ pub(crate) fn run_shared_sync_with_root<R: SyncRecord>(
             entries_changed: false,
             shared: build_shared_status(
                 db,
-                &paths,
+                &paths.shared_root,
                 false,
                 pending_count,
                 0,
@@ -137,7 +137,7 @@ pub(crate) fn run_shared_sync_with_root<R: SyncRecord>(
             entries_changed: false,
             shared: build_shared_status(
                 db,
-                &paths,
+                &paths.shared_root,
                 false,
                 pending_count,
                 0,
@@ -183,7 +183,14 @@ pub(crate) fn run_shared_sync_with_root<R: SyncRecord>(
 
     Ok(SharedSyncRunResult {
         entries_changed: snapshot_report.entries_changed || pull_report.entries_changed,
-        shared: build_shared_status(db, &paths, true, pending_count, corrupt_count, message),
+        shared: build_shared_status(
+            db,
+            &paths.shared_root,
+            true,
+            pending_count,
+            corrupt_count,
+            message,
+        ),
     })
 }
 

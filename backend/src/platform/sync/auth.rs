@@ -1,6 +1,4 @@
-use super::{
-    operation_file::sha256_digest_bytes, SyncCoreError, SyncCoreErrorKind, SyncCoreResult,
-};
+use super::{files::sha256_digest, SyncCoreError, SyncCoreErrorKind, SyncCoreResult};
 
 #[cfg(test)]
 use std::cell::RefCell;
@@ -109,7 +107,7 @@ fn configured_key_from_raw(raw_key: Option<&str>) -> SyncCoreResult<Option<Vec<u
 fn hmac_sha256(key: &[u8], domain: &str, canonical_bytes: &[u8]) -> [u8; 32] {
     let mut key_block = [0u8; SHA256_BLOCK_BYTES];
     if key.len() > SHA256_BLOCK_BYTES {
-        key_block[..32].copy_from_slice(&sha256_digest_bytes(key));
+        key_block[..32].copy_from_slice(&sha256_digest(key));
     } else {
         key_block[..key.len()].copy_from_slice(key);
     }
@@ -127,12 +125,12 @@ fn hmac_sha256(key: &[u8], domain: &str, canonical_bytes: &[u8]) -> [u8; 32] {
     inner.extend_from_slice(domain.as_bytes());
     inner.push(0);
     inner.extend_from_slice(canonical_bytes);
-    let inner_digest = sha256_digest_bytes(&inner);
+    let inner_digest = sha256_digest(&inner);
 
     let mut outer = Vec::with_capacity(SHA256_BLOCK_BYTES + inner_digest.len());
     outer.extend_from_slice(&opad);
     outer.extend_from_slice(&inner_digest);
-    sha256_digest_bytes(&outer)
+    sha256_digest(&outer)
 }
 
 fn hex(bytes: &[u8]) -> String {

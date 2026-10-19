@@ -9,7 +9,6 @@ import {
   CONNECTED_SHARED_STATUS,
   DISABLED_SHARED_STATUS,
   TEST_DB_PATH,
-  buildDesktopQueryResult,
   buildDesktopSyncResult,
   buildTestEntry,
   createDesktopBridge,
@@ -185,7 +184,6 @@ describe("InventoryShell loading and search", () => {
       buildTestEntry({ id: "802", description: "Digital caliper", manufacturer: "Mitutoyo" }),
     ];
     const loadInventory = vi.fn().mockResolvedValue(buildDesktopSyncResult(DISABLED_SHARED_STATUS, desktopEntries));
-    const queryInventory = vi.fn().mockResolvedValue(buildDesktopQueryResult(DISABLED_SHARED_STATUS));
     const syncInventory = vi.fn().mockResolvedValue({
       dbPath: TEST_DB_PATH,
       entries: [],
@@ -193,7 +191,7 @@ describe("InventoryShell loading and search", () => {
       shared: DISABLED_SHARED_STATUS,
     });
 
-    window.inventoryDesktop = createDesktopBridge({ loadInventory, queryInventory, syncInventory });
+    window.inventoryDesktop = createDesktopBridge({ loadInventory, syncInventory });
 
     render(<InventoryShell />);
 
@@ -204,7 +202,6 @@ describe("InventoryShell loading and search", () => {
     expect(screen.getByText("Mitutoyo")).toBeInTheDocument();
     expect(screen.queryByText("Bridgeport")).not.toBeInTheDocument();
     expect(loadInventory).toHaveBeenCalledTimes(1);
-    expect(queryInventory).not.toHaveBeenCalled();
     expect(syncInventory).not.toHaveBeenCalled();
   });
 });

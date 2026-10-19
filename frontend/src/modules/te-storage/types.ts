@@ -1,3 +1,11 @@
+import type { InventoryEntry } from "@/integrations/tauri/generated/te-storage/InventoryEntry";
+import type { InventoryEntryInput } from "@/integrations/tauri/generated/te-storage/InventoryEntryInput";
+import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
+
+/** EVCS Storage records and inputs, generated from the Rust types. */
+export type StorageEntry = InventoryEntry;
+export type StorageInput = InventoryEntryInput;
+
 export const STORAGE_COLUMNS = [
   { key: "pn", label: "PN #", width: 130 },
   { key: "pr", label: "PR #", width: 130 },
@@ -8,19 +16,9 @@ export const STORAGE_COLUMNS = [
   { key: "qty", label: "Qty", width: 80 },
   { key: "location", label: "Location", width: 150 },
   { key: "notes", label: "Notes", width: 240 },
-] as const;
+] as const satisfies readonly { key: keyof StorageInput; label: string; width: number }[];
 
 export type StorageColumn = typeof STORAGE_COLUMNS[number]["key"];
-export type StorageInput = Record<Exclude<StorageColumn, "qty">, string> & { qty: number | null };
-import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
-
-export interface StorageEntry extends StorageInput {
-  id: string;
-  entryUuid: string;
-  createdAt: string;
-  updatedAt: string;
-  archived: boolean;
-}
 export interface StorageSnapshot {
   entries: StorageEntry[];
   shared: InventorySharedStatus;

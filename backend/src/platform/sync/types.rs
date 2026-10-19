@@ -11,7 +11,6 @@ pub(super) const OP_FILE_SUFFIX: &str = ".op.json";
 pub(super) const OP_TEMP_MARKER: &str = ".op.json.tmp-";
 pub(super) const LOCAL_SEQ_WIDTH: usize = 12;
 pub(super) const MAX_LOCAL_SEQ: u64 = 999_999_999_999;
-pub(super) const CHECKSUM_PREFIX: &str = "sha256:";
 pub(super) const BOOTSTRAP_COMPLETE_KEY: &str = "meta:sync_bootstrap_complete";
 
 pub(crate) type SyncCoreResult<T> = Result<T, SyncCoreError>;

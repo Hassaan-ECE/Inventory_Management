@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
-    fs::{self, OpenOptions},
-    io::Write,
+    fs,
     path::{Path, PathBuf},
     process,
     time::SystemTime,
@@ -15,8 +14,9 @@ use crate::platform::common::{db_error, now_timestamp, CommandResult};
 use super::super::SyncRecord;
 use super::super::{
     auth,
-    operation_file::{parse_operation_file_name, sha256_hex},
-    SharedSyncPaths, CHECKSUM_PREFIX, OP_FILE_SUFFIX,
+    files::{sha256_hex, write_file_atomically, CHECKSUM_PREFIX},
+    operation_file::parse_operation_file_name,
+    SharedSyncPaths, OP_FILE_SUFFIX,
 };
 use super::types::{
     SharedInventoryManifest, SharedInventorySnapshot, SnapshotWatermark, SNAPSHOT_FILE_SUFFIX,
@@ -179,26 +179,7 @@ fn write_json_to_temp_then_rename<T: Serialize>(
     replace_existing: bool,
 ) -> CommandResult<()> {
     let bytes = serde_json::to_vec_pretty(value).map_err(db_error)?;
-    let write_result = (|| -> std::io::Result<()> {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(temp_path)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        drop(file);
-        if replace_existing && final_path.exists() {
-            fs::remove_file(final_path)?;
-        }
-        fs::rename(temp_path, final_path)?;
-        Ok(())
-    })();
-
-    if write_result.is_err() {
-        let _ = fs::remove_file(temp_path);
-    }
-
-    write_result.map_err(db_error)
+    write_file_atomically(temp_path, final_path, &bytes, replace_existing).map_err(db_error)
 }
 pub(super) fn compact_covered_operations(
     paths: &SharedSyncPaths,

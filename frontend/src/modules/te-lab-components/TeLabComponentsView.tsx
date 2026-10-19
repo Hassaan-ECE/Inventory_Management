@@ -1,28 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import type { InventoryDesktopBridge } from "@/integrations/tauri/desktop-bridge";
 import { CatalogHeader } from "@/modules/te-lab-components/catalog/CatalogHeader";
+import { CATALOG_COLUMNS } from "@/modules/te-lab-components/catalog/catalogColumns";
 import {
-  CATALOG_COLUMNS,
-  type CatalogColumnKey,
-} from "@/modules/te-lab-components/catalog/catalogColumns";
-import { CatalogSearchCard } from "@/modules/te-lab-components/catalog/CatalogSearchCard";
-import {
+  activeCatalogFilterCount,
+  catalogFilterOptions,
   EMPTY_CATALOG_FILTERS,
-  type CatalogFilters,
+  filterCatalogParts,
 } from "@/modules/te-lab-components/catalog/catalogFilters";
+import { useCatalogPreferences } from "@/modules/te-lab-components/catalog/catalogPreferences";
+import { CatalogSearchCard } from "@/modules/te-lab-components/catalog/CatalogSearchCard";
+import { cycleCatalogSortState, sortCatalogParts } from "@/modules/te-lab-components/catalog/catalogSorting";
+import { createCatalogLookups } from "@/modules/te-lab-components/catalog/catalogUtils";
 import {
-  cycleCatalogSortState,
-  sortCatalogParts,
-  type CatalogSortState,
-} from "@/modules/te-lab-components/catalog/catalogSorting";
-import {
-  createCatalogLookups,
-  partPlacements,
-  placementPosition,
-  searchablePartText,
-} from "@/modules/te-lab-components/catalog/catalogUtils";
-import { CATEGORY_TEMPLATES } from "@/modules/te-lab-components/catalog/categoryTemplates";
+  labLocationsAvailable,
+  requireLabCatalogBridge,
+  requireLabLocationBridge,
+} from "@/modules/te-lab-components/catalog/labCatalogBridge";
 import { LocationManagerDialog } from "@/modules/te-lab-components/catalog/LocationManagerDialog";
 import {
   OrderExportDialog,
@@ -58,63 +52,10 @@ import type {
 import type { DesktopModuleViewProps } from "@/platform/modules/types";
 import { Button } from "@/shared/components/ui/button";
 
-// v5: five-column simple workspace defaults (Component Type, Value, Quantity, Location).
-const COLUMN_VISIBILITY_KEY = "teLabComponents.catalog.v5.columnVisibility";
-const COLOR_ROWS_KEY = "teLabComponents.catalog.v1.colorRows";
-const FILTER_PREFERENCES_KEY = "teLabComponents.catalog.v2.filters";
-const SORT_PREFERENCES_KEY = "teLabComponents.catalog.v2.sort";
-const DEFAULT_SORT_STATE: CatalogSortState = { column: "subcategory", direction: "asc" };
-
 interface PlacementDialogState {
   partUuid: string;
   placementUuid?: string;
 }
-
-type LabCatalogBridgeMethod =
-  | "createLabPart"
-  | "updateLabPart"
-  | "createLabSimpleComponent"
-  | "updateLabSimpleComponent"
-  | "deleteLabPart"
-  | "createLabStockPlacement"
-  | "updateLabStockPlacement"
-  | "deleteLabStockPlacement"
-  | "moveLabStock"
-  | "countLabStock";
-
-type LabCatalogBridge = InventoryDesktopBridge & Required<Pick<InventoryDesktopBridge, LabCatalogBridgeMethod>>;
-
-type LabLocationBridgeMethod =
-  | "createLabStorageArea"
-  | "updateLabStorageArea"
-  | "deleteLabStorageArea"
-  | "createLabStorageContainer"
-  | "updateLabStorageContainer"
-  | "deleteLabStorageContainer";
-
-type LabLocationBridge = InventoryDesktopBridge & Required<Pick<InventoryDesktopBridge, LabLocationBridgeMethod>>;
-
-const LAB_LOCATION_BRIDGE_METHODS: LabLocationBridgeMethod[] = [
-  "createLabStorageArea",
-  "updateLabStorageArea",
-  "deleteLabStorageArea",
-  "createLabStorageContainer",
-  "updateLabStorageContainer",
-  "deleteLabStorageContainer",
-];
-
-const LAB_CATALOG_BRIDGE_METHODS: LabCatalogBridgeMethod[] = [
-  "createLabPart",
-  "updateLabPart",
-  "createLabSimpleComponent",
-  "updateLabSimpleComponent",
-  "deleteLabPart",
-  "createLabStockPlacement",
-  "updateLabStockPlacement",
-  "deleteLabStockPlacement",
-  "moveLabStock",
-  "countLabStock",
-];
 
 export function TeLabComponentsView({
   active,
@@ -128,11 +69,17 @@ export function TeLabComponentsView({
   const { catalog, dataSource, isLoading, lastError, refreshAfterMutation } = useLabCatalog({ active, announceStatus });
   const [scope, setScope] = useState<CatalogScope>("inventory");
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<CatalogFilters>(readFilterPreferences);
+  const {
+    colorRows,
+    columnVisibility,
+    filters,
+    setColorRows,
+    setColumnVisibility,
+    setFilters,
+    setSortState,
+    sortState,
+  } = useCatalogPreferences();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sortState, setSortState] = useState<CatalogSortState | null>(readSortPreferences);
-  const [columnVisibility, setColumnVisibility] = useState<Record<CatalogColumnKey, boolean>>(readColumnVisibility);
-  const [colorRows, setColorRows] = useState<boolean>(readColorRows);
   const [partDialogId, setPartDialogId] = useState<string | "new" | null>(null);
   const [placementDialog, setPlacementDialog] = useState<PlacementDialogState | null>(null);
   const [movePlacementUuid, setMovePlacementUuid] = useState<string | null>(null);
@@ -143,45 +90,14 @@ export function TeLabComponentsView({
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderDrafts, setOrderDrafts] = useState<Record<string, OrderDraftLine>>({});
   const lookups = useMemo(() => createCatalogLookups(catalog), [catalog]);
-  const filterOptions = useMemo(
-    () => ({
-      categories: uniqueOptions([
-        ...CATEGORY_TEMPLATES.map((template) => template.category),
-        ...catalog.parts.map((part) => part.category),
-      ]),
-      manufacturers: uniqueOptions(catalog.parts.map((part) => part.manufacturer)),
-      mountingTypes: uniqueOptions(catalog.parts.map((part) => part.mountingType)),
-      packageTypes: uniqueOptions(catalog.parts.map((part) => part.packageType)),
-      partStatuses: uniqueOptions(catalog.parts.map((part) => part.partStatus)),
-      subcategories: uniqueOptions(catalog.parts.map((part) => part.subcategory)),
-    }),
-    [catalog.parts],
-  );
+  const filterOptions = useMemo(() => catalogFilterOptions(catalog.parts), [catalog.parts]);
   const filteredContainerOptions = catalog.storageContainers.filter(
     (container) => !filters.areaUuid || container.areaUuid === filters.areaUuid,
   );
-  const activeFilterCount = [
-    filters.areaUuid,
-    filters.category,
-    filters.containerUuid,
-    filters.coordinate,
-    filters.displayValue,
-    filters.manufacturer,
-    filters.manufacturerPartNumber,
-    filters.mountingType,
-    filters.packageType,
-    filters.partStatus,
-    filters.stockStatus,
-    filters.subcategory,
-  ].filter(Boolean).length;
+  const activeFilterCount = activeCatalogFilterCount(filters);
   const hasCatalogFilters = Boolean(query || activeFilterCount > 0);
   const canModify = dataSource !== "desktop" || catalog.shared.canModify;
-  const desktopBridge = window.inventoryDesktop;
-  const locationsAvailable = Boolean(
-    dataSource === "desktop"
-      && desktopBridge?.isDesktop
-      && LAB_LOCATION_BRIDGE_METHODS.every((method) => typeof desktopBridge[method] === "function"),
-  );
+  const locationsAvailable = dataSource === "desktop" && labLocationsAvailable();
   const activePart = partDialogId && partDialogId !== "new" ? lookups.partsById.get(partDialogId) ?? null : null;
   const placementPart = placementDialog ? lookups.partsById.get(placementDialog.partUuid) ?? null : null;
   const editedPlacement = placementDialog?.placementUuid
@@ -212,93 +128,13 @@ export function TeLabComponentsView({
     }
   }
 
-  useEffect(() => {
-    localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
-
-  useEffect(() => {
-    localStorage.setItem(COLOR_ROWS_KEY, JSON.stringify(colorRows));
-  }, [colorRows]);
-
-  useEffect(() => {
-    localStorage.setItem(FILTER_PREFERENCES_KEY, JSON.stringify(filters));
-  }, [filters]);
-
-  useEffect(() => {
-    localStorage.setItem(SORT_PREFERENCES_KEY, JSON.stringify(sortState));
-  }, [sortState]);
-
-  const displayParts = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    const filtered = catalog.parts
-      .filter((part) => part.archived === (scope === "archive"))
-      .filter((part) => !filters.category || part.category === filters.category)
-      .filter((part) => !filters.subcategory || part.subcategory === filters.subcategory)
-      .filter((part) => !filters.manufacturer || part.manufacturer === filters.manufacturer)
-      .filter(
-        (part) =>
-          !filters.manufacturerPartNumber ||
-          part.manufacturerPartNumber
-            .toLocaleLowerCase()
-            .includes(filters.manufacturerPartNumber.trim().toLocaleLowerCase()),
-      )
-      .filter(
-        (part) =>
-          !filters.displayValue ||
-          part.displayValue.toLocaleLowerCase().includes(filters.displayValue.trim().toLocaleLowerCase()),
-      )
-      .filter((part) => !filters.mountingType || part.mountingType === filters.mountingType)
-      .filter((part) => !filters.packageType || part.packageType === filters.packageType)
-      .filter((part) => !filters.partStatus || part.partStatus === filters.partStatus)
-      .filter((part) => {
-        const summary = lookups.summariesByPartId.get(part.entryUuid);
-        return !filters.stockStatus || summary?.stockStatus === filters.stockStatus;
-      })
-      .filter((part) => {
-        if (!filters.areaUuid && !filters.containerUuid && !filters.coordinate) return true;
-        const normalizedCoordinate = filters.coordinate.trim().toLocaleLowerCase();
-        return partPlacements(catalog, part.entryUuid).some((placement) => {
-          const container = lookups.containersById.get(placement.containerUuid);
-          if (filters.areaUuid && container?.areaUuid !== filters.areaUuid) return false;
-          if (filters.containerUuid && placement.containerUuid !== filters.containerUuid) return false;
-          return (
-            !normalizedCoordinate ||
-            placementPosition(placement, container).toLocaleLowerCase().includes(normalizedCoordinate)
-          );
-        });
-      })
-      .filter(
-        (part) =>
-          !normalizedQuery ||
-          searchablePartText(part, partPlacements(catalog, part.entryUuid), lookups).includes(normalizedQuery),
-      );
-    return sortCatalogParts(filtered, sortState, lookups);
-  }, [catalog, filters, lookups, query, scope, sortState]);
-
-  function requireBridge(): LabCatalogBridge {
-    const bridge = window.inventoryDesktop;
-    if (
-      !bridge?.isDesktop ||
-      LAB_CATALOG_BRIDGE_METHODS.some((method) => typeof bridge[method] !== "function")
-    ) {
-      throw new Error("This desktop build does not expose the Lab catalog-v2 commands.");
-    }
-    return bridge as LabCatalogBridge;
-  }
-
-  function requireLocationBridge(): LabLocationBridge {
-    const bridge = window.inventoryDesktop;
-    if (
-      !bridge?.isDesktop
-      || LAB_LOCATION_BRIDGE_METHODS.some((method) => typeof bridge[method] !== "function")
-    ) {
-      throw new Error("This desktop build does not expose the Lab storage-location commands.");
-    }
-    return bridge as LabLocationBridge;
-  }
+  const displayParts = useMemo(
+    () => sortCatalogParts(filterCatalogParts(catalog, lookups, scope, filters, query), sortState, lookups),
+    [catalog, filters, lookups, query, scope, sortState],
+  );
 
   async function savePart(part: Part | null, input: PartInput): Promise<void> {
-    const bridge = requireBridge();
+    const bridge = requireLabCatalogBridge();
     const result = part
       ? await bridge.updateLabPart(part.entryUuid, input)
       : await bridge.createLabPart(input);
@@ -307,7 +143,7 @@ export function TeLabComponentsView({
   }
 
   async function saveSimplePart(part: Part | null, input: SimpleComponentInput): Promise<void> {
-    const bridge = requireBridge();
+    const bridge = requireLabCatalogBridge();
     const result = part
       ? await bridge.updateLabSimpleComponent(part.entryUuid, input)
       : await bridge.createLabSimpleComponent(input);
@@ -321,7 +157,7 @@ export function TeLabComponentsView({
     }
     const nextRows = (container.rowCount ?? 0) + (axis === "row" ? 1 : 0);
     const nextColumns = (container.columnCount ?? 0) + (axis === "column" ? 1 : 0);
-    const result = await requireLocationBridge().updateLabStorageContainer(container.containerUuid, {
+    const result = await requireLabLocationBridge().updateLabStorageContainer(container.containerUuid, {
       areaUuid: container.areaUuid,
       name: container.name,
       containerType: container.containerType,
@@ -341,7 +177,7 @@ export function TeLabComponentsView({
       throw new Error("Archive the part before deleting it permanently.");
     }
     try {
-      const result = await requireBridge().deleteLabPart(part.entryUuid);
+      const result = await requireLabCatalogBridge().deleteLabPart(part.entryUuid);
       await refreshAfterMutation(result.message);
       setPartDialogId(null);
     } catch (error) {
@@ -355,7 +191,7 @@ export function TeLabComponentsView({
     input: StockPlacementInput,
     mergeCandidate: StockPlacement | null,
   ): Promise<void> {
-    const bridge = requireBridge();
+    const bridge = requireLabCatalogBridge();
     if (editedPlacement) {
       const result = await bridge.updateLabStockPlacement(editedPlacement.placementUuid, input);
       await refreshAfterMutation(result.message);
@@ -376,18 +212,18 @@ export function TeLabComponentsView({
 
   async function deletePlacement(placement: StockPlacement): Promise<void> {
     if (!window.confirm("Delete this stock placement?")) return;
-    const result = await requireBridge().deleteLabStockPlacement(placement.placementUuid);
+    const result = await requireLabCatalogBridge().deleteLabStockPlacement(placement.placementUuid);
     await refreshAfterMutation(result.message);
   }
 
   async function moveStock(input: StockMoveInput): Promise<void> {
-    const result = await requireBridge().moveLabStock(input);
+    const result = await requireLabCatalogBridge().moveLabStock(input);
     await refreshAfterMutation(result.message);
     setMovePlacementUuid(null);
   }
 
   async function countStock(placement: StockPlacement, input: StockCountInput): Promise<void> {
-    const result = await requireBridge().countLabStock(placement.placementUuid, input);
+    const result = await requireLabCatalogBridge().countLabStock(placement.placementUuid, input);
     await refreshAfterMutation(result.message);
     setCountPlacementUuid(null);
   }
@@ -601,27 +437,27 @@ export function TeLabComponentsView({
           catalog={catalog}
           onClose={() => setLocationsOpen(false)}
           onCreateArea={async (input: StorageAreaInput) => {
-            const result = await requireLocationBridge().createLabStorageArea(input);
+            const result = await requireLabLocationBridge().createLabStorageArea(input);
             await refreshAfterMutation(result.message);
           }}
           onCreateContainer={async (input: StorageContainerInput) => {
-            const result = await requireLocationBridge().createLabStorageContainer(input);
+            const result = await requireLabLocationBridge().createLabStorageContainer(input);
             await refreshAfterMutation(result.message);
           }}
           onDeleteArea={async (area: StorageArea) => {
-            const result = await requireLocationBridge().deleteLabStorageArea(area.areaUuid);
+            const result = await requireLabLocationBridge().deleteLabStorageArea(area.areaUuid);
             await refreshAfterMutation(result.message);
           }}
           onDeleteContainer={async (container: StorageContainer) => {
-            const result = await requireLocationBridge().deleteLabStorageContainer(container.containerUuid);
+            const result = await requireLabLocationBridge().deleteLabStorageContainer(container.containerUuid);
             await refreshAfterMutation(result.message);
           }}
           onUpdateArea={async (area: StorageArea, input: StorageAreaInput) => {
-            const result = await requireLocationBridge().updateLabStorageArea(area.areaUuid, input);
+            const result = await requireLabLocationBridge().updateLabStorageArea(area.areaUuid, input);
             await refreshAfterMutation(result.message);
           }}
           onUpdateContainer={async (container: StorageContainer, input: StorageContainerInput) => {
-            const result = await requireLocationBridge().updateLabStorageContainer(container.containerUuid, input);
+            const result = await requireLabLocationBridge().updateLabStorageContainer(container.containerUuid, input);
             await refreshAfterMutation(result.message);
           }}
           readOnly={!canModify}
@@ -653,67 +489,6 @@ export function TeLabComponentsView({
   );
 }
 
-function readColumnVisibility(): Record<CatalogColumnKey, boolean> {
-  const defaults = Object.fromEntries(CATALOG_COLUMNS.map((column) => [column.key, column.defaultVisible])) as Record<CatalogColumnKey, boolean>;
-  try {
-    const saved = JSON.parse(localStorage.getItem(COLUMN_VISIBILITY_KEY) ?? "{}") as Partial<Record<CatalogColumnKey, boolean>>;
-    return { ...defaults, ...saved };
-  } catch {
-    return defaults;
-  }
-}
-
-function readColorRows(): boolean {
-  try {
-    return JSON.parse(localStorage.getItem(COLOR_ROWS_KEY) ?? "true") === true;
-  } catch {
-    return true;
-  }
-}
-
-function readFilterPreferences(): CatalogFilters {
-  try {
-    const saved = JSON.parse(localStorage.getItem(FILTER_PREFERENCES_KEY) ?? "{}") as Partial<CatalogFilters> & {
-      sortBy?: string;
-    };
-    const filterFields = { ...saved };
-    delete filterFields.sortBy;
-    return {
-      ...EMPTY_CATALOG_FILTERS,
-      ...filterFields,
-    };
-  } catch {
-    return { ...EMPTY_CATALOG_FILTERS };
-  }
-}
-
-function readSortPreferences(): CatalogSortState | null {
-  try {
-    const raw = localStorage.getItem(SORT_PREFERENCES_KEY);
-    if (!raw) {
-      // Migrate legacy sortBy preference once.
-      const legacy = JSON.parse(localStorage.getItem(FILTER_PREFERENCES_KEY) ?? "{}") as { sortBy?: string };
-      if (legacy.sortBy && CATALOG_COLUMNS.some((column) => column.key === legacy.sortBy && column.sortable)) {
-        return { column: legacy.sortBy as CatalogColumnKey, direction: "asc" };
-      }
-      return DEFAULT_SORT_STATE;
-    }
-    const saved = JSON.parse(raw) as CatalogSortState | null;
-    if (!saved) {
-      return null;
-    }
-    if (
-      !CATALOG_COLUMNS.some((column) => column.key === saved.column && column.sortable) ||
-      (saved.direction !== "asc" && saved.direction !== "desc")
-    ) {
-      return DEFAULT_SORT_STATE;
-    }
-    return saved;
-  } catch {
-    return DEFAULT_SORT_STATE;
-  }
-}
-
 function mergedPlacementInput(
   existing: StockPlacement,
   incoming: StockPlacementInput,
@@ -730,12 +505,6 @@ function mergedPlacementInput(
   };
 }
 
-function uniqueOptions(values: string[]): string[] {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((left, right) =>
-    left.localeCompare(right),
-  );
-}
-
 function containerOptionLabel(
   container: StorageContainer,
   lookups: ReturnType<typeof createCatalogLookups>,
@@ -743,5 +512,3 @@ function containerOptionLabel(
   const area = lookups.areasById.get(container.areaUuid);
   return `${area?.name ?? "Unknown area"} / ${container.name}`;
 }
-
-

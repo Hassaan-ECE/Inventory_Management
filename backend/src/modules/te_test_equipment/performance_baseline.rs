@@ -4,8 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::model::{FilterState, InventoryEntry, InventoryQueryInput, SortState};
-use super::query::{get_inventory_counts, query_entries};
+use super::model::InventoryEntry;
 use super::store::InventoryDb;
 use serde::Serialize;
 use uuid::Uuid;
@@ -51,8 +50,6 @@ fn inventory_backend_performance_baseline() {
 
 fn measure_dataset(dataset: &str, entries: usize, db: &InventoryDb) -> Vec<Metric> {
     let mut metrics = Vec::new();
-    let query_input = benchmark_query_input();
-    let loaded_entries = db.load_entries().unwrap();
 
     metrics.push(measure_operation(
         dataset,
@@ -62,30 +59,6 @@ fn measure_dataset(dataset: &str, entries: usize, db: &InventoryDb) -> Vec<Metri
         || {
             let result = db.load_entries().unwrap();
             black_box(result.len());
-        },
-    ));
-
-    metrics.push(measure_operation(
-        dataset,
-        entries,
-        "query_inventory_equivalent_load_count_filter_sort_page",
-        9,
-        || {
-            let all_entries = db.load_entries().unwrap();
-            let counts = get_inventory_counts(&all_entries);
-            let (page, total_filtered) = query_entries(&all_entries, query_input.clone());
-            black_box((counts.total, page.len(), total_filtered));
-        },
-    ));
-
-    metrics.push(measure_operation(
-        dataset,
-        entries,
-        "query_entries_in_memory_filter_sort_page",
-        25,
-        || {
-            let (page, total_filtered) = query_entries(&loaded_entries, query_input.clone());
-            black_box((page.len(), total_filtered));
         },
     ));
 
@@ -120,24 +93,6 @@ fn measure_operation(
         min_ms: duration_ms(samples[0]),
         operation: operation.to_string(),
         p95_ms: duration_ms(samples[p95_index.min(last_index)]),
-    }
-}
-
-fn benchmark_query_input() -> InventoryQueryInput {
-    InventoryQueryInput {
-        filters: FilterState {
-            manufacturer: "maker".to_string(),
-            location: "bay".to_string(),
-            ..FilterState::default()
-        },
-        limit: Some(250),
-        offset: Some(0),
-        query: "calibration".to_string(),
-        scope: "inventory".to_string(),
-        sort: SortState {
-            column: "manufacturer".to_string(),
-            direction: "asc".to_string(),
-        },
     }
 }
 

@@ -21,9 +21,8 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
+import { Alert, Field, SELECT_CLASS } from "@/modules/te-lab-components/catalog/formControls";
 
-const SELECT_CLASS =
-  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/18 dark:bg-input/30";
 
 interface LocationManagerDialogProps {
   catalog: CatalogSyncResult;
@@ -441,10 +440,4 @@ function fallbackPart(entryUuid: string) {
   return { id: entryUuid, entryUuid, manufacturerPartNumber: "Unknown part" } as ReturnType<typeof createCatalogLookups>["partsById"] extends Map<string, infer PartType> ? PartType : never;
 }
 
-function Field({ children, className = "", label }: { children: React.ReactNode; className?: string; label: string }) {
-  return <label className={`space-y-1.5 text-sm ${className}`}><span className="font-medium">{label}</span>{children}</label>;
-}
 
-function Alert({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-xl border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive-foreground" role="alert">{children}</div>;
-}

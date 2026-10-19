@@ -1,10 +1,12 @@
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
 pub(crate) use crate::platform::common::{now_timestamp, CommandResult, InventorySharedStatus};
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-storage/")]
 pub(crate) struct InventoryEntry {
     pub id: String,
     pub database_id: Option<i64>,
@@ -22,8 +24,9 @@ pub(crate) struct InventoryEntry {
     pub created_at: String,
     pub updated_at: String,
 }
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, export_to = "te-storage/")]
 pub(crate) struct InventoryEntryInput {
     pub pn: String,
     pub pr: String,
@@ -35,14 +38,16 @@ pub(crate) struct InventoryEntryInput {
     pub notes: String,
     pub qty: Option<f64>,
 }
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-storage/", optional_fields = nullable)]
 pub(crate) struct InventoryEntryEditContext {
     pub base_version: Option<String>,
     pub changed_fields: Vec<String>,
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-storage/", optional_fields = nullable)]
 pub(crate) struct InventorySyncResult {
     pub db_path: String,
     pub entries: Vec<InventoryEntry>,
@@ -50,8 +55,9 @@ pub(crate) struct InventorySyncResult {
     pub shared: InventorySharedStatus,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-storage/")]
 pub(crate) struct InventoryEntryMutationResult {
     pub entry: InventoryEntry,
     pub message: String,
@@ -59,8 +65,9 @@ pub(crate) struct InventoryEntryMutationResult {
     pub shared: InventorySharedStatus,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-storage/")]
 pub(crate) struct InventoryDeleteMutationResult {
     pub entry_id: String,
     pub message: String,

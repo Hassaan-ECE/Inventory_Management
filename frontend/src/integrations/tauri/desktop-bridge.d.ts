@@ -3,30 +3,19 @@ import type {
   CalibrationRosterCommitResult,
   CalibrationRosterPreviewReport,
   ExcelExportResult,
-  InventoryDeleteMutationResult as TeInventoryDeleteMutationResult,
-  InventoryEntry as TeInventoryEntry,
-  InventoryEntryEditContext as TeInventoryEntryEditContext,
-  InventoryEntryInput as TeInventoryEntryInput,
-  InventoryEntryMutationResult as TeInventoryEntryMutationResult,
-  InventoryQueryInput as TeInventoryQueryInput,
-  InventoryQueryResult as TeInventoryQueryResult,
-  InventorySharedStatus as TeInventorySharedStatus,
+  InventoryDeleteMutationResult,
+  InventoryEntryEditContext,
+  InventoryEntryInput,
+  InventoryEntryMutationResult,
+  InventorySyncResult as TeInventorySyncResult,
 } from "@/modules/te-test-equipment/types";
 import type {
-  CatalogDeleteResult as LabCatalogDeleteResult,
-  CatalogMutationResult as LabCatalogMutationResult,
-  CatalogSyncResult as LabCatalogSyncResult,
-  InventoryDeleteMutationResult as LabInventoryDeleteMutationResult,
-  InventoryEntry as LabInventoryEntry,
-  InventoryEntryEditContext as LabInventoryEntryEditContext,
-  InventoryEntryInput as LabInventoryEntryInput,
-  InventoryEntryMutationResult as LabInventoryEntryMutationResult,
-  InventoryQueryInput as LabInventoryQueryInput,
-  InventoryQueryResult as LabInventoryQueryResult,
-  InventorySharedStatus as LabInventorySharedStatus,
+  CatalogDeleteResult,
+  CatalogMutationResult,
+  CatalogSyncResult,
+  LabOrderRequestLineInput,
   Part,
   PartInput,
-  LabOrderRequestLineInput,
   SimpleComponentInput,
   SimpleComponentValue,
   StockCountInput,
@@ -41,52 +30,14 @@ import type {
 import type { ModuleId } from "@/platform/modules/types";
 import type { UpdateState } from "@/platform/updates/updateState";
 
+/** The inventories this bridge serves; EVCS Storage has its own bridge (`storageBridge.ts`). */
 export type ImplementedInventoryModuleId = "te-test-equipment" | "te-lab-components";
 
-interface InventoryModuleContract {
-  "te-test-equipment": {
-    deleteMutationResult: TeInventoryDeleteMutationResult;
-    editContext: TeInventoryEntryEditContext;
-    entry: TeInventoryEntry;
-    entryInput: TeInventoryEntryInput;
-    entryMutationResult: TeInventoryEntryMutationResult;
-    queryInput: TeInventoryQueryInput;
-    queryResult: TeInventoryQueryResult;
-    sharedStatus: TeInventorySharedStatus;
-  };
-  "te-lab-components": {
-    deleteMutationResult: LabInventoryDeleteMutationResult;
-    editContext: LabInventoryEntryEditContext;
-    entry: LabInventoryEntry;
-    entryInput: LabInventoryEntryInput;
-    entryMutationResult: LabInventoryEntryMutationResult;
-    queryInput: LabInventoryQueryInput;
-    queryResult: LabInventoryQueryResult;
-    sharedStatus: LabInventorySharedStatus;
-  };
-}
-
-type InventoryEntryFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["entry"];
-export type InventoryEntryInputFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["entryInput"];
-export type InventoryEntryEditContextFor<M extends ImplementedInventoryModuleId> =
-  InventoryModuleContract[M]["editContext"];
-export type InventoryEntryMutationResultFor<M extends ImplementedInventoryModuleId> =
-  InventoryModuleContract[M]["entryMutationResult"];
-export type InventoryDeleteMutationResultFor<M extends ImplementedInventoryModuleId> =
-  InventoryModuleContract[M]["deleteMutationResult"];
-export type InventoryQueryInputFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["queryInput"];
-export type InventoryQueryResultFor<M extends ImplementedInventoryModuleId> = InventoryModuleContract[M]["queryResult"];
-
-interface TeInventorySyncResult {
-  dbPath: string;
-  entries: TeInventoryEntry[];
-  entriesChanged?: boolean;
-  shared: TeInventorySharedStatus;
-}
+type TeModuleId = "te-test-equipment";
 
 export type InventorySyncResult<
-  M extends ImplementedInventoryModuleId = "te-test-equipment",
-> = M extends "te-test-equipment" ? TeInventorySyncResult : LabCatalogSyncResult;
+  M extends ImplementedInventoryModuleId = TeModuleId,
+> = M extends TeModuleId ? TeInventorySyncResult : CatalogSyncResult;
 
 export interface InventorySharedChangedPayload {
   systemId: ModuleId;
@@ -96,87 +47,62 @@ export interface InventoryDesktopBridge {
   isDesktop: boolean;
   activateInventorySync: (moduleId: ImplementedInventoryModuleId) => Promise<string>;
   loadInventory: <M extends ImplementedInventoryModuleId>(moduleId: M) => Promise<InventorySyncResult<M>>;
-  queryInventory?: <M extends ImplementedInventoryModuleId>(
-    moduleId: M,
-    input: InventoryQueryInputFor<M>,
-  ) => Promise<InventoryQueryResultFor<M>>;
   syncInventory: <M extends ImplementedInventoryModuleId>(
     moduleId: M,
     sessionId: string,
   ) => Promise<InventorySyncResult<M> | null>;
   deactivateInventorySync: (moduleId: ImplementedInventoryModuleId, sessionId: string) => Promise<boolean>;
-  toggleVerifiedEntry: <M extends ImplementedInventoryModuleId>(
-    moduleId: M,
+  toggleVerifiedEntry: (
+    moduleId: TeModuleId,
     entryId: string,
     nextVerified: boolean,
-  ) => Promise<InventoryEntryMutationResultFor<M>>;
-  createEntry: <M extends ImplementedInventoryModuleId>(
-    moduleId: M,
-    input: InventoryEntryInputFor<M>,
-  ) => Promise<InventoryEntryMutationResultFor<M>>;
-  updateEntry: <M extends ImplementedInventoryModuleId>(
-    moduleId: M,
+  ) => Promise<InventoryEntryMutationResult>;
+  createEntry: (moduleId: TeModuleId, input: InventoryEntryInput) => Promise<InventoryEntryMutationResult>;
+  updateEntry: (
+    moduleId: TeModuleId,
     entryId: string,
-    input: InventoryEntryInputFor<M>,
-    editContext?: InventoryEntryEditContextFor<M>,
-  ) => Promise<InventoryEntryMutationResultFor<M>>;
-  setArchivedEntry: <M extends ImplementedInventoryModuleId>(
-    moduleId: M,
+    input: InventoryEntryInput,
+    editContext?: InventoryEntryEditContext,
+  ) => Promise<InventoryEntryMutationResult>;
+  setArchivedEntry: (
+    moduleId: TeModuleId,
     entryId: string,
     archived: boolean,
-  ) => Promise<InventoryEntryMutationResultFor<M>>;
-  deleteEntry: <M extends ImplementedInventoryModuleId>(
-    moduleId: M,
-    entryId: string,
-  ) => Promise<InventoryDeleteMutationResultFor<M>>;
-  createLabPart?: (input: PartInput) => Promise<LabCatalogMutationResult<Part>>;
-  updateLabPart?: (partId: string, input: PartInput) => Promise<LabCatalogMutationResult<Part>>;
-  createLabSimpleComponent?: (
-    input: SimpleComponentInput,
-  ) => Promise<LabCatalogMutationResult<SimpleComponentValue>>;
+  ) => Promise<InventoryEntryMutationResult>;
+  deleteEntry: (moduleId: TeModuleId, entryId: string) => Promise<InventoryDeleteMutationResult>;
+  createLabPart?: (input: PartInput) => Promise<CatalogMutationResult<Part>>;
+  updateLabPart?: (partId: string, input: PartInput) => Promise<CatalogMutationResult<Part>>;
+  createLabSimpleComponent?: (input: SimpleComponentInput) => Promise<CatalogMutationResult<SimpleComponentValue>>;
   updateLabSimpleComponent?: (
     partId: string,
     input: SimpleComponentInput,
-  ) => Promise<LabCatalogMutationResult<SimpleComponentValue>>;
-  deleteLabPart?: (partId: string) => Promise<LabCatalogDeleteResult>;
-  createLabStorageArea?: (input: StorageAreaInput) => Promise<LabCatalogMutationResult<StorageArea>>;
-  updateLabStorageArea?: (
-    areaUuid: string,
-    input: StorageAreaInput,
-  ) => Promise<LabCatalogMutationResult<StorageArea>>;
-  deleteLabStorageArea?: (areaUuid: string) => Promise<LabCatalogDeleteResult>;
-  createLabStorageContainer?: (
-    input: StorageContainerInput,
-  ) => Promise<LabCatalogMutationResult<StorageContainer>>;
+  ) => Promise<CatalogMutationResult<SimpleComponentValue>>;
+  deleteLabPart?: (partId: string) => Promise<CatalogDeleteResult>;
+  createLabStorageArea?: (input: StorageAreaInput) => Promise<CatalogMutationResult<StorageArea>>;
+  updateLabStorageArea?: (areaUuid: string, input: StorageAreaInput) => Promise<CatalogMutationResult<StorageArea>>;
+  deleteLabStorageArea?: (areaUuid: string) => Promise<CatalogDeleteResult>;
+  createLabStorageContainer?: (input: StorageContainerInput) => Promise<CatalogMutationResult<StorageContainer>>;
   updateLabStorageContainer?: (
     containerUuid: string,
     input: StorageContainerInput,
-  ) => Promise<LabCatalogMutationResult<StorageContainer>>;
-  deleteLabStorageContainer?: (containerUuid: string) => Promise<LabCatalogDeleteResult>;
-  createLabStockPlacement?: (
-    input: StockPlacementInput,
-  ) => Promise<LabCatalogMutationResult<StockPlacement>>;
+  ) => Promise<CatalogMutationResult<StorageContainer>>;
+  deleteLabStorageContainer?: (containerUuid: string) => Promise<CatalogDeleteResult>;
+  createLabStockPlacement?: (input: StockPlacementInput) => Promise<CatalogMutationResult<StockPlacement>>;
   updateLabStockPlacement?: (
     placementUuid: string,
     input: StockPlacementInput,
-  ) => Promise<LabCatalogMutationResult<StockPlacement>>;
-  deleteLabStockPlacement?: (placementUuid: string) => Promise<LabCatalogDeleteResult>;
-  moveLabStock?: (input: StockMoveInput) => Promise<LabCatalogMutationResult<StockPlacement[]>>;
-  countLabStock?: (
-    placementUuid: string,
-    input: StockCountInput,
-  ) => Promise<LabCatalogMutationResult<StockPlacement>>;
+  ) => Promise<CatalogMutationResult<StockPlacement>>;
+  deleteLabStockPlacement?: (placementUuid: string) => Promise<CatalogDeleteResult>;
+  moveLabStock?: (input: StockMoveInput) => Promise<CatalogMutationResult<StockPlacement[]>>;
+  countLabStock?: (placementUuid: string, input: StockCountInput) => Promise<CatalogMutationResult<StockPlacement>>;
   openExternal?: (url: string) => Promise<boolean>;
   openPath?: (path: string) => Promise<boolean>;
   loadPicturePreview?: (path: string) => Promise<string | null>;
   pickPicturePath?: () => Promise<string | null>;
-  pickCalibrationRosterFile?: (moduleId: "te-test-equipment") => Promise<string | null>;
-  previewCalibrationRoster?: (
-    moduleId: "te-test-equipment",
-    path: string,
-  ) => Promise<CalibrationRosterPreviewReport>;
+  pickCalibrationRosterFile?: (moduleId: TeModuleId) => Promise<string | null>;
+  previewCalibrationRoster?: (moduleId: TeModuleId, path: string) => Promise<CalibrationRosterPreviewReport>;
   commitCalibrationRoster?: (
-    moduleId: "te-test-equipment",
+    moduleId: TeModuleId,
     input: CalibrationRosterCommitInput,
   ) => Promise<CalibrationRosterCommitResult>;
   exportExcel?: (moduleId: ImplementedInventoryModuleId) => Promise<ExcelExportResult>;

@@ -6,12 +6,10 @@ use crate::platform::{
 };
 
 use super::{
-    operation_file::{operation_file_path, sha256_hex},
-    timestamps::compare_timestamp_text,
-    types::SyncFieldVersion,
-    CorruptRemoteFile, CorruptRemoteReason, SharedSyncPaths, SyncConflictReason,
-    SyncConflictRecord, SyncEntryState, SyncOperationEnvelope, SyncOperationType, SyncRecord,
-    SyncTombstoneRecord,
+    files::sha256_hex, operation_file::operation_file_path, timestamps::compare_timestamp_text,
+    types::SyncFieldVersion, CorruptRemoteFile, CorruptRemoteReason, SharedSyncPaths,
+    SyncConflictReason, SyncConflictRecord, SyncEntryState, SyncOperationEnvelope,
+    SyncOperationType, SyncRecord, SyncTombstoneRecord,
 };
 
 pub(crate) fn record_corrupt_remote_file<R: SyncRecord>(

@@ -1,17 +1,17 @@
 # Project Folder Breakdown
 
-Last updated: 2026-10-16 (backend regenerated after the 0.2 Phase 4 restructure on `feature/0.2-cleanup`; the frontend sections are refreshed after the Phase 5 file splits)
+Last updated: 2026-10-19 (0.2.0: dev share fixtures, generated bridge types, Lab catalog sync and command splits, frontend view splits)
 
 This document maps the project files to their responsibilities. It covers tracked source, config, docs, scripts, and tests. Generated folders such as `node_modules/`, `backend/target/`, `backend/gen/`, `frontend/dist/`, and `.tmp/` are summarized instead of expanded. Code removed in 0.2 is listed in `REMOVED_AND_FUTURE.md`.
 
 ## How the pieces fit
 
 - One Tauri 2 desktop app, one Rust crate, one frontend package.
-- The frontend shell shows one module at a time. Every backend command takes a `module_id` (`te-test-equipment`, `te-lab-components`, `te-storage`) and `backend/src/api/commands.rs` dispatches to that module.
+- The frontend shell shows one module at a time. Every backend command takes a `module_id` (`te-test-equipment`, `te-lab-components`, `te-storage`) and `backend/src/api/commands/` dispatches to that module.
 - The backend mirrors the frontend: `platform/` is what every inventory shares, `modules/<inventory>/` is one inventory.
 - **One local database per PC** (`inventory-management.feox`, 256 MiB). Each module reads and writes its own namespace (`<module id>/<key>`) through `ModuleStore<R>`, so modules cannot see each other's records.
 - **One entry sync engine** (`platform/sync/`) for TE Test Equipment and EVCS Storage. Each plugs in through `SyncRecord`, which carries its constants, field copy, validation, and `MergeRule`. Each rule, and the entry-state fields it serializes, stays exactly as 0.1.4 shipped it, so mixed 0.1.4/0.2 teams converge.
-- Each module still has its own shared root on S:, sync stream, and sync gate. TE Lab Components syncs its catalog with its own engine in `catalog_sync.rs`, writing to `shared\catalog-v2\`.
+- Each module still has its own shared root on S:, sync stream, and sync gate. TE Lab Components syncs its catalog with its own engine in `catalog_sync/`, writing to `shared\catalog-v2\`; it shares the platform's file helpers and status building.
 
 ## Top-Level Files
 
@@ -31,6 +31,7 @@ This document maps the project files to their responsibilities. It covers tracke
 | Path | Handles |
 | --- | --- |
 | `backend/Cargo.toml` / `Cargo.lock` | Crate metadata, dependencies, version (keep in sync with `package.json` and `tauri.conf.json`). |
+| `backend/.cargo/config.toml` | Where `cargo test` writes the generated frontend types (`TS_RS_EXPORT_DIR`), and integers as `number`. |
 | `backend/build.rs` | Tauri build script hook. |
 | `backend/capabilities/default.json` | Tauri permissions for the main window (events, window geometry, title, updater). |
 | `backend/icons/icon.ico` | Application and installer icon. |
@@ -39,6 +40,15 @@ This document maps the project files to their responsibilities. It covers tracke
 | `backend/src/main.rs` | Native entry point; calls `inventory_management_lib::run()`. |
 | `backend/src/lib.rs` | App setup: resolve paths, open the local database, run per-module startup sync recovery (failures are logged, never block launch), register managed state and all Tauri commands, flush on exit. |
 | `backend/src/inventory_stores.rs` | Opens the one local database and each module's store (its namespace of that database); flushes the database on exit. |
+
+## Backend Developer Test Share (test-only)
+
+| Path | Handles |
+| --- | --- |
+| `backend/src/dev_share/mod.rs` | Builds the developer test share (`bun run dev:share`): three fake computers, the live-share refusal, `DEV-SHARE.md`, and the field-coverage check. |
+| `backend/src/dev_share/te_test_equipment.rs` | TE fixtures and timeline: every status and calibration state, limits, unicode, duplicates, verify/archive/delete, merged and disputed edits. |
+| `backend/src/dev_share/te_storage.rs` | EVCS Storage fixtures and timeline: filled/empty/hidden columns, quantities, limits, unicode, duplicates, delete, per-field merges. |
+| `backend/src/dev_share/te_lab_components.rs` | Lab fixtures and timeline: every area and container type, simple and full parts, every stock status and count state, move, count, edit, delete. |
 
 ## Backend Platform
 
@@ -82,9 +92,10 @@ This document maps the project files to their responsibilities. It covers tracke
 | `backend/src/platform/sync/scanning.rs` | Scanning operation files above the watermarks. |
 | `backend/src/platform/sync/operation_file/` | Operation file names, canonical JSON and checksums, validation, reading and writing. |
 | `backend/src/platform/sync/snapshot/` | Snapshot publish, apply, locking, I/O, compaction; `restore.rs` is the owner-run TE snapshot restore tool (ignored test). |
+| `backend/src/platform/sync/files.rs` | What every shared file shares, for both sync streams: canonical JSON, `sha256:` checksums, SHA-256, and write-to-temp-then-rename writes. |
 | `backend/src/platform/sync/auth.rs` | Optional HMAC signing and verification. |
 | `backend/src/platform/sync/identity.rs` | Client identity and local sequence helpers. |
-| `backend/src/platform/sync/shared_paths.rs` | Shared root resolution and provisioning, sync on/off, status building. |
+| `backend/src/platform/sync/shared_paths.rs` | Shared root resolution and provisioning, sync on/off, status building (also used by the Lab catalog). |
 | `backend/src/platform/sync/timestamps.rs` | Timestamp validation and ordering. |
 | `backend/src/platform/sync/warning.rs` | What the last sync found (`SyncFindings`) and the footer warning derived from it and database health. |
 
@@ -92,7 +103,10 @@ This document maps the project files to their responsibilities. It covers tracke
 
 | Path | Handles |
 | --- | --- |
-| `backend/src/api/commands.rs` | Tauri commands that take a `module_id` and route to the module; Lab catalog and calibration roster commands. |
+| `backend/src/api/commands/mod.rs` | Command helpers shared by every command file: `module_id` parsing, JSON input and output, background TE publish. |
+| `backend/src/api/commands/inventory.rs` | Commands routed by `module_id`: load, sync session (activate, sync, deactivate), and entry create/update/verify/archive/delete for TE and EVCS Storage. |
+| `backend/src/api/commands/lab_catalog.rs` | Lab catalog commands: parts, simple components, areas, containers, placements, moves, counts. |
+| `backend/src/api/commands/calibration_roster.rs` | TE calibration roster pick, preview, and commit. |
 | `backend/src/api/export.rs` | Excel export commands (save dialog, then the module's workbook writer) and workbook tests. |
 
 ## Backend Module: TE Test Equipment
@@ -100,7 +114,6 @@ This document maps the project files to their responsibilities. It covers tracke
 | Path | Handles |
 | --- | --- |
 | `backend/src/modules/te_test_equipment/model.rs` | Entry, input, query, status and result types; normalization and validation; calibration health. |
-| `backend/src/modules/te_test_equipment/query.rs` | Filtering, sorting, paging, counts. |
 | `backend/src/modules/te_test_equipment/entry_changes.rs` | Changed-field detection and field-level updates for edits. |
 | `backend/src/modules/te_test_equipment/mutations.rs` | Create, update, verify, archive, delete, each queued for sync. |
 | `backend/src/modules/te_test_equipment/store/` | The TE store type and calibration roster batch storage. |
@@ -118,7 +131,14 @@ This document maps the project files to their responsibilities. It covers tracke
 | `backend/src/modules/te_lab_components/catalog_mutations.rs` | Catalog create, update, delete, move, and count. |
 | `backend/src/modules/te_lab_components/simple_workflow.rs` | The simple one-dialog component workflow on top of the catalog. |
 | `backend/src/modules/te_lab_components/catalog_query.rs` | Loading the catalog with derived stock summaries and counts. |
-| `backend/src/modules/te_lab_components/catalog_sync.rs` | Catalog sync (`shared\catalog-v2\`), including setting up a brand-new shared root. |
+| `backend/src/modules/te_lab_components/catalog_sync/mod.rs` | Catalog sync (`shared\catalog-v2\`): the sync run, publish, and status entry points. Whole-entity newest-wins; the file format is what 0.1.x reads. |
+| `backend/src/modules/te_lab_components/catalog_sync/types.rs` | Operation, entity state, tombstone, snapshot, manifest, and cutover-marker shapes. |
+| `backend/src/modules/te_lab_components/catalog_sync/outbox.rs` | Queueing local changes, pushing them, counting what is still local, startup recovery. |
+| `backend/src/modules/te_lab_components/catalog_sync/operation_files.rs` | Reading, writing, validating, and scanning operation files. |
+| `backend/src/modules/te_lab_components/catalog_sync/apply.rs` | Pulling remote operations and applying the newest per entity, with conflict records. |
+| `backend/src/modules/te_lab_components/catalog_sync/snapshot.rs` | Publishing snapshots and bootstrapping an empty computer from one. |
+| `backend/src/modules/te_lab_components/catalog_sync/share.rs` | Setting up a new share (v1 blocker, cutover marker), recognising a ready one, canonical JSON writes. |
+| `backend/src/modules/te_lab_components/catalog_sync/tests.rs` | Two-database sync, dependency-safe deletes, conflicts, and the golden-bytes test that pins the shared file format. |
 | `backend/src/modules/te_lab_components/catalog_workbook.rs` | Catalog workbook export. |
 | `backend/src/modules/te_lab_components/order_workbook.rs` | Order-request workbook export. |
 | `backend/src/modules/te_lab_components/store/` | The Lab store type, catalog records and indexes, schema setup. |
@@ -162,10 +182,9 @@ This document maps the project files to their responsibilities. It covers tracke
 
 | Path | Handles |
 | --- | --- |
-| `frontend/src/integrations/tauri/tauriInventoryBridge.ts` | Installs `window.inventoryDesktop`: every `invoke` call, updater check/download/install, shared-change listeners. |
-| `frontend/src/integrations/tauri/desktop-bridge.d.ts` | Bridge type declarations per module. |
-| `frontend/src/integrations/tauri/bridgeGuards.ts` | Runtime validation of TE/import/roster payloads from the backend. |
-| `frontend/src/integrations/tauri/labBridgeGuards.ts` | Runtime validation of Lab catalog payloads. |
+| `frontend/src/integrations/tauri/tauriInventoryBridge.ts` | Installs `window.inventoryDesktop`: every typed `invoke` call for TE and Lab, updater check/download/install, shared-change listeners. |
+| `frontend/src/integrations/tauri/desktop-bridge.d.ts` | The bridge's method signatures, in terms of the generated payload types. |
+| `frontend/src/integrations/tauri/generated/` | **Generated, do not edit.** TypeScript for every payload the backend sends or receives (`platform/`, `te-test-equipment/`, `te-lab-components/`, `te-storage/`), written by `cargo test` from the Rust types that derive `ts_rs::TS` (`backend/.cargo/config.toml` sets the folder). Commit the regenerated files with the Rust change. |
 
 ## Frontend Module: TE Test Equipment
 
@@ -177,7 +196,7 @@ This document maps the project files to their responsibilities. It covers tracke
 | `frontend/src/modules/te-test-equipment/lib/` | Columns per workspace, counts, filtering, sorting, result labels, `calibrationHealth.ts` (30-day due-soon). |
 | `frontend/src/modules/te-test-equipment/components/` | Header, search card, filter panel, virtualized table (`table/`), entry dialog (`entry-dialog/`), context menu, status strip, export menu (`header/`), updater button. |
 | `frontend/src/modules/te-test-equipment/components/shell/` | Hooks: desktop load/sync lifecycle, mutations, export, external links, preferences, view model, status announcer, updates. |
-| `frontend/src/modules/te-test-equipment/components/calibration/` | Calibration membership dialog and roster preview/review/commit dialog. |
+| `frontend/src/modules/te-test-equipment/components/calibration/` | Calibration membership dialog; roster import dialog (`CalibrationRosterDialog`), its per-row review card (`RosterReviewRow`), and resolution rules (`rosterResolutions.ts`). |
 | `frontend/src/modules/te-test-equipment/data/mockInventory.ts` | Browser-only mock rows. |
 
 Export menu note: the **HTML** item only announces "HTML export is not implemented yet." Excel export works.
@@ -187,12 +206,11 @@ Export menu note: the **HTML** item only announces "HTML export is not implement
 | Path | Handles |
 | --- | --- |
 | `frontend/src/modules/te-lab-components/index.ts`, `moduleId.ts`, `types.ts` | Module definition/host, id, and shared Lab types. |
-| `frontend/src/modules/te-lab-components/TeLabComponentsView.tsx` | Module root: five-column simple workspace, dialogs, order selection, migration and cutover panels. |
+| `frontend/src/modules/te-lab-components/TeLabComponentsView.tsx` | Module root: five-column simple workspace, dialogs, and order selection. |
 | `frontend/src/modules/te-lab-components/catalog/useLabCatalog.ts` | Desktop load/sync lifecycle for the v2 catalog. |
-| `frontend/src/modules/te-lab-components/catalog/` | Header, search card, parts table, part dialog (simple + advanced), simple fields, grid bin picker, placement/move/count dialogs, location manager, order export, migration panel, shared cutover dialog, column/filter/sort/template helpers, mock catalog. |
+| `frontend/src/modules/te-lab-components/catalog/` | Header, search card, parts table, part dialog (`PartDialog`, its "More Details" `PartDetailsSections`, form helpers `partForm.ts`), simple fields, grid bin picker, placement/move/count dialogs, location manager, order export, shared form controls (`formControls.tsx`), filtering (`catalogFilters.ts`), remembered view settings (`catalogPreferences.ts`), bridge capability checks (`labCatalogBridge.ts`), column/sort/template helpers, mock catalog. |
 | `frontend/src/modules/te-lab-components/components/` | Status strip, export/update header pieces, and the status announcer and updater hooks are still used by the catalog view. |
 
-Not loaded by the app (about 3,250 lines): the old Lab v1 table UI under `components/` (`InventoryTable`, `InventoryHeader`, `SearchCard`, `FilterPanel`, `EntryDialog` and `entry-dialog/*`, `EntryContextMenu`, `EmptyResults`, `ViewSettingsMenu`, `header/ScopeToggle`, `table/*`, `shell/` files other than `helpers.ts`, `useDesktopUpdates.ts`, and `useStatusAnnouncer.ts`), plus `data/mockInventory.ts`. These are candidates for deletion.
 
 ## Frontend Module: EVCS Storage (`te-storage`)
 
@@ -203,7 +221,7 @@ Not loaded by the app (about 3,250 lines): the old Lab v1 table UI under `compon
 | `frontend/src/modules/te-storage/StorageEntryDialog.tsx` | Add/edit with unsaved-changes guard and confirmed delete. |
 | `frontend/src/modules/te-storage/StorageColumnMenu.tsx` | Column visibility menu. |
 | `frontend/src/modules/te-storage/useStorageInventory.ts` | Load + adaptive sync lifecycle. |
-| `frontend/src/modules/te-storage/storageBridge.ts` | Calls the backend directly through `invoke` with `moduleId: "te-storage"`. |
+| `frontend/src/modules/te-storage/storageBridge.ts` | Calls the backend directly through typed `invoke` with `moduleId: "te-storage"`. |
 | `frontend/src/modules/te-storage/types.ts` | Columns and DTOs. |
 
 ## Frontend Shared UI And Utilities

@@ -12,7 +12,7 @@ This runbook was inherited from the ME Inventory standalone app. Sections below 
 - Treat `docs/SESSION_HANDOFF.md` and `README.md` as the current entry points and use dated engineering docs as historical evidence unless they explicitly say they are active.
 - Preserve user-authored changes. Do not revert files outside your assigned scope.
 - Keep importing files and extracted folders together. New module folders under `frontend/src/modules/<module>/` or `backend/src/modules/<module>/` must be staged with the files that import them.
-- Sync code is copied per module (`backend/src/sync/`, `modules/te_lab_components/sync/`, `modules/te_storage/sync/`). When fixing a sync bug, check whether the other copies need the same fix.
+- Sync code (0.2+): TE Test Equipment and EVCS Storage share one engine (`backend/src/platform/sync/`); the Lab catalog has its own (`modules/te_lab_components/catalog_sync/`) on the same file helpers. A sync fix in the engine covers TE and EVCS Storage; check whether the Lab catalog needs the same fix. Shared file formats must stay readable by 0.1.4 (golden test in `catalog_sync/tests.rs`, entry-state field tests in the engine).
 - Use GPT-5.5 xhigh workers for independent cleanup slices when the user asks for worker support.
 - Give each worker strict file ownership before it starts.
 - The manager owns checklist updates, integration, validation, and final review.
@@ -136,6 +136,8 @@ git status --short
 ### Rust
 
 `rustfmt` and Clippy are installed and are release gates. `cargo-audit` is **not** installed as of 2026-10-15, so `cargo audit` / `bun run audit:backend` fail until it is (`cargo install cargo-audit`).
+
+`cargo test` also regenerates the frontend's bridge types in `frontend/src/integrations/tauri/generated/` from the Rust types. After changing any type that crosses the bridge, run it, then the frontend build, and commit the regenerated files with the change; `git status` must be clean there before a release.
 
 If `cargo test` fails because Windows will not let it replace a running development executable, close the dev app or run the compiled test executables directly (the 0.1.3 release check did this).
 

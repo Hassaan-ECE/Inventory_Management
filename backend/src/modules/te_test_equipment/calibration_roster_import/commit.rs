@@ -5,9 +5,9 @@ use sha2::{Digest, Sha256};
 
 use super::super::{
     model::{
-        normalize_entry_input, now_timestamp, validate_entry_input, CalibrationRequirement,
-        CommandResult, ImportProvenance, InventoryEntry, InventoryEntryEditContext,
-        InventoryEntryInput,
+        entry_to_input, normalize_entry_input, now_timestamp, validate_entry_input,
+        CalibrationRequirement, CommandResult, ImportProvenance, InventoryEntry,
+        InventoryEntryEditContext, InventoryEntryInput,
     },
     mutations::{create_imported_entry_in_store, update_entry_in_store},
     store::InventoryDb,
@@ -650,37 +650,6 @@ fn matched_update_input(
         || existing.verified_at != input.verified_at
         || existing.verified_by != input.verified_by;
     Ok((input, changed_fields, has_changes))
-}
-
-fn entry_to_input(entry: &InventoryEntry) -> InventoryEntryInput {
-    InventoryEntryInput {
-        asset_number: entry.asset_number.clone(),
-        serial_number: entry.serial_number.clone(),
-        qty: entry.qty,
-        manufacturer: entry.manufacturer.clone(),
-        model: entry.model.clone(),
-        description: entry.description.clone(),
-        project_name: entry.project_name.clone(),
-        location: entry.location.clone(),
-        assigned_to: entry.assigned_to.clone(),
-        links: entry.links.clone(),
-        notes: entry.notes.clone(),
-        lifecycle_status: entry.lifecycle_status.clone(),
-        working_status: entry.working_status.clone(),
-        condition: entry.condition.clone(),
-        calibration_requirement: entry.calibration_requirement,
-        out_to_calibration: entry.out_to_calibration,
-        last_calibrated_at: entry.last_calibrated_at.clone(),
-        calibration_due_at: entry.calibration_due_at.clone(),
-        calibration_interval_months: entry.calibration_interval_months,
-        certificate_ref: entry.certificate_ref.clone(),
-        calibration_vendor: entry.calibration_vendor.clone(),
-        calibration_notes: entry.calibration_notes.clone(),
-        verified_at: entry.verified_at.clone(),
-        verified_by: entry.verified_by.clone(),
-        archived: entry.archived,
-        picture_path: Some(entry.picture_path.clone()),
-    }
 }
 
 fn row_provenance(

@@ -4,6 +4,7 @@ use chrono::Local;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
+use ts_rs::TS;
 
 use crate::modules::te_lab_components::{catalog_workbook, order_workbook};
 use crate::modules::te_test_equipment::workbook;
@@ -27,13 +28,16 @@ pub(crate) const DEFAULT_EXCEL_EXPORT_FILENAME: &str = "TE_Test_Equipment_Invent
 pub(crate) const LAB_COMPONENTS_EXCEL_EXPORT_FILENAME: &str =
     "TE_Lab_Components_Catalog_Export.xlsx";
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "platform/")]
 pub(crate) struct ExcelExportResult {
     pub canceled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub output_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub error: Option<String>,
 }
 

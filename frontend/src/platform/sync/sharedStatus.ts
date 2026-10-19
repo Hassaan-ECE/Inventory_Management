@@ -1,74 +1,10 @@
+import type { InventorySharedStatus } from "@/integrations/tauri/generated/platform/InventorySharedStatus";
+import type { SyncWarning } from "@/integrations/tauri/generated/platform/SyncWarning";
+
 /** Shared-folder sync status every inventory receives with loads, syncs, and mutations. */
-export interface InventorySharedStatus {
-  available: boolean;
-  canModify: boolean;
-  enabled: boolean;
-  hasLocalOnlyChanges?: boolean;
-  message: string;
-  mutationMode?: "shared" | "local";
-  revision?: string;
-  lastSnapshotId?: string;
-  sharedRootPath?: string;
-  warning?: SyncWarning;
-}
+export type { InventorySharedStatus, SyncWarning };
 
-/** A problem the footer flags beside the status message (mirrors the backend `SyncWarning`). */
-export type SyncWarning =
-  | { kind: "localSaveFailing" }
-  | { kind: "databaseNearlyFull"; percentUsed: number }
-  | { kind: "updateAvailable"; version: string | null }
-  | { kind: "skippedFiles"; count: number };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-function finiteNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-/** Unknown or malformed warnings are dropped rather than failing the whole response. */
-function parseSyncWarning(value: unknown): SyncWarning | undefined {
-  if (!isRecord(value)) return undefined;
-  switch (value.kind) {
-    case "localSaveFailing":
-      return { kind: "localSaveFailing" };
-    case "databaseNearlyFull": {
-      const percentUsed = finiteNumber(value.percentUsed);
-      return percentUsed === null ? undefined : { kind: "databaseNearlyFull", percentUsed };
-    }
-    case "updateAvailable":
-      return { kind: "updateAvailable", version: optionalString(value.version) ?? null };
-    case "skippedFiles": {
-      const count = finiteNumber(value.count);
-      return count === null ? undefined : { kind: "skippedFiles", count };
-    }
-    default:
-      return undefined;
-  }
-}
-
-export function parseSharedStatus(value: unknown): InventorySharedStatus {
-  const record = isRecord(value) ? value : {};
-  return {
-    available: record.available === true,
-    canModify: record.canModify !== false,
-    enabled: record.enabled === true,
-    hasLocalOnlyChanges: typeof record.hasLocalOnlyChanges === "boolean" ? record.hasLocalOnlyChanges : undefined,
-    lastSnapshotId: optionalString(record.lastSnapshotId),
-    message: optionalString(record.message) ?? "Shared sync status unavailable.",
-    mutationMode: record.mutationMode === "shared" ? "shared" : "local",
-    revision: optionalString(record.revision),
-    sharedRootPath: optionalString(record.sharedRootPath),
-    warning: parseSyncWarning(record.warning),
-  };
-}
-
-export function syncWarningsMatch(left?: SyncWarning, right?: SyncWarning): boolean {
+export function syncWarningsMatch(left?: SyncWarning | null, right?: SyncWarning | null): boolean {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
