@@ -7,7 +7,7 @@ This document maps the project files to their responsibilities. It covers tracke
 ## How the pieces fit
 
 - One Tauri 2 desktop app, one Rust crate, one frontend package.
-- The frontend shell shows one module at a time. Every backend command takes a `module_id` (`te-test-equipment`, `te-lab-components`, `te-storage`) and `backend/src/api/commands.rs` dispatches to that module.
+- The frontend shell shows one module at a time. Every backend command takes a `module_id` (`te-test-equipment`, `te-lab-components`, `te-storage`) and `backend/src/api/commands/` dispatches to that module.
 - The backend mirrors the frontend: `platform/` is what every inventory shares, `modules/<inventory>/` is one inventory.
 - **One local database per PC** (`inventory-management.feox`, 256 MiB). Each module reads and writes its own namespace (`<module id>/<key>`) through `ModuleStore<R>`, so modules cannot see each other's records.
 - **One entry sync engine** (`platform/sync/`) for TE Test Equipment and EVCS Storage. Each plugs in through `SyncRecord`, which carries its constants, field copy, validation, and `MergeRule`. Each rule, and the entry-state fields it serializes, stays exactly as 0.1.4 shipped it, so mixed 0.1.4/0.2 teams converge.
@@ -103,7 +103,10 @@ This document maps the project files to their responsibilities. It covers tracke
 
 | Path | Handles |
 | --- | --- |
-| `backend/src/api/commands.rs` | Tauri commands that take a `module_id` and route to the module; Lab catalog and calibration roster commands. |
+| `backend/src/api/commands/mod.rs` | Command helpers shared by every command file: `module_id` parsing, JSON input and output, background TE publish. |
+| `backend/src/api/commands/inventory.rs` | Commands routed by `module_id`: load, sync session (activate, sync, deactivate), and entry create/update/verify/archive/delete for TE and EVCS Storage. |
+| `backend/src/api/commands/lab_catalog.rs` | Lab catalog commands: parts, simple components, areas, containers, placements, moves, counts. |
+| `backend/src/api/commands/calibration_roster.rs` | TE calibration roster pick, preview, and commit. |
 | `backend/src/api/export.rs` | Excel export commands (save dialog, then the module's workbook writer) and workbook tests. |
 
 ## Backend Module: TE Test Equipment
