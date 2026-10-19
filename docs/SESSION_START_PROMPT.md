@@ -67,10 +67,10 @@ Prefer live code and these current documents over older TE/ME planning copies.
 - IM-015 TE Equipment/Calibration workspace and guarded calibration-roster tooling.
 - Release **0.1.4** published (sync divergence fix + EVCS Storage rename). TE shared data was restored to the most complete copy on 2026-10-15; see SESSION_HANDOFF.
 
-**On branch `feature/0.2-cleanup` (0.2.0, built, not yet published)**
+**Released 0.2.0 (on `main`, tag `v0.2.0`)**
 
 - 0.2 cleanup and consolidation, all phases done: `docs/superpowers/plans/2026-10-16-v0.2-cleanup-and-consolidation.md`. One local database, one storage layer, one entry sync engine (TE + EVCS Storage), Lab catalog sync on the same file helpers, generated bridge types, dev share fixtures (`bun run dev:share`), footer sync and database warnings. Removed code: `docs/engineering/REMOVED_AND_FUTURE.md`.
-- Signed 0.2.0 installer built and verified; publishing (S:, GitHub, merge to `main`) waits for the owner. See SESSION_HANDOFF.
+- Published 2026-10-19 on GitHub (in-app Update) and S:. See SESSION_HANDOFF.
 
 **Not completed**
 
@@ -96,4 +96,4 @@ Prefer live code and these current documents over older TE/ME planning copies.
 
 ## First reply in a new chat
 
-Summarize the stable product identity, confirm 0.1.4 is the published release and 0.2.0 is built on `feature/0.2-cleanup` awaiting publication with TE Test Equipment, TE Lab Components, and EVCS Storage implemented, and note that the IM-014 / IM-015 live cutovers remain pending, separate owner operations.
+Summarize the stable product identity, confirm 0.2.0 is the published release with TE Test Equipment, TE Lab Components, and EVCS Storage implemented, and note that the IM-014 / IM-015 live cutovers remain pending, separate owner operations.

@@ -1,8 +1,8 @@
 # Session handoff — Inventory Management
 
-## 0.2.0 merged, tagged, and drafted on GitHub; S: staging and publishing pending — 2026-10-19
+## Published release 0.2.0 — 2026-10-19
 
-**Branch.** `feature/0.2-cleanup` holds every 0.2 phase. `main` (and `origin/main`) has Phases 1, 3, and 4 merged (`7f97329`); this branch adds Phase 2 (`b040b18`), Phase 5 (`48c7cb2`, `25cc0da`, `74b2b37`, `cf70219`), and the 0.2.0 release commit. Nothing from today is pushed yet.
+**Branch.** All 0.2 work is merged into `main` (`3ce4e77`, tagged `v0.2.0`) and pushed; `feature/0.2-cleanup` matches `main`. Phase 2 is `b040b18`, Phase 5 is `48c7cb2`, `25cc0da`, `74b2b37`, `cf70219`, and the release commit is `4277f7e`.
 
 **What 0.2.0 is.** One local database per PC (one-time merge of the 0.1.x files, originals kept in `pre-0.2-databases\`); one storage layer; one entry sync engine for TE and EVCS Storage; the Lab catalog on the same file helpers; footer warnings for skipped files, newer team versions, a nearly full database, and failed saves; bridge types generated from Rust (`ts-rs`); `bun run dev:share` fixture share; about 24,000 fewer lines than 0.1.4. Shared file formats are unchanged. Notes: `docs/releases/0.2.0.md`. Plan with full verification record: `docs/superpowers/plans/2026-10-16-v0.2-cleanup-and-consolidation.md` (Phase 6).
 
@@ -15,11 +15,13 @@
 
 **Release progress (owner approved the release 2026-10-19).**
 1. Done: `feature/0.2-cleanup` pushed and merged into `main` (`3ce4e77`, tree identical to the build source); tag `v0.2.0` pushed.
-2. Done: GitHub release `v0.2.0` created as a **draft** with all five assets; every asset re-downloaded and matched its SHA-256; `latest.json` points at `.../download/v0.2.0/Inventory.Management_0.2.0_x64-setup.exe`. The public `latest.json` still serves 0.1.4 until the draft is published.
-3. Pending (blocked by the agent permission check, so the owner runs it): S: staging with `.tmp/release-0.2.0-s-drive/stage-on-s.ps1`, which copies the five files to `release-support\v0.2.0\`, puts the installer at the root, moves the 0.1.4 installer to `archive\`, archives the old README, installs the new one, and re-checks every hash.
-4. Pending: publish the draft (`gh release edit v0.2.0 --draft=false`), then confirm the public `latest.json` returns 0.2.0 and its installer URL downloads SHA-256 `2053b5da...02bb8ce`. Publishing is what makes installed copies offer the update.
+2. Done: GitHub release `v0.2.0` created as a draft with all five assets; every asset re-downloaded and matched its SHA-256.
+3. Done by the owner (the agent permission check blocks S: writes and GitHub publishing): S: staging with `.tmp/release-0.2.0-s-drive/stage-on-s.ps1`. Its final hash step failed under Windows PowerShell 5.1 launched from Git Bash (`Get-FileHash` not loaded), so the result was verified separately: all five files in `release-support\v0.2.0\` match `SHA256SUMS.txt`, the root holds only the 0.2.0 installer (`2053b5da...02bb8ce`) and the new README, and `archive\` holds the 0.1.4 installer and `README_2026-10-15.md`. Do not re-run that script; its README step would overwrite the archived README.
+4. Done by the owner: release published at https://github.com/Hassaan-ECE/Inventory_Management/releases/tag/v0.2.0. Verified without authentication: the public `latest.json` returns 0.2.0, its signature equals the locally verified `.sig`, and its installer URL downloads SHA-256 `2053b5da23d1608979caba264ed55197cdd0e96f805f1ff3c70f8ebfb02bb8ce`. Every installed 0.1.x copy now offers the update.
 
-**Know before publishing.**
+**Follow-ups.** Everyone should update to 0.2.0. No installed-machine upgrade has been performed yet; the first real upgrade (0.1.4 → 0.2.0 via Update) is the last unverified path. Next release: release steps need owner permission rules for S: writes and `gh release` publishing, or the owner runs them.
+
+**Know before and after publishing.**
 - If the one-time merge fails on a PC, the old files are untouched but the app stops at startup instead of opening (no message dialog). Safe, but a user would just see the app not open. Worth a native error dialog in a follow-up.
 - After the first 0.2.0 PC syncs, 0.1.4 PCs show "Click Update" and stop publishing TE/EVCS snapshots (by design); their edits still sync.
 - The release smoke run used this PC's real WebView profile (`%LOCALAPPDATA%\com.inventory.management\EBWebView`), so UI preferences such as the last active view may have changed; no inventory data was touched.

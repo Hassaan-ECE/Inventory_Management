@@ -65,7 +65,7 @@ Modules stay **separate** under the hood: each has its own namespace in the one 
 5. **Phase D first team release** — plan: `docs/superpowers/plans/2026-07-20-first-team-release.md` (copy → product roots → installer; new updater keys only if enabling auto-update)
 6. ~~IM-014 Lab Components catalog + grid storage redesign~~ **implemented 2026-07-25** — authority: `docs/superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md`. Copied-data owner acceptance and the coordinated live Lab cutover remain pending.
 7. ~~IM-015 TE Test Equipment calibration workspace + roster tooling~~ **implemented 2026-07-25** — authority: `docs/superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md`. Equipment and Calibration use the same TE records; the backed-up live workbook cutover remains pending.
-8. **0.2.0 cleanup and consolidation** — all six phases of `docs/superpowers/plans/2026-10-16-v0.2-cleanup-and-consolidation.md` are done on `feature/0.2-cleanup`; the signed 0.2.0 installer is built and verified. Publishing (S: staging, GitHub release, merge to `main`) waits for the owner.
+8. ~~0.2.0 cleanup and consolidation~~ **released 2026-10-19** — plan `docs/superpowers/plans/2026-10-16-v0.2-cleanup-and-consolidation.md`; merged to `main`, tag `v0.2.0`, published on GitHub and S:.
 
 ## Env (shared sync)
 
