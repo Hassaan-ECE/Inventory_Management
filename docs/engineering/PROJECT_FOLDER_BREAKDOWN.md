@@ -40,6 +40,15 @@ This document maps the project files to their responsibilities. It covers tracke
 | `backend/src/lib.rs` | App setup: resolve paths, open the local database, run per-module startup sync recovery (failures are logged, never block launch), register managed state and all Tauri commands, flush on exit. |
 | `backend/src/inventory_stores.rs` | Opens the one local database and each module's store (its namespace of that database); flushes the database on exit. |
 
+## Backend Developer Test Share (test-only)
+
+| Path | Handles |
+| --- | --- |
+| `backend/src/dev_share/mod.rs` | Builds the developer test share (`bun run dev:share`): three fake computers, the live-share refusal, `DEV-SHARE.md`, and the field-coverage check. |
+| `backend/src/dev_share/te_test_equipment.rs` | TE fixtures and timeline: every status and calibration state, limits, unicode, duplicates, verify/archive/delete, merged and disputed edits. |
+| `backend/src/dev_share/te_storage.rs` | EVCS Storage fixtures and timeline: filled/empty/hidden columns, quantities, limits, unicode, duplicates, delete, per-field merges. |
+| `backend/src/dev_share/te_lab_components.rs` | Lab fixtures and timeline: every area and container type, simple and full parts, every stock status and count state, move, count, edit, delete. |
+
 ## Backend Platform
 
 | Path | Handles |

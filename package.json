@@ -15,6 +15,7 @@
     "build": "tsc -b && vite build --config frontend/vite.config.ts",
     "build:frontend": "tsc -b && vite build --config frontend/vite.config.ts",
     "build:desktop": "cd backend && bun ../node_modules/@tauri-apps/cli/tauri.js build --bundles nsis",
+    "dev:share": "cd backend && cargo test --lib dev_share::build_the_dev_share -- --ignored --exact --nocapture",
     "lint": "eslint .",
     "preview": "vite preview --config frontend/vite.config.ts",
     "tauri": "cd backend && bun ../node_modules/@tauri-apps/cli/tauri.js",

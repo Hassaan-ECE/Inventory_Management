@@ -682,7 +682,7 @@ fn initialize_catalog_share(db: &InventoryDb, paths: &CatalogSharedSyncPaths) ->
     Ok(())
 }
 
-fn run_shared_sync_with_root(
+pub(crate) fn run_shared_sync_with_root(
     db: &InventoryDb,
     shared_root: impl Into<PathBuf>,
 ) -> CommandResult<CatalogSharedSyncRunResult> {

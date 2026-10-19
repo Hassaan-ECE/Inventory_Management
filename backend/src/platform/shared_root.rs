@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::{
     dev_build::{dev_share_dir, is_dev_build},
@@ -26,15 +26,24 @@ pub(crate) fn default_shared_root(module: ModuleId) -> PathBuf {
     } else {
         PathBuf::from(TEAM_SHARE_ROOT)
     };
+    module_shared_root(&share_root, module)
+}
+
+/// A module's folder in a share laid out like the team share: `<share>\modules\<folder>`.
+pub(crate) fn module_shared_root(share_root: &Path, module: ModuleId) -> PathBuf {
     share_root.join("modules").join(module_folder(module))
 }
 
 /// Live team share folder for a module, regardless of build type.
 #[cfg(test)]
 pub(crate) fn team_shared_root(module: ModuleId) -> PathBuf {
-    PathBuf::from(TEAM_SHARE_ROOT)
-        .join("modules")
-        .join(module_folder(module))
+    module_shared_root(Path::new(TEAM_SHARE_ROOT), module)
+}
+
+/// The live team share's root folder, regardless of build type.
+#[cfg(test)]
+pub(crate) fn team_share_root() -> &'static Path {
+    Path::new(TEAM_SHARE_ROOT)
 }
 
 #[cfg(test)]

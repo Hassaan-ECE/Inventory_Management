@@ -75,8 +75,9 @@ Modules stay **separate** under the hood: each has its own namespace in the one 
 | `INVENTORY_MANAGEMENT_SHARED_SYNC_ENABLED` | `0`/`false`/`no`/`off` to disable (all modules) |
 | `INVENTORY_MANAGEMENT_SYNC_HMAC_KEY` | Optional HMAC (≥16 bytes), all modules |
 | `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` | Absolute copied-data DB root for diagnostics/rehearsals only |
+| `INVENTORY_MANAGEMENT_DEV_SHARE_TARGET` | Where `bun run dev:share` builds the fixture share (default `.tmp/dev-share`; must be empty or a previous dev share; the live share is refused) |
 
-**Developer builds are isolated.** Any debug build (`bun run dev:desktop`, `cargo test`) uses `.tmp/dev-data` for databases and `.tmp/dev-share` for shared roots unless an env override above is set, and the footer shows `DEV build`. Only release builds touch `%LOCALAPPDATA%` and S:.
+**Developer builds are isolated.** Any debug build (`bun run dev:desktop`, `cargo test`) uses `.tmp/dev-data` for databases and `.tmp/dev-share` for shared roots unless an env override above is set, and the footer shows `DEV build`. Only release builds touch `%LOCALAPPDATA%` and S:. `bun run dev:share` rebuilds `.tmp/dev-share` with fixtures for every inventory (`backend/src/dev_share/`); every new field or feature adds fixtures there in the same change.
 
 The only live-data tool left is the shared-snapshot restore in `backend/src/sync/snapshot/restore.rs` (ignored test, dry run unless `RESTORE_TE_CONFIRM=publish`); never run it without owner approval.
 

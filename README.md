@@ -74,14 +74,15 @@ bun run lint
 bun run test
 bun run build
 cargo test --manifest-path backend/Cargo.toml --no-fail-fast
-bun run desktop
+bun run dev:share
+bun run dev:desktop
 ```
 
-Normal `bun run desktop` uses the product's real Local AppData databases. Copied-data testing must set the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` override, redirect the TE, Lab, and Storage shared roots, and disable shared sync; changing `LOCALAPPDATA` alone is not sufficient on Windows. See `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
+`bun run dev:desktop` is a developer build (see below) and never touches real data. Copied-data testing of real databases must set the absolute `INVENTORY_MANAGEMENT_LOCAL_DATA_ROOT` override, redirect the TE, Lab, and Storage shared roots, and disable shared sync; changing `LOCALAPPDATA` alone is not sufficient on Windows. See `docs/runbooks/im-014-im-015-combined-desktop-smoke.md`.
 
 ### Shared data (product modules)
 
-`bun run desktop` uses product module shares by default:
+Release builds use the product module shares:
 
 - TE Test Equipment: `S:\...\Inventory_Management_App\modules\TE_Test_Equipment`
 - TE Lab Components: `S:\...\Inventory_Management_App\modules\TE_Lab_Components`
@@ -94,6 +95,8 @@ Sync design and folder layout: `docs/engineering/FEOXDB_SYNC_MIGRATION_PLAN.md`.
 ## Developer builds
 
 `bun run dev:desktop` and `cargo test` are developer builds. They keep databases in `.tmp/dev-data` and sync through `.tmp/dev-share` (same `modules\<folder>` layout as S:), never `%LOCALAPPDATA%` or the live share, unless one of the env overrides above is set. The footer shows **DEV build** in place of the author credit.
+
+`bun run dev:share` fills `.tmp/dev-share` with fixture records for every inventory, written by three fake computers through the real sync engine (operations, snapshots, and manifests, including concurrent edits and deletes), and moves `.tmp/dev-data` aside to `.tmp/dev-data-previous` so the next developer build starts from the share. To build it elsewhere, for example an S: dev folder for two-PC testing, set `INVENTORY_MANAGEMENT_DEV_SHARE_TARGET` to an empty folder; the generated `DEV-SHARE.md` lists the env overrides that point a developer build at it. The live share is refused. Fixtures live in `backend/src/dev_share/`, and **every new field or feature adds fixtures in the same change** (a coverage test fails when a synced field is never set).
 
 Removed features and ideas not yet built (ME Storage, HTML export, window-size restore, the old TE spreadsheet import): `docs/engineering/REMOVED_AND_FUTURE.md`.
 

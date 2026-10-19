@@ -1,4 +1,6 @@
 pub(crate) mod api;
+#[cfg(test)]
+mod dev_share;
 mod inventory_stores;
 pub(crate) mod modules;
 pub(crate) mod platform;
