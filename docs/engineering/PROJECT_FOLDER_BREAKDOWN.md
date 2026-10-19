@@ -196,7 +196,7 @@ This document maps the project files to their responsibilities. It covers tracke
 | `frontend/src/modules/te-test-equipment/lib/` | Columns per workspace, counts, filtering, sorting, result labels, `calibrationHealth.ts` (30-day due-soon). |
 | `frontend/src/modules/te-test-equipment/components/` | Header, search card, filter panel, virtualized table (`table/`), entry dialog (`entry-dialog/`), context menu, status strip, export menu (`header/`), updater button. |
 | `frontend/src/modules/te-test-equipment/components/shell/` | Hooks: desktop load/sync lifecycle, mutations, export, external links, preferences, view model, status announcer, updates. |
-| `frontend/src/modules/te-test-equipment/components/calibration/` | Calibration membership dialog and roster preview/review/commit dialog. |
+| `frontend/src/modules/te-test-equipment/components/calibration/` | Calibration membership dialog; roster import dialog (`CalibrationRosterDialog`), its per-row review card (`RosterReviewRow`), and resolution rules (`rosterResolutions.ts`). |
 | `frontend/src/modules/te-test-equipment/data/mockInventory.ts` | Browser-only mock rows. |
 
 Export menu note: the **HTML** item only announces "HTML export is not implemented yet." Excel export works.
@@ -206,12 +206,11 @@ Export menu note: the **HTML** item only announces "HTML export is not implement
 | Path | Handles |
 | --- | --- |
 | `frontend/src/modules/te-lab-components/index.ts`, `moduleId.ts`, `types.ts` | Module definition/host, id, and shared Lab types. |
-| `frontend/src/modules/te-lab-components/TeLabComponentsView.tsx` | Module root: five-column simple workspace, dialogs, order selection, migration and cutover panels. |
+| `frontend/src/modules/te-lab-components/TeLabComponentsView.tsx` | Module root: five-column simple workspace, dialogs, and order selection. |
 | `frontend/src/modules/te-lab-components/catalog/useLabCatalog.ts` | Desktop load/sync lifecycle for the v2 catalog. |
-| `frontend/src/modules/te-lab-components/catalog/` | Header, search card, parts table, part dialog (simple + advanced), simple fields, grid bin picker, placement/move/count dialogs, location manager, order export, migration panel, shared cutover dialog, column/filter/sort/template helpers, mock catalog. |
+| `frontend/src/modules/te-lab-components/catalog/` | Header, search card, parts table, part dialog (`PartDialog`, its "More Details" `PartDetailsSections`, form helpers `partForm.ts`), simple fields, grid bin picker, placement/move/count dialogs, location manager, order export, shared form controls (`formControls.tsx`), filtering (`catalogFilters.ts`), remembered view settings (`catalogPreferences.ts`), bridge capability checks (`labCatalogBridge.ts`), column/sort/template helpers, mock catalog. |
 | `frontend/src/modules/te-lab-components/components/` | Status strip, export/update header pieces, and the status announcer and updater hooks are still used by the catalog view. |
 
-Not loaded by the app (about 3,250 lines): the old Lab v1 table UI under `components/` (`InventoryTable`, `InventoryHeader`, `SearchCard`, `FilterPanel`, `EntryDialog` and `entry-dialog/*`, `EntryContextMenu`, `EmptyResults`, `ViewSettingsMenu`, `header/ScopeToggle`, `table/*`, `shell/` files other than `helpers.ts`, `useDesktopUpdates.ts`, and `useStatusAnnouncer.ts`), plus `data/mockInventory.ts`. These are candidates for deletion.
 
 ## Frontend Module: EVCS Storage (`te-storage`)
 

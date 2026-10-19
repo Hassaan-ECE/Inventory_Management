@@ -21,9 +21,8 @@ import type {
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Textarea } from "@/shared/components/ui/textarea";
+import { Alert, Field, SELECT_CLASS } from "@/modules/te-lab-components/catalog/formControls";
 
-const SELECT_CLASS =
-  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/18 dark:bg-input/30";
 
 interface PlacementDialogProps {
   catalog: CatalogSyncResult;
@@ -509,10 +508,4 @@ function UnitDatalist() {
   return <datalist id="placement-units">{['unknown', 'pcs', 'm', 'ft', 'g', 'kg', 'reel', 'roll', 'tube', 'tray', 'bag', 'other'].map((unit) => <option key={unit} value={unit} />)}</datalist>;
 }
 
-function Field({ children, className = "", label }: { children: React.ReactNode; className?: string; label: string }) {
-  return <label className={`space-y-1.5 text-sm ${className}`}><span className="font-medium">{label}</span>{children}</label>;
-}
 
-function Alert({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-xl border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive-foreground" role="alert">{children}</div>;
-}
