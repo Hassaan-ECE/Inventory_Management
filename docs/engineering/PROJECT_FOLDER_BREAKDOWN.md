@@ -1,6 +1,6 @@
 # Project Folder Breakdown
 
-Last updated: 2026-10-16 (backend regenerated after the 0.2 Phase 4 restructure on `feature/0.2-cleanup`; the frontend sections are refreshed after the Phase 5 file splits)
+Last updated: 2026-10-19 (0.2.0: dev share fixtures, generated bridge types, Lab catalog sync and command splits, frontend view splits)
 
 This document maps the project files to their responsibilities. It covers tracked source, config, docs, scripts, and tests. Generated folders such as `node_modules/`, `backend/target/`, `backend/gen/`, `frontend/dist/`, and `.tmp/` are summarized instead of expanded. Code removed in 0.2 is listed in `REMOVED_AND_FUTURE.md`.
 
@@ -11,7 +11,7 @@ This document maps the project files to their responsibilities. It covers tracke
 - The backend mirrors the frontend: `platform/` is what every inventory shares, `modules/<inventory>/` is one inventory.
 - **One local database per PC** (`inventory-management.feox`, 256 MiB). Each module reads and writes its own namespace (`<module id>/<key>`) through `ModuleStore<R>`, so modules cannot see each other's records.
 - **One entry sync engine** (`platform/sync/`) for TE Test Equipment and EVCS Storage. Each plugs in through `SyncRecord`, which carries its constants, field copy, validation, and `MergeRule`. Each rule, and the entry-state fields it serializes, stays exactly as 0.1.4 shipped it, so mixed 0.1.4/0.2 teams converge.
-- Each module still has its own shared root on S:, sync stream, and sync gate. TE Lab Components syncs its catalog with its own engine in `catalog_sync.rs`, writing to `shared\catalog-v2\`.
+- Each module still has its own shared root on S:, sync stream, and sync gate. TE Lab Components syncs its catalog with its own engine in `catalog_sync/`, writing to `shared\catalog-v2\`; it shares the platform's file helpers and status building.
 
 ## Top-Level Files
 

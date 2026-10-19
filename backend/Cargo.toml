@@ -1,6 +1,6 @@
 [package]
 name = "inventory-management"
-version = "0.1.4"
+version = "0.2.0"
 description = "Inventory Management - unified multi-inventory desktop app"
 authors = ["Syed Hassaan Shah"]
 edition = "2021"

@@ -1,5 +1,30 @@
 # Session handoff — Inventory Management
 
+## 0.2.0 built and verified, not yet published — 2026-10-19
+
+**Branch.** `feature/0.2-cleanup` holds every 0.2 phase. `main` (and `origin/main`) has Phases 1, 3, and 4 merged (`7f97329`); this branch adds Phase 2 (`b040b18`), Phase 5 (`48c7cb2`, `25cc0da`, `74b2b37`, `cf70219`), and the 0.2.0 release commit. Nothing from today is pushed yet.
+
+**What 0.2.0 is.** One local database per PC (one-time merge of the 0.1.x files, originals kept in `pre-0.2-databases\`); one storage layer; one entry sync engine for TE and EVCS Storage; the Lab catalog on the same file helpers; footer warnings for skipped files, newer team versions, a nearly full database, and failed saves; bridge types generated from Rust (`ts-rs`); `bun run dev:share` fixture share; about 24,000 fewer lines than 0.1.4. Shared file formats are unchanged. Notes: `docs/releases/0.2.0.md`. Plan with full verification record: `docs/superpowers/plans/2026-10-16-v0.2-cleanup-and-consolidation.md` (Phase 6).
+
+**Verified.**
+- rustfmt, Clippy `-D warnings`, 251 Rust tests (4 ignored), frontend lint, 178 tests (1 skipped), production build.
+- Cross-version both ways against the real `v0.1.4` source: 0.1.4 reads a 0.2.0 share and shows "Click Update" without publishing TE/EVCS snapshots; 0.2.0 takes in 0.1.4's creates and edits, no warnings.
+- Signed release build on copies of this PC's databases and the live S: module folders: merge succeeded (TE 575, EVCS 71, Lab 2 parts), sync clean, 6% of the database used, no write failures. Lab quarantines 4 orphan or superseded operations already on the share, exactly as 0.1.4 does on the same copies.
+
+**Release files** (local only): `.tmp/release-0.2.0/` — `Inventory.Management_0.2.0_x64-setup.exe` (SHA-256 `2053b5da23d1608979caba264ed55197cdd0e96f805f1ff3c70f8ebfb02bb8ce`), `.sig` (verified against the embedded updater key), `latest.json`, `RELEASE_NOTES.md`, `SHA256SUMS.txt`. Source installer: `backend/target/release/bundle/nsis/Inventory Management_0.2.0_x64-setup.exe`.
+
+**Waiting for the owner (outward-facing, not done):**
+1. Push `feature/0.2-cleanup`, merge it into `main`, tag `v0.2.0`.
+2. S: staging per the runbook: 0.2.0 installer at the product root, the 0.1.4 installer to `archive\`, the five files in `release-support\v0.2.0\`, root `README.md` updated.
+3. GitHub release `v0.2.0` (draft → verify assets → publish). Publishing `latest.json` is what makes every installed copy offer the update.
+
+**Know before publishing.**
+- If the one-time merge fails on a PC, the old files are untouched but the app stops at startup instead of opening (no message dialog). Safe, but a user would just see the app not open. Worth a native error dialog in a follow-up.
+- After the first 0.2.0 PC syncs, 0.1.4 PCs show "Click Update" and stop publishing TE/EVCS snapshots (by design); their edits still sync.
+- The release smoke run used this PC's real WebView profile (`%LOCALAPPDATA%\com.inventory.management\EBWebView`), so UI preferences such as the last active view may have changed; no inventory data was touched.
+- Still deferred on purpose: pruning `sync:applied` / `sync:seq` markers (Phase 4 note). Still pending, separate owner operations: live IM-014 Lab cutover and IM-015 roster cutover.
+- A leftover `.tmp/v014-worktree` folder may remain (gitignored scratch from the cross-version check); delete it when nothing has it open.
+
 ## TE divergence incident and 0.1.4 - 2026-10-15
 
 **What happened.** Randy's PC (client `4deef17d`, on 0.1.1 until recently) stopped receiving one of the owner PC's ops (`5c2023b5` #202, written 2026-07-27 by a dev build). Watermarks only advance by +1, so Randy's watermark for `5c2023b5` froze at 201. Every snapshot Randy published therefore "did not cover" the other clients' watermarks, and the old `manifest_covers_local_watermarks` rule made every other client skip them, while Randy's publish compacted his op files. From 2026-08-03 his 403 changes (ops 245-812) never reached anyone, silently. On 2026-10-15 15:46 a 0.1.3 client `c7e1327b` (owner unknown; never authored an op) published its stale state over the manifest. Not a database-location problem: DB paths have not changed since 0.1.0.

@@ -17,7 +17,7 @@ New chat: owner pastes `docs/SESSION_START_PROMPT.md`. See also `docs/CHAT_HANDO
 | Item | Value |
 |------|--------|
 | Name | Inventory Management |
-| Package | `inventory-management` `0.1.4` |
+| Package | `inventory-management` `0.2.0` |
 | Tauri id | `com.inventory.management` |
 | Local DB (all inventories, from 0.2) | `%LOCALAPPDATA%\com.inventory.management\inventory-management.feox`, one namespace per module id. On first 0.2 launch the 0.1.x files (`inventory.feox`, `te-lab-components.feox`, `te-storage-room.feox`) are merged in and moved to `pre-0.2-databases\` |
 | Product share (installers + modules) | `S:\Engineering\Public\Syed_Hassaan_Shah\Inventory_Management_App` |
@@ -50,8 +50,9 @@ Modules stay **separate** under the hood: each has its own namespace in the one 
 - `frontend/src/modules/te-lab-components/` owns the implemented Lab UI, hooks, types, and desktop lifecycle.
 - `frontend/src/modules/te-storage/` owns the implemented EVCS Storage inventory, with independent persistence and team sync.
 - The backend mirrors the frontend. `backend/src/platform/` holds what every inventory shares: the one local database (`database.rs`), the generic store (`store/`), the entry sync engine (`sync/`), module ids and roots, the sync coordinator and watcher (`runtime/`), and native dialogs. `backend/src/modules/<inventory>/` holds each inventory's model, store, mutations, sync plug-in, and workbook export (TE also owns the calibration roster import). `backend/src/inventory_stores.rs` opens each module's namespace.
-- `backend/src/api/commands.rs` receives every command with a `module_id` and routes it to the right module.
-- `backend/src/platform/store/` is the one storage layer (`ModuleStore<R>`, generic over the module's record type) and `backend/src/platform/sync/` is the one entry sync engine, used by TE Test Equipment and EVCS Storage. Each inventory plugs in through `SyncRecord` (its constants, field copy, validation, and `MergeRule`); the merge rules and the serialized entry-state fields stay exactly as 0.1.4 shipped them so mixed 0.1.4/0.2 teams converge. Lab's catalog sync is separate (`catalog_sync.rs`).
+- `backend/src/api/commands/` receives every command with a `module_id` and routes it to the right module (`inventory.rs`, `lab_catalog.rs`, `calibration_roster.rs`).
+- `backend/src/platform/store/` is the one storage layer (`ModuleStore<R>`, generic over the module's record type) and `backend/src/platform/sync/` is the one entry sync engine, used by TE Test Equipment and EVCS Storage. Each inventory plugs in through `SyncRecord` (its constants, field copy, validation, and `MergeRule`); the merge rules and the serialized entry-state fields stay exactly as 0.1.4 shipped them so mixed 0.1.4/0.2 teams converge. Lab's catalog sync is separate (`modules/te_lab_components/catalog_sync/`) but shares the platform's file helpers (`platform/sync/files.rs`) and status building.
+- The frontend's bridge payload types are generated from the Rust types: `cargo test` writes `frontend/src/integrations/tauri/generated/` (ts-rs). Commit them with the Rust change; never edit them by hand.
 - Full file map: `docs/engineering/PROJECT_FOLDER_BREAKDOWN.md`.
 
 ## Priorities
@@ -64,6 +65,7 @@ Modules stay **separate** under the hood: each has its own namespace in the one 
 5. **Phase D first team release** — plan: `docs/superpowers/plans/2026-07-20-first-team-release.md` (copy → product roots → installer; new updater keys only if enabling auto-update)
 6. ~~IM-014 Lab Components catalog + grid storage redesign~~ **implemented 2026-07-25** — authority: `docs/superpowers/plans/2026-07-24-te-lab-components-generalized-catalog-and-grid-storage.md`. Copied-data owner acceptance and the coordinated live Lab cutover remain pending.
 7. ~~IM-015 TE Test Equipment calibration workspace + roster tooling~~ **implemented 2026-07-25** — authority: `docs/superpowers/plans/2026-07-24-te-test-equipment-calibration-workspace-and-roster-cutover.md`. Equipment and Calibration use the same TE records; the backed-up live workbook cutover remains pending.
+8. **0.2.0 cleanup and consolidation** — all six phases of `docs/superpowers/plans/2026-10-16-v0.2-cleanup-and-consolidation.md` are done on `feature/0.2-cleanup`; the signed 0.2.0 installer is built and verified. Publishing (S: staging, GitHub release, merge to `main`) waits for the owner.
 
 ## Env (shared sync)
 
