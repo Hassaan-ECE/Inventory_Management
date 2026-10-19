@@ -1,6 +1,6 @@
 # Session handoff — Inventory Management
 
-## 0.2.0 built and verified, not yet published — 2026-10-19
+## 0.2.0 merged, tagged, and drafted on GitHub; S: staging and publishing pending — 2026-10-19
 
 **Branch.** `feature/0.2-cleanup` holds every 0.2 phase. `main` (and `origin/main`) has Phases 1, 3, and 4 merged (`7f97329`); this branch adds Phase 2 (`b040b18`), Phase 5 (`48c7cb2`, `25cc0da`, `74b2b37`, `cf70219`), and the 0.2.0 release commit. Nothing from today is pushed yet.
 
@@ -13,10 +13,11 @@
 
 **Release files** (local only): `.tmp/release-0.2.0/` — `Inventory.Management_0.2.0_x64-setup.exe` (SHA-256 `2053b5da23d1608979caba264ed55197cdd0e96f805f1ff3c70f8ebfb02bb8ce`), `.sig` (verified against the embedded updater key), `latest.json`, `RELEASE_NOTES.md`, `SHA256SUMS.txt`. Source installer: `backend/target/release/bundle/nsis/Inventory Management_0.2.0_x64-setup.exe`.
 
-**Waiting for the owner (outward-facing, not done):**
-1. Push `feature/0.2-cleanup`, merge it into `main`, tag `v0.2.0`.
-2. S: staging per the runbook: 0.2.0 installer at the product root, the 0.1.4 installer to `archive\`, the five files in `release-support\v0.2.0\`, root `README.md` updated.
-3. GitHub release `v0.2.0` (draft → verify assets → publish). Publishing `latest.json` is what makes every installed copy offer the update.
+**Release progress (owner approved the release 2026-10-19).**
+1. Done: `feature/0.2-cleanup` pushed and merged into `main` (`3ce4e77`, tree identical to the build source); tag `v0.2.0` pushed.
+2. Done: GitHub release `v0.2.0` created as a **draft** with all five assets; every asset re-downloaded and matched its SHA-256; `latest.json` points at `.../download/v0.2.0/Inventory.Management_0.2.0_x64-setup.exe`. The public `latest.json` still serves 0.1.4 until the draft is published.
+3. Pending (blocked by the agent permission check, so the owner runs it): S: staging with `.tmp/release-0.2.0-s-drive/stage-on-s.ps1`, which copies the five files to `release-support0.2.0\`, puts the installer at the root, moves the 0.1.4 installer to `archive\`, archives the old README, installs the new one, and re-checks every hash.
+4. Pending: publish the draft (`gh release edit v0.2.0 --draft=false`), then confirm the public `latest.json` returns 0.2.0 and its installer URL downloads SHA-256 `2053b5da...02bb8ce`. Publishing is what makes installed copies offer the update.
 
 **Know before publishing.**
 - If the one-time merge fails on a PC, the old files are untouched but the app stops at startup instead of opening (no message dialog). Safe, but a user would just see the app not open. Worth a native error dialog in a follow-up.
