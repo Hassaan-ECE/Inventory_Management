@@ -1,6 +1,6 @@
 import { APP_VERSION } from "@/app/branding";
 
-export type UpdateStatus =
+type UpdateStatus =
   | "idle"
   | "checking"
   | "available"

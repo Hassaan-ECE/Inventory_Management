@@ -9,7 +9,7 @@ interface StatusFooterProps {
   resultsLabel?: string;
   message?: string;
   /** A sync or local-database problem, shown as an amber chip. */
-  warning?: SyncWarning;
+  warning?: SyncWarning | null;
   /** Module-specific count pills, rendered after the message. */
   children?: ReactNode;
 }

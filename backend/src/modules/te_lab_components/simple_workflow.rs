@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::{
     catalog_model::{
@@ -20,16 +21,18 @@ use crate::platform::common::{CommandResult, InventorySharedStatus};
 pub(crate) const SIMPLE_AREA_NAME: &str = "TE Lab";
 pub(crate) const SIMPLE_CONTAINER_NAME: &str = "Shelf";
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct SimpleComponentInput {
     pub part: PartInput,
     pub quantity: u32,
     pub location: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct SimpleComponentValue {
     pub part: Part,
     pub placement: Option<StockPlacement>,

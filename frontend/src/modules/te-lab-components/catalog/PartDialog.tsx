@@ -772,7 +772,7 @@ function attributeRows(attributes: ComponentAttributes): AttributeRow[] {
     rowId: `${key}-${index}`,
     key,
     value: value.value,
-    unit: value.unit,
+    unit: value.unit ?? "",
   }));
 }
 

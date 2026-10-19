@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::super::model::{CalibrationRequirement, InventoryEntryInput};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) enum CalibrationRosterClassification {
     MatchedUpdate,
     CreateCandidate,
@@ -12,8 +14,9 @@ pub(crate) enum CalibrationRosterClassification {
     IgnoredJunk,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) enum CalibrationRosterSemanticFlag {
     NormalDated,
     ReferenceOnly,
@@ -24,8 +27,9 @@ pub(crate) enum CalibrationRosterSemanticFlag {
     Unclear,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct CalibrationRosterCandidateContext {
     pub entry_uuid: String,
     pub id: String,
@@ -36,8 +40,9 @@ pub(crate) struct CalibrationRosterCandidateContext {
     pub description: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct CalibrationRosterFieldChange {
     pub field: String,
     pub before: Option<String>,
@@ -45,8 +50,9 @@ pub(crate) struct CalibrationRosterFieldChange {
     pub destructive: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct CalibrationRosterRowOutcome {
     pub source_sheet: String,
     pub source_row: u64,
@@ -68,8 +74,9 @@ pub(crate) struct CalibrationRosterRowOutcome {
     pub requires_review: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct CalibrationRosterAbsentEntry {
     pub entry: CalibrationRosterCandidateContext,
     pub calibration_due_at: Option<String>,
@@ -77,8 +84,9 @@ pub(crate) struct CalibrationRosterAbsentEntry {
     pub calibration_notes: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct CalibrationRosterCounts {
     pub matched_updates: usize,
     pub create_candidates: usize,
@@ -88,8 +96,9 @@ pub(crate) struct CalibrationRosterCounts {
     pub current_required_absent: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct CalibrationRosterPreviewReport {
     pub batch_id: String,
     pub source_fingerprint: String,
@@ -105,16 +114,18 @@ pub(crate) struct CalibrationRosterPreviewReport {
     pub blocking: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) enum CalibrationRosterResolutionAction {
     UseExisting,
     Create,
     Ignore,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/", optional_fields = nullable)]
 pub(crate) struct CalibrationRosterResolution {
     pub source_sheet: String,
     pub source_row: u64,
@@ -125,8 +136,9 @@ pub(crate) struct CalibrationRosterResolution {
     pub confirmed: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/", optional_fields = nullable)]
 pub(crate) struct CalibrationRosterCommitInput {
     pub batch_id: String,
     pub confirmed: bool,
@@ -136,8 +148,9 @@ pub(crate) struct CalibrationRosterCommitInput {
     pub resolutions: Vec<CalibrationRosterResolution>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct CalibrationRosterCommitResult {
     pub batch_id: String,
     pub updated: usize,

@@ -1,12 +1,9 @@
 import { act } from "@testing-library/react";
 import { vi } from "vitest";
 
-import { getInventoryCounts } from "@/modules/te-test-equipment/lib";
 import type { InventorySyncResult } from "@/integrations/tauri/desktop-bridge";
 import type {
-  InventoryCounts,
   InventoryEntry,
-  InventoryQueryResult,
   InventorySharedStatus,
 } from "@/modules/te-test-equipment/types";
 
@@ -31,16 +28,6 @@ export const DISABLED_SHARED_STATUS: InventorySharedStatus = {
   enabled: false,
   message: "",
   mutationMode: "local",
-};
-const EMPTY_TEST_COUNTS: InventoryCounts = {
-  archive: 0,
-  dueSoon: 0,
-  inventory: 0,
-  missingDue: 0,
-  outToCal: 0,
-  overdue: 0,
-  total: 0,
-  verified: 0,
 };
 export const TEST_DB_PATH = "C:/Users/Test/AppData/Local/com.te.test.equipment.inventory/inventory.feox";
 
@@ -73,26 +60,12 @@ export function buildTestEntry(overrides: Partial<InventoryEntry> = {}): Invento
   } as InventoryEntry;
 }
 
-export function buildDesktopQueryResult(shared: InventorySharedStatus, entries: InventoryEntry[] = []): InventoryQueryResult {
-  return {
-    counts: entries.length === 0 ? EMPTY_TEST_COUNTS : buildInventoryCounts(entries),
-    dbPath: TEST_DB_PATH,
-    entries,
-    shared,
-    totalFiltered: entries.length,
-  };
-}
-
 export function buildDesktopSyncResult(shared: InventorySharedStatus, entries: InventoryEntry[] = []): InventorySyncResult {
   return {
     dbPath: TEST_DB_PATH,
     entries,
     shared,
   };
-}
-
-function buildInventoryCounts(entries: InventoryEntry[]): InventoryCounts {
-  return getInventoryCounts(entries, "2026-07-13");
 }
 
 type DesktopBridgeOverrides = Partial<
@@ -111,7 +84,6 @@ export function createDesktopBridge(
       entries: [],
       shared: CONNECTED_SHARED_STATUS,
     }),
-    queryInventory: vi.fn().mockResolvedValue(buildDesktopQueryResult(CONNECTED_SHARED_STATUS)),
     syncInventory: vi.fn().mockResolvedValue({
       dbPath: TEST_DB_PATH,
       entries: [],

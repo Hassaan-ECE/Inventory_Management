@@ -46,7 +46,6 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::load_inventory,
-            commands::query_inventory,
             commands::activate_inventory_sync,
             commands::sync_inventory,
             commands::deactivate_inventory_sync,

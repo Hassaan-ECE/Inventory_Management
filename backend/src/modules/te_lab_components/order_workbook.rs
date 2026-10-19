@@ -6,6 +6,7 @@ use std::{
 
 use rust_xlsxwriter::{Format, FormatAlign, FormatBorder, Workbook, Worksheet, XlsxError};
 use serde::Deserialize;
+use ts_rs::TS;
 use url::Url;
 
 use super::{
@@ -35,8 +36,9 @@ pub(crate) const ORDER_HEADERS: [&str; 12] = [
     "Notes",
 ];
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct LabOrderRequestLineInput {
     pub part_uuid: String,
     pub requested_quantity: u32,

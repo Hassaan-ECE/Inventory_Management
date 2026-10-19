@@ -23,10 +23,9 @@ use crate::{
             CalibrationRosterPreviewReport, CALIBRATION_ROSTER_FILE_EXTENSIONS,
         },
         model::{
-            CommandResult, InventoryEntryEditContext, InventoryEntryInput, InventoryQueryInput,
-            InventoryQueryResult, InventorySharedStatus, InventorySyncResult,
+            CommandResult, InventoryEntryEditContext, InventoryEntryInput, InventorySharedStatus,
+            InventorySyncResult,
         },
-        query::{get_inventory_counts, query_entries},
         store::InventoryDb,
     },
     platform::{
@@ -64,29 +63,6 @@ pub(crate) fn load_inventory(
             stores.te_lab_components(),
             coordinator.background_status::<InventorySharedStatus>(module)?,
         )?),
-    }
-}
-
-#[tauri::command]
-pub(crate) fn query_inventory(
-    module_id: String,
-    input: Value,
-    coordinator: State<'_, SharedSyncCoordinator>,
-    stores: State<'_, InventoryStores>,
-) -> CommandResult<Value> {
-    let module = parse_module_id(&module_id)?;
-    match module {
-        ModuleId::TeStorage => Err("This operation is not supported for EVCS Storage.".into()),
-
-        ModuleId::TeTestEquipment => {
-            let input = parse_command_input::<InventoryQueryInput>(input, "TE inventory query")?;
-            command_value(query_inventory_from_store_with_status(
-                input,
-                stores.te_test_equipment(),
-                coordinator.background_status::<InventorySharedStatus>(module)?,
-            )?)
-        }
-        ModuleId::TeLabComponents => Err(LAB_USES_CATALOG_COMMANDS.into()),
     }
 }
 
@@ -792,26 +768,6 @@ fn load_lab_inventory_from_store_with_status(
     lab_catalog_query::load_catalog_from_store(db, shared, Some(true))
 }
 
-fn query_inventory_from_store_with_status(
-    input: InventoryQueryInput,
-    db: &InventoryDb,
-    latest_background_status: Option<InventorySharedStatus>,
-) -> CommandResult<InventoryQueryResult> {
-    let all_entries = db.load_entries()?;
-    let counts = get_inventory_counts(&all_entries);
-    let (entries, total_filtered) = query_entries(&all_entries, input);
-    let shared = latest_background_status
-        .unwrap_or_else(|| sync::shared_inventory_status(db, "FeOxDB local store ready."));
-
-    Ok(InventoryQueryResult {
-        counts,
-        db_path: db.db_path_string(),
-        entries,
-        shared,
-        total_filtered,
-    })
-}
-
 fn schedule_te_shared_publish(app: AppHandle, db: InventoryDb, coordinator: SharedSyncCoordinator) {
     let module = ModuleId::TeTestEquipment;
     drop(tauri::async_runtime::spawn_blocking(move || {
@@ -878,7 +834,7 @@ mod tests {
     }
 
     #[test]
-    fn load_and_query_surface_latest_background_publish_status() {
+    fn load_surfaces_latest_background_publish_status() {
         let db = test_db();
         let status = InventorySharedStatus {
             available: false,
@@ -893,23 +849,13 @@ mod tests {
             warning: None,
         };
 
-        let loaded = load_inventory_from_store_with_status(&db, Some(status.clone())).unwrap();
-        let queried = query_inventory_from_store_with_status(
-            InventoryQueryInput::default(),
-            &db,
-            Some(status),
-        )
-        .unwrap();
+        let loaded = load_inventory_from_store_with_status(&db, Some(status)).unwrap();
 
         assert_eq!(
             loaded.shared.message,
             "Background shared publish failed: permission denied"
         );
-        assert_eq!(
-            queried.shared.message,
-            "Background shared publish failed: permission denied"
-        );
-        assert_eq!(queried.shared.has_local_only_changes, Some(true));
+        assert_eq!(loaded.shared.has_local_only_changes, Some(true));
     }
 
     fn test_input(description: &str) -> InventoryEntryInput {

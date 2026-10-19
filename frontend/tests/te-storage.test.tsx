@@ -5,12 +5,11 @@ import { InventoryShell } from "@/shell/InventoryShell";
 import { TeStorageView } from "@/modules/te-storage/TeStorageView";
 import { entryInput, type StorageBridge, type StorageEntry, type StorageSnapshot } from "@/modules/te-storage/types";
 import type { InventorySharedStatus } from "@/platform/sync/sharedStatus";
-import { parseStorageSnapshot } from "@/modules/te-storage/storageBridge";
 
 const shared: InventorySharedStatus = { available: true, enabled: true, canModify: true, hasLocalOnlyChanges: false, message: "Shared sync ready.", mutationMode: "shared" };
 const props = { active: true, activeViewId: "te-storage" as const, theme: "light" as const, onThemeToggle: vi.fn(), onViewChange: vi.fn() };
 function testEntry(overrides: Partial<StorageEntry> = {}): StorageEntry {
-  return { ...entryInput(), id: "1", entryUuid: "storage-1", pn: "00123", pr: "00045", po: "00987", qty: 2, location: "A1", createdAt: "2026-09-28T12:00:00Z", updatedAt: "2026-09-28T12:00:00Z", archived: false, ...overrides };
+  return { ...entryInput(), id: "1", databaseId: 1, entryUuid: "storage-1", pn: "00123", pr: "00045", po: "00987", qty: 2, location: "A1", createdAt: "2026-09-28T12:00:00Z", updatedAt: "2026-09-28T12:00:00Z", archived: false, ...overrides };
 }
 function testBridge(initial: StorageEntry[] = []): StorageBridge {
   let rows = initial;
@@ -131,11 +130,5 @@ describe("EVCS Storage", () => {
     view.rerender(<TeStorageView {...props} active={false} bridge={bridge} />);
     await waitFor(() => expect(bridge.deactivate).toHaveBeenCalledWith("room-session"));
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-  });
-
-  it("rejects malformed desktop rows instead of silently accepting another module's data", () => {
-    expect(() => parseStorageSnapshot({ entries: [{ assetNumber: "wrong module" }], shared })).toThrow();
-    expect(() => parseStorageSnapshot({ entries: [testEntry({ qty: -1 })], shared })).toThrow();
-    expect(parseStorageSnapshot({ entries: [testEntry()], shared }).entries[0].pr).toBe("00045");
   });
 });

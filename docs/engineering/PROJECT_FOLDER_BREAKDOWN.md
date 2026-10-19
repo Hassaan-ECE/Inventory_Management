@@ -31,6 +31,7 @@ This document maps the project files to their responsibilities. It covers tracke
 | Path | Handles |
 | --- | --- |
 | `backend/Cargo.toml` / `Cargo.lock` | Crate metadata, dependencies, version (keep in sync with `package.json` and `tauri.conf.json`). |
+| `backend/.cargo/config.toml` | Where `cargo test` writes the generated frontend types (`TS_RS_EXPORT_DIR`), and integers as `number`. |
 | `backend/build.rs` | Tauri build script hook. |
 | `backend/capabilities/default.json` | Tauri permissions for the main window (events, window geometry, title, updater). |
 | `backend/icons/icon.ico` | Application and installer icon. |
@@ -109,7 +110,6 @@ This document maps the project files to their responsibilities. It covers tracke
 | Path | Handles |
 | --- | --- |
 | `backend/src/modules/te_test_equipment/model.rs` | Entry, input, query, status and result types; normalization and validation; calibration health. |
-| `backend/src/modules/te_test_equipment/query.rs` | Filtering, sorting, paging, counts. |
 | `backend/src/modules/te_test_equipment/entry_changes.rs` | Changed-field detection and field-level updates for edits. |
 | `backend/src/modules/te_test_equipment/mutations.rs` | Create, update, verify, archive, delete, each queued for sync. |
 | `backend/src/modules/te_test_equipment/store/` | The TE store type and calibration roster batch storage. |
@@ -171,10 +171,9 @@ This document maps the project files to their responsibilities. It covers tracke
 
 | Path | Handles |
 | --- | --- |
-| `frontend/src/integrations/tauri/tauriInventoryBridge.ts` | Installs `window.inventoryDesktop`: every `invoke` call, updater check/download/install, shared-change listeners. |
-| `frontend/src/integrations/tauri/desktop-bridge.d.ts` | Bridge type declarations per module. |
-| `frontend/src/integrations/tauri/bridgeGuards.ts` | Runtime validation of TE/import/roster payloads from the backend. |
-| `frontend/src/integrations/tauri/labBridgeGuards.ts` | Runtime validation of Lab catalog payloads. |
+| `frontend/src/integrations/tauri/tauriInventoryBridge.ts` | Installs `window.inventoryDesktop`: every typed `invoke` call for TE and Lab, updater check/download/install, shared-change listeners. |
+| `frontend/src/integrations/tauri/desktop-bridge.d.ts` | The bridge's method signatures, in terms of the generated payload types. |
+| `frontend/src/integrations/tauri/generated/` | **Generated, do not edit.** TypeScript for every payload the backend sends or receives (`platform/`, `te-test-equipment/`, `te-lab-components/`, `te-storage/`), written by `cargo test` from the Rust types that derive `ts_rs::TS` (`backend/.cargo/config.toml` sets the folder). Commit the regenerated files with the Rust change. |
 
 ## Frontend Module: TE Test Equipment
 
@@ -212,7 +211,7 @@ Not loaded by the app (about 3,250 lines): the old Lab v1 table UI under `compon
 | `frontend/src/modules/te-storage/StorageEntryDialog.tsx` | Add/edit with unsaved-changes guard and confirmed delete. |
 | `frontend/src/modules/te-storage/StorageColumnMenu.tsx` | Column visibility menu. |
 | `frontend/src/modules/te-storage/useStorageInventory.ts` | Load + adaptive sync lifecycle. |
-| `frontend/src/modules/te-storage/storageBridge.ts` | Calls the backend directly through `invoke` with `moduleId: "te-storage"`. |
+| `frontend/src/modules/te-storage/storageBridge.ts` | Calls the backend directly through typed `invoke` with `moduleId: "te-storage"`. |
 | `frontend/src/modules/te-storage/types.ts` | Columns and DTOs. |
 
 ## Frontend Shared UI And Utilities

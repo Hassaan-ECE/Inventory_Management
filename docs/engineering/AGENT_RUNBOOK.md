@@ -137,6 +137,8 @@ git status --short
 
 `rustfmt` and Clippy are installed and are release gates. `cargo-audit` is **not** installed as of 2026-10-15, so `cargo audit` / `bun run audit:backend` fail until it is (`cargo install cargo-audit`).
 
+`cargo test` also regenerates the frontend's bridge types in `frontend/src/integrations/tauri/generated/` from the Rust types. After changing any type that crosses the bridge, run it, then the frontend build, and commit the regenerated files with the change; `git status` must be clean there before a release.
+
 If `cargo test` fails because Windows will not let it replace a running development executable, close the dev app or run the compiled test executables directly (the 0.1.3 release check did this).
 
 Run:

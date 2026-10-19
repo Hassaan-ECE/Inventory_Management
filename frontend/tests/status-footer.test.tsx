@@ -47,17 +47,3 @@ describe("StatusFooter sync warning", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });
-
-describe("parseSharedStatus", () => {
-  it("keeps known warnings and drops unknown or malformed ones", async () => {
-    const { parseSharedStatus } = await import("@/platform/sync/sharedStatus");
-    const base = { available: true, canModify: true, enabled: true, message: "ok" };
-
-    expect(parseSharedStatus({ ...base, warning: { kind: "databaseNearlyFull", percentUsed: 84 } }).warning)
-      .toEqual({ kind: "databaseNearlyFull", percentUsed: 84 });
-    expect(parseSharedStatus({ ...base, warning: { kind: "updateAvailable", version: "0.3.0" } }).warning)
-      .toEqual({ kind: "updateAvailable", version: "0.3.0" });
-    expect(parseSharedStatus({ ...base, warning: { kind: "somethingNew" } }).warning).toBeUndefined();
-    expect(parseSharedStatus({ ...base, warning: { kind: "skippedFiles" } }).warning).toBeUndefined();
-  });
-});

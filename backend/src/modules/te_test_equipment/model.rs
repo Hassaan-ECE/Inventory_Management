@@ -2,14 +2,17 @@ use std::path::Path;
 
 use chrono::{DateTime, Days, NaiveDate};
 use serde::{Deserialize, Deserializer, Serialize};
+use ts_rs::TS;
 use url::Url;
 use uuid::Uuid;
 
-pub(crate) use crate::platform::common::{
-    now_timestamp, numeric_id, CommandResult, InventorySharedStatus,
-};
+pub(crate) use crate::platform::common::{now_timestamp, CommandResult, InventorySharedStatus};
 
-pub(crate) const MAX_QUERY_LIMIT: usize = 10_000;
+/// Every lifecycle and working status, in menu order. The frontend's types come from the
+/// matching `#[ts(type)]` unions on [`InventoryEntry`]; a test keeps the two in step.
+pub(crate) const LIFECYCLE_STATUSES: [&str; 5] =
+    ["active", "repair", "scrapped", "missing", "rental"];
+pub(crate) const WORKING_STATUSES: [&str; 4] = ["unknown", "working", "limited", "not_working"];
 const MAX_QUANTITY: f64 = 1_000_000.0;
 const STANDARD_TEXT_LIMIT: usize = 512;
 const LONG_TEXT_LIMIT: usize = 4_000;
@@ -22,8 +25,9 @@ const PICTURE_URL_PROTOCOLS: &[&str] = &["http", "https"];
 pub(crate) const LEGACY_VERIFIED_APPROXIMATION_LABEL: &str =
     "Legacy verified flag — timestamp approximated from updatedAt";
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) enum CalibrationRequirement {
     Required,
     ReferenceOnly,
@@ -44,8 +48,9 @@ pub(crate) enum CalibrationHealth {
     OutToCal,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct ImportProvenance {
     pub batch_id: String,
     pub source_filename: String,
@@ -60,8 +65,9 @@ pub(crate) struct ImportProvenance {
     pub original_serial_number: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/", optional_fields)]
 pub(crate) struct InventoryEntry {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -72,6 +78,7 @@ pub(crate) struct InventoryEntry {
     pub asset_number: String,
     #[serde(default)]
     pub serial_number: String,
+    #[ts(optional = false)]
     pub qty: Option<f64>,
     #[serde(default)]
     pub manufacturer: String,
@@ -90,8 +97,10 @@ pub(crate) struct InventoryEntry {
     #[serde(default)]
     pub notes: String,
     #[serde(default = "default_lifecycle_status")]
+    #[ts(type = "\"active\" | \"repair\" | \"scrapped\" | \"missing\" | \"rental\"")]
     pub lifecycle_status: String,
     #[serde(default = "default_working_status")]
+    #[ts(type = "\"unknown\" | \"working\" | \"limited\" | \"not_working\"")]
     pub working_status: String,
     #[serde(default)]
     pub condition: String,
@@ -237,11 +246,13 @@ impl InventoryEntry {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/", optional_fields = nullable)]
 pub(crate) struct InventoryEntryInput {
     pub asset_number: String,
     pub serial_number: String,
+    #[ts(optional = false)]
     pub qty: Option<f64>,
     pub manufacturer: String,
     pub model: String,
@@ -251,7 +262,9 @@ pub(crate) struct InventoryEntryInput {
     pub assigned_to: String,
     pub links: String,
     pub notes: String,
+    #[ts(type = "\"active\" | \"repair\" | \"scrapped\" | \"missing\" | \"rental\"")]
     pub lifecycle_status: String,
+    #[ts(type = "\"unknown\" | \"working\" | \"limited\" | \"not_working\"")]
     pub working_status: String,
     pub condition: String,
     pub calibration_requirement: CalibrationRequirement,
@@ -268,74 +281,17 @@ pub(crate) struct InventoryEntryInput {
     pub picture_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/", optional_fields = nullable)]
 pub(crate) struct InventoryEntryEditContext {
     pub base_version: Option<String>,
     pub changed_fields: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub(crate) struct FilterState {
-    pub asset_number: String,
-    pub manufacturer: String,
-    pub model: String,
-    pub description: String,
-    pub location: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub(crate) struct SortState {
-    pub column: String,
-    pub direction: String,
-}
-
-impl Default for SortState {
-    fn default() -> Self {
-        Self {
-            column: "manufacturer".to_string(),
-            direction: "asc".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub(crate) struct InventoryQueryInput {
-    pub filters: FilterState,
-    pub limit: Option<usize>,
-    pub offset: Option<usize>,
-    pub query: String,
-    pub scope: String,
-    pub sort: SortState,
-}
-
-impl Default for InventoryQueryInput {
-    fn default() -> Self {
-        Self {
-            filters: FilterState::default(),
-            limit: Some(MAX_QUERY_LIMIT),
-            offset: Some(0),
-            query: String::new(),
-            scope: "inventory".to_string(),
-            sort: SortState::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct InventoryCounts {
-    pub archive: usize,
-    pub inventory: usize,
-    pub total: usize,
-    pub verified: usize,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/", optional_fields = nullable)]
 pub(crate) struct InventorySyncResult {
     pub db_path: String,
     pub entries: Vec<InventoryEntry>,
@@ -343,18 +299,9 @@ pub(crate) struct InventorySyncResult {
     pub shared: InventorySharedStatus,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct InventoryQueryResult {
-    pub counts: InventoryCounts,
-    pub db_path: String,
-    pub entries: Vec<InventoryEntry>,
-    pub shared: InventorySharedStatus,
-    pub total_filtered: usize,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct InventoryEntryMutationResult {
     pub entry: InventoryEntry,
     pub message: String,
@@ -362,8 +309,9 @@ pub(crate) struct InventoryEntryMutationResult {
     pub shared: InventorySharedStatus,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-test-equipment/")]
 pub(crate) struct InventoryDeleteMutationResult {
     pub entry_id: String,
     pub message: String,
@@ -392,16 +340,8 @@ pub(crate) fn normalize_entry_input(input: InventoryEntryInput) -> InventoryEntr
         assigned_to: input.assigned_to.trim().to_string(),
         links: input.links.trim().to_string(),
         notes: input.notes.trim().to_string(),
-        lifecycle_status: normalize_enum(
-            input.lifecycle_status,
-            &["active", "repair", "scrapped", "missing", "rental"],
-            "active",
-        ),
-        working_status: normalize_enum(
-            input.working_status,
-            &["unknown", "working", "limited", "not_working"],
-            "unknown",
-        ),
+        lifecycle_status: normalize_enum(input.lifecycle_status, &LIFECYCLE_STATUSES, "active"),
+        working_status: normalize_enum(input.working_status, &WORKING_STATUSES, "unknown"),
         condition: input.condition.trim().to_string(),
         calibration_requirement: input.calibration_requirement,
         out_to_calibration: input.out_to_calibration,
@@ -825,6 +765,26 @@ fn validate_picture_file_extension(value: &str) -> CommandResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generated_frontend_types_list_every_status() {
+        let union = |values: &[&str]| {
+            values
+                .iter()
+                .map(|value| format!("\"{value}\""))
+                .collect::<Vec<_>>()
+                .join(" | ")
+        };
+        for declaration in [
+            InventoryEntry::decl(&ts_rs::Config::default()),
+            InventoryEntryInput::decl(&ts_rs::Config::default()),
+        ] {
+            assert!(
+                declaration.contains(&format!("lifecycleStatus: {}", union(&LIFECYCLE_STATUSES)))
+            );
+            assert!(declaration.contains(&format!("workingStatus: {}", union(&WORKING_STATUSES))));
+        }
+    }
 
     #[test]
     fn empty_identity_is_invalid() {

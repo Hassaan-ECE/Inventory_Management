@@ -145,7 +145,7 @@ export function formatComponentValue(
 export function readComponentValue(part: Part): { value: string; unit: string } {
   const attributeValue = part.attributes.value;
   if (attributeValue) {
-    return { value: attributeValue.value, unit: attributeValue.unit };
+    return { value: attributeValue.value, unit: attributeValue.unit ?? "" };
   }
 
   const displayValue = part.displayValue.trim();

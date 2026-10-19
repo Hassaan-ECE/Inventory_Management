@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, path::Path};
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use url::Url;
 use uuid::Uuid;
 
@@ -16,8 +17,9 @@ const PATH_TEXT_LIMIT: usize = 2_048;
 const MAX_GRID_DIMENSION: u32 = 1_000;
 const IMAGE_PATH_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff"];
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct ComponentAttributeValue {
     pub value: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -26,8 +28,9 @@ pub(crate) struct ComponentAttributeValue {
 
 pub(crate) type ComponentAttributes = BTreeMap<String, ComponentAttributeValue>;
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct LegacyPartFields {
     pub serial_number: String,
     pub project_name: String,
@@ -39,11 +42,13 @@ pub(crate) struct LegacyPartFields {
     pub manual_entry: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct Part {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub database_id: Option<i64>,
     pub entry_uuid: String,
     #[serde(default)]
@@ -96,8 +101,9 @@ pub(crate) struct Part {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct PartInput {
     pub internal_part_number: String,
     pub category: String,
@@ -118,13 +124,15 @@ pub(crate) struct PartInput {
     pub reorder_point: Option<f64>,
     pub target_quantity: Option<f64>,
     pub part_status: String,
+    #[ts(optional)]
     pub picture_path: Option<String>,
     pub notes: String,
     pub archived: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct StorageArea {
     pub area_uuid: String,
     pub name: String,
@@ -136,8 +144,9 @@ pub(crate) struct StorageArea {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct StorageAreaInput {
     pub name: String,
     pub area_type: String,
@@ -146,8 +155,9 @@ pub(crate) struct StorageAreaInput {
     pub archived: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct StorageContainer {
     pub container_uuid: String,
     pub area_uuid: String,
@@ -164,8 +174,9 @@ pub(crate) struct StorageContainer {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct StorageContainerInput {
     pub area_uuid: String,
     pub name: String,
@@ -178,8 +189,9 @@ pub(crate) struct StorageContainerInput {
     pub archived: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct StockPlacement {
     pub placement_uuid: String,
     pub part_uuid: String,
@@ -202,8 +214,9 @@ pub(crate) struct StockPlacement {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct StockPlacementInput {
     pub part_uuid: String,
     pub container_uuid: String,
@@ -223,8 +236,9 @@ pub(crate) struct StockPlacementInput {
     pub archived: bool,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct StockMoveInput {
     pub source_placement_uuid: String,
     pub destination_placement_uuid: Option<String>,
@@ -232,22 +246,25 @@ pub(crate) struct StockMoveInput {
     pub quantity: f64,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct StockCountInput {
     pub quantity: f64,
     pub counted_by: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct QuantityTotal {
     pub unit_of_measure: String,
     pub quantity: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) enum StockStatus {
     Archived,
     NoStock,
@@ -257,16 +274,18 @@ pub(crate) enum StockStatus {
     MixedUnits,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct PartStockSummary {
     pub part_uuid: String,
     pub totals: Vec<QuantityTotal>,
     pub stock_status: StockStatus,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct CatalogCounts {
     pub active_parts: usize,
     pub archived_parts: usize,
@@ -276,8 +295,9 @@ pub(crate) struct CatalogCounts {
     pub unit_review: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/", optional_fields = nullable)]
 pub(crate) struct CatalogSyncResult {
     pub db_path: String,
     pub parts: Vec<Part>,
@@ -290,8 +310,9 @@ pub(crate) struct CatalogSyncResult {
     pub shared: InventorySharedStatus,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct CatalogMutationResult<T> {
     pub value: T,
     pub message: String,
@@ -299,8 +320,9 @@ pub(crate) struct CatalogMutationResult<T> {
     pub shared: InventorySharedStatus,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "te-lab-components/")]
 pub(crate) struct CatalogDeleteResult {
     pub entity_uuid: String,
     pub message: String,
