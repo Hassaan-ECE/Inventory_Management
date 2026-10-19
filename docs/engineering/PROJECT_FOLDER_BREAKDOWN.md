@@ -92,9 +92,10 @@ This document maps the project files to their responsibilities. It covers tracke
 | `backend/src/platform/sync/scanning.rs` | Scanning operation files above the watermarks. |
 | `backend/src/platform/sync/operation_file/` | Operation file names, canonical JSON and checksums, validation, reading and writing. |
 | `backend/src/platform/sync/snapshot/` | Snapshot publish, apply, locking, I/O, compaction; `restore.rs` is the owner-run TE snapshot restore tool (ignored test). |
+| `backend/src/platform/sync/files.rs` | What every shared file shares, for both sync streams: canonical JSON, `sha256:` checksums, SHA-256, and write-to-temp-then-rename writes. |
 | `backend/src/platform/sync/auth.rs` | Optional HMAC signing and verification. |
 | `backend/src/platform/sync/identity.rs` | Client identity and local sequence helpers. |
-| `backend/src/platform/sync/shared_paths.rs` | Shared root resolution and provisioning, sync on/off, status building. |
+| `backend/src/platform/sync/shared_paths.rs` | Shared root resolution and provisioning, sync on/off, status building (also used by the Lab catalog). |
 | `backend/src/platform/sync/timestamps.rs` | Timestamp validation and ordering. |
 | `backend/src/platform/sync/warning.rs` | What the last sync found (`SyncFindings`) and the footer warning derived from it and database health. |
 
@@ -127,7 +128,14 @@ This document maps the project files to their responsibilities. It covers tracke
 | `backend/src/modules/te_lab_components/catalog_mutations.rs` | Catalog create, update, delete, move, and count. |
 | `backend/src/modules/te_lab_components/simple_workflow.rs` | The simple one-dialog component workflow on top of the catalog. |
 | `backend/src/modules/te_lab_components/catalog_query.rs` | Loading the catalog with derived stock summaries and counts. |
-| `backend/src/modules/te_lab_components/catalog_sync.rs` | Catalog sync (`shared\catalog-v2\`), including setting up a brand-new shared root. |
+| `backend/src/modules/te_lab_components/catalog_sync/mod.rs` | Catalog sync (`shared\catalog-v2\`): the sync run, publish, and status entry points. Whole-entity newest-wins; the file format is what 0.1.x reads. |
+| `backend/src/modules/te_lab_components/catalog_sync/types.rs` | Operation, entity state, tombstone, snapshot, manifest, and cutover-marker shapes. |
+| `backend/src/modules/te_lab_components/catalog_sync/outbox.rs` | Queueing local changes, pushing them, counting what is still local, startup recovery. |
+| `backend/src/modules/te_lab_components/catalog_sync/operation_files.rs` | Reading, writing, validating, and scanning operation files. |
+| `backend/src/modules/te_lab_components/catalog_sync/apply.rs` | Pulling remote operations and applying the newest per entity, with conflict records. |
+| `backend/src/modules/te_lab_components/catalog_sync/snapshot.rs` | Publishing snapshots and bootstrapping an empty computer from one. |
+| `backend/src/modules/te_lab_components/catalog_sync/share.rs` | Setting up a new share (v1 blocker, cutover marker), recognising a ready one, canonical JSON writes. |
+| `backend/src/modules/te_lab_components/catalog_sync/tests.rs` | Two-database sync, dependency-safe deletes, conflicts, and the golden-bytes test that pins the shared file format. |
 | `backend/src/modules/te_lab_components/catalog_workbook.rs` | Catalog workbook export. |
 | `backend/src/modules/te_lab_components/order_workbook.rs` | Order-request workbook export. |
 | `backend/src/modules/te_lab_components/store/` | The Lab store type, catalog records and indexes, schema setup. |

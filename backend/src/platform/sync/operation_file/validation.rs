@@ -1,12 +1,10 @@
 use super::super::SyncRecord;
 use super::super::{
-    auth, timestamps::validate_operation_timestamps, SyncCoreError, SyncCoreErrorKind,
-    SyncCoreResult, SyncOperationEnvelope, SyncOperationType,
+    auth, files::canonical_json_bytes_without_checksum_or_auth,
+    timestamps::validate_operation_timestamps, SyncCoreError, SyncCoreErrorKind, SyncCoreResult,
+    SyncOperationEnvelope, SyncOperationType,
 };
-use super::{
-    canonical::canonical_json_bytes_without_checksum_or_auth,
-    paths::{validate_local_seq, validate_path_segment},
-};
+use super::paths::{validate_local_seq, validate_path_segment};
 
 pub(super) fn validate_operation_for_write<R: SyncRecord>(
     operation: &SyncOperationEnvelope<R>,

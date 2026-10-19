@@ -1,6 +1,7 @@
 mod apply;
 mod auth;
 mod conflicts;
+mod files;
 mod identity;
 mod operation_file;
 mod queue;
@@ -15,15 +16,21 @@ mod warning;
 
 pub(crate) use self::apply::{publish_pending_local_changes, run_shared_sync};
 pub(crate) use self::auth::{sign_canonical_bytes, verify_canonical_bytes};
+pub(crate) use self::files::{
+    canonical_json_bytes, canonical_json_bytes_without_checksum_or_auth, content_checksum,
+    sha256_hex, write_file_atomically, CHECKSUM_PREFIX,
+};
+pub(crate) use self::operation_file::{operation_file_name, parse_operation_file_name};
 pub(crate) use self::queue::{queue_delete_operation, queue_entry_operation};
 pub(crate) use self::record::{MergeRule, SyncRecord};
 pub(crate) use self::recovery::{last_local_recovery_message, recover_local_sync_state};
 pub(crate) use self::shared_paths::{
-    queued_local_status, resolved_shared_sync_paths, shared_inventory_status,
-    startup_inventory_status,
+    build_shared_status, module_shared_root_from_env, queued_local_status,
+    resolved_shared_sync_paths, shared_inventory_status, shared_sync_enabled,
+    startup_inventory_status, sync_disabled_status,
 };
 pub(crate) use self::types::SyncOperationType;
-pub(crate) use self::warning::{record_sync_findings, sync_warning, SyncFindings};
+pub(crate) use self::warning::{record_sync_findings, SyncFindings};
 
 /// Engine internals the sync tests reach into; each test uses a different subset.
 #[cfg(test)]
@@ -34,12 +41,13 @@ pub(crate) mod test_support {
     pub(crate) use super::conflicts::{
         corrupt_remote_record_id, record_corrupt_remote_file, record_corrupt_remote_files,
     };
+    pub(crate) use super::files::sha256_hex;
     pub(crate) use super::identity::{
         allocate_local_sequence, get_or_create_client_identity, peek_next_local_sequence,
     };
     pub(crate) use super::operation_file::{
         canonical_operation_checksum, canonical_operation_json, operation_file_name,
-        operation_file_path, read_operation_file, read_operation_file_for_identity, sha256_hex,
+        operation_file_path, read_operation_file, read_operation_file_for_identity,
         write_operation_file,
     };
     pub(crate) use super::queue::{
@@ -90,6 +98,5 @@ use self::types::{
     SharedSyncRunResult, SyncAppliedMarker, SyncClientIdentity, SyncConflictReason,
     SyncConflictRecord, SyncCoreError, SyncCoreErrorKind, SyncCoreResult, SyncEntryState,
     SyncOperationEnvelope, SyncOperationPayload, SyncTombstoneRecord, BOOTSTRAP_COMPLETE_KEY,
-    CHECKSUM_PREFIX, LOCAL_SEQ_WIDTH, MAX_LOCAL_SEQ, OP_FILE_SUFFIX, OP_TEMP_MARKER,
-    SHARED_SYNC_ENABLED_ENV,
+    LOCAL_SEQ_WIDTH, MAX_LOCAL_SEQ, OP_FILE_SUFFIX, OP_TEMP_MARKER, SHARED_SYNC_ENABLED_ENV,
 };

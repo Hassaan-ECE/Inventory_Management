@@ -1,6 +1,5 @@
 use std::{
-    fs::{self, OpenOptions},
-    io::Write,
+    fs,
     path::{Path, PathBuf},
     process,
 };
@@ -14,21 +13,19 @@ mod canonical;
 mod paths;
 mod validation;
 
-pub(crate) use self::canonical::{
-    canonical_operation_checksum, canonical_operation_json, sha256_hex,
-};
-pub(super) use self::canonical::{sha256_digest_bytes, sign_operation_for_configured_trust};
-pub(super) use self::paths::{
-    is_temp_operation_file_name, parse_operation_file_name, validate_path_segment,
-};
+pub(super) use self::canonical::sign_operation_for_configured_trust;
+pub(crate) use self::canonical::{canonical_operation_checksum, canonical_operation_json};
+pub(crate) use self::paths::parse_operation_file_name;
+pub(super) use self::paths::{is_temp_operation_file_name, validate_path_segment};
 pub(crate) use self::paths::{operation_file_name, operation_file_path};
 use self::validation::{
     validate_operation_for_write, validate_operation_payload_identity, verify_operation_auth,
 };
 use super::{
-    timestamps::validate_operation_timestamps, CorruptRemoteFile, CorruptRemoteReason,
-    SharedSyncPaths, SyncCoreError, SyncCoreErrorKind, SyncCoreResult, SyncOperationEnvelope,
-    CHECKSUM_PREFIX,
+    files::{sha256_hex, write_file_atomically, CHECKSUM_PREFIX},
+    timestamps::validate_operation_timestamps,
+    CorruptRemoteFile, CorruptRemoteReason, SharedSyncPaths, SyncCoreError, SyncCoreErrorKind,
+    SyncCoreResult, SyncOperationEnvelope,
 };
 
 pub(crate) fn write_operation_file<R: SyncRecord>(
@@ -65,24 +62,8 @@ pub(crate) fn write_operation_file<R: SyncRecord>(
         Uuid::new_v4().simple()
     ));
     let bytes = canonical_operation_json(operation)?;
-
-    let write_result = (|| -> SyncCoreResult<()> {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp_path)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&temp_path, &final_path)?;
-        Ok(())
-    })();
-
-    if write_result.is_err() {
-        let _ = fs::remove_file(&temp_path);
-    }
-
-    write_result.map(|_| final_path)
+    write_file_atomically(&temp_path, &final_path, &bytes, false)?;
+    Ok(final_path)
 }
 
 #[cfg(test)]
