@@ -16,7 +16,7 @@
 **Release progress (owner approved the release 2026-10-19).**
 1. Done: `feature/0.2-cleanup` pushed and merged into `main` (`3ce4e77`, tree identical to the build source); tag `v0.2.0` pushed.
 2. Done: GitHub release `v0.2.0` created as a **draft** with all five assets; every asset re-downloaded and matched its SHA-256; `latest.json` points at `.../download/v0.2.0/Inventory.Management_0.2.0_x64-setup.exe`. The public `latest.json` still serves 0.1.4 until the draft is published.
-3. Pending (blocked by the agent permission check, so the owner runs it): S: staging with `.tmp/release-0.2.0-s-drive/stage-on-s.ps1`, which copies the five files to `release-support0.2.0\`, puts the installer at the root, moves the 0.1.4 installer to `archive\`, archives the old README, installs the new one, and re-checks every hash.
+3. Pending (blocked by the agent permission check, so the owner runs it): S: staging with `.tmp/release-0.2.0-s-drive/stage-on-s.ps1`, which copies the five files to `release-support\v0.2.0\`, puts the installer at the root, moves the 0.1.4 installer to `archive\`, archives the old README, installs the new one, and re-checks every hash.
 4. Pending: publish the draft (`gh release edit v0.2.0 --draft=false`), then confirm the public `latest.json` returns 0.2.0 and its installer URL downloads SHA-256 `2053b5da...02bb8ce`. Publishing is what makes installed copies offer the update.
 
 **Know before publishing.**
