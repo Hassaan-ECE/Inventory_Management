@@ -19,7 +19,9 @@
 3. Done by the owner (the agent permission check blocks S: writes and GitHub publishing): S: staging with `.tmp/release-0.2.0-s-drive/stage-on-s.ps1`. Its final hash step failed under Windows PowerShell 5.1 launched from Git Bash (`Get-FileHash` not loaded), so the result was verified separately: all five files in `release-support\v0.2.0\` match `SHA256SUMS.txt`, the root holds only the 0.2.0 installer (`2053b5da...02bb8ce`) and the new README, and `archive\` holds the 0.1.4 installer and `README_2026-10-15.md`. Do not re-run that script; its README step would overwrite the archived README.
 4. Done by the owner: release published at https://github.com/Hassaan-ECE/Inventory_Management/releases/tag/v0.2.0. Verified without authentication: the public `latest.json` returns 0.2.0, its signature equals the locally verified `.sig`, and its installer URL downloads SHA-256 `2053b5da23d1608979caba264ed55197cdd0e96f805f1ff3c70f8ebfb02bb8ce`. Every installed 0.1.x copy now offers the update.
 
-**Follow-ups.** Everyone should update to 0.2.0. No installed-machine upgrade has been performed yet; the first real upgrade (0.1.4 → 0.2.0 via Update) is the last unverified path. Next release: release steps need owner permission rules for S: writes and `gh release` publishing, or the owner runs them.
+**Installed upgrade verified.** The owner updated this PC from 0.1.4 to 0.2.0 on 2026-10-19 and the app works. The real `%LOCALAPPDATA%\com.inventory.management` now holds `inventory-management.feox`, with the three 0.1.x files in `pre-0.2-databases\`.
+
+**Follow-ups.** Everyone should update to 0.2.0. Next release: release steps need owner permission rules for S: writes and `gh release` publishing, or the owner runs them.
 
 **Know before and after publishing.**
 - If the one-time merge fails on a PC, the old files are untouched but the app stops at startup instead of opening (no message dialog). Safe, but a user would just see the app not open. Worth a native error dialog in a follow-up.
